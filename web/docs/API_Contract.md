@@ -1,0 +1,371 @@
+# Web-to-AI API Contract
+
+## Boundary and schema ownership
+
+The browser calls only Next.js routes. Next.js authenticates/authorizes, owns MongoDB/R2 and product workflows, resolves current active versions, and calls FastAPI over a private authenticated boundary. FastAPI Pydantic models and exported OpenAPI are the canonical shared schemas; Web consumes generated/validated TypeScript types.
+
+Every service request includes `requestId`, `contractVersion`, service authentication, and sufficient immutable identifiers for idempotency. Contract-breaking changes require a versioned route or compatible optional-field evolution.
+
+## Web-owned browser resources
+
+| Resource/route | Required behavior |
+|---|---|
+| `POST /equipments` | Creates Equipment with optional description and `documentsMode: ADD_NOW | SKIP_FOR_NOW`. |
+| `POST /projects` | Requires description; creates included Equipment links and one active creator `OWNER` transactionally; supports optional document step. |
+| Project membership routes | Discover/request/Owner approve-or-reject; only `OWNER` and `MEMBER`. |
+| Equipment/Project document routes | List composed documents, add new logical document, add immutable version, link/unlink, review, approve, and inspect indexing/profile state. |
+| `POST /documents/:documentId/versions` | Creates a new immutable version; never overwrites the active version. |
+| `POST /document-versions/:versionId/activate` | Internal/authorized transition after successful approval and indexing; atomically updates logical `activeVersionId`. |
+| `/projects/:projectId/maintenance-logs` | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`. |
+| `/projects/:projectId/procedures` | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`. |
+| `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history. |
+| `/projects/:projectId/procedures/:procedureId/runs` | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone. |
+| `/procedure-runs/:runId/steps/:stepId/completion` | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run. |
+| Chat/session routes | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access. |
+| Settings routes | Read/update profile fields and `theme: LIGHT | DARK | SYSTEM`. |
+
+## Logical document composition
+
+`EquipmentDocumentLink` and `ProjectDocumentLink` reference a logical `documentId`:
+
+```text
+resolved version
+  = Document.activeVersionId when versionPolicy = LATEST_APPROVED
+  = pinnedDocumentVersionId when versionPolicy = PINNED
+
+Project current document set
+  = resolved direct Project links
+  + resolved Equipment links for each included Equipment
+```
+
+Web de-duplicates by resolved `documentVersionId` but preserves all inclusion paths. Changing `Document.activeVersionId` therefore changes the file reference, metadata, and retrieval manifest for every dependent Project without copying data.
+
+## Required AI service endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health` | Service liveness/readiness. |
+| `POST /v1/ingestions/extract` | Fetch an immutable original, extract/OCR, locate sections/pages, and produce review metadata/summary. |
+| `POST /v1/ingestions/index` | Chunk/embed/upsert one approved `DocumentVersion` as `SOURCE_CHUNK` records. |
+| `POST /v1/entity-profiles/upsert` | Generate and embed one versioned Equipment/Project routing profile. |
+| `POST /v1/questions` | Perform entity routing, source retrieval, evidence assessment, and cited answer generation. |
+| `POST /v1/log-drafts` | Create an editable Project maintenance-log draft only. |
+| `POST /v1/procedure-drafts` | Generate a source-bounded Project procedure candidate with per-step citations, coverage analysis, and review-need classification. Returns data only; Web saves it. |
+
+Extraction and indexing may be one internal LangGraph workflow, but the contract keeps review/approval before retrievable source upsert. If implemented as an asynchronous job, the result payloads below become job result schemas without changing their content.
+
+## Ingestion contracts
+
+### Extract request
+
+```json
+{
+  "requestId": "uuid",
+  "contractVersion": "v1",
+  "documentId": "document-id",
+  "documentVersionId": "document-version-id",
+  "versionNumber": "3",
+  "sourceFile": {
+    "url": "short-lived-r2-url",
+    "contentType": "application/pdf",
+    "sha256": "checksum"
+  },
+  "declaredMetadata": {
+    "title": "Pump service manual",
+    "documentType": "MANUAL"
+  }
+}
+```
+
+### Extract result
+
+```json
+{
+  "requestId": "uuid",
+  "status": "needs_review | failed",
+  "documentVersionId": "document-version-id",
+  "extractedMetadata": {
+    "title": "Pump service manual",
+    "language": "en",
+    "pageCount": 142,
+    "sections": ["Installation", "Fault isolation"]
+  },
+  "documentSummary": {
+    "summary": "Covers installation, operation, inspection and fault isolation.",
+    "capabilities": ["startup checks", "seal inspection"],
+    "systems": ["hydraulic circuit"],
+    "searchHints": ["pressure instability", "seal leakage"]
+  },
+  "extractionQuality": 0.96,
+  "errors": []
+}
+```
+
+### Index request/result
+
+```json
+{
+  "requestId": "uuid",
+  "contractVersion": "v1",
+  "documentId": "document-id",
+  "documentVersionId": "document-version-id",
+  "approvalState": "APPROVED",
+  "reviewedMetadata": { "title": "Pump service manual", "revision": "3" },
+  "sourceFile": { "url": "short-lived-r2-url", "sha256": "checksum" }
+}
+```
+
+```json
+{
+  "requestId": "uuid",
+  "status": "indexed | failed",
+  "documentVersionId": "document-version-id",
+  "chunkCount": 42,
+  "indexReference": "source-chunk-record-set",
+  "sourceLocations": [{ "page": 84, "section": "6.2" }],
+  "contentFingerprint": "fingerprint",
+  "errors": []
+}
+```
+
+Web activates the version only after a valid `indexed` result. Indexing is idempotent by deterministic chunk IDs.
+
+### Activation and propagation result
+
+After activation, Web records/emits the derived cascade explicitly so retries and repair jobs are auditable:
+
+```json
+{
+  "documentId": "document-id",
+  "activeVersionId": "document-version-3",
+  "supersededVersionId": "document-version-2",
+  "affectedEquipmentIds": ["equipment-id"],
+  "affectedProjectIds": ["project-id"],
+  "profileRefreshEventIds": ["refresh-equipment-event", "refresh-project-event"],
+  "outboxEventId": "outbox-event-id"
+}
+```
+
+This is a Web/MongoDB product event, not a FastAPI mutation response. AI receives each resulting profile-refresh request idempotently.
+
+## Entity retrieval-profile contract
+
+Entity profiles help route questions; they are not answer evidence.
+
+```json
+{
+  "requestId": "uuid",
+  "contractVersion": "v1",
+  "entity": {
+    "type": "EQUIPMENT | PROJECT",
+    "id": "entity-id",
+    "profileVersion": 7,
+    "userDescription": "optional for Equipment; required Project description",
+    "includedEquipmentProfiles": [{
+      "equipmentId": "equipment-id",
+      "profileId": "entity-profile:equipment-id:4",
+      "profileVersion": 4,
+      "profileFingerprint": "equipment-profile-input-hash",
+      "freshnessState": "FRESH | STALE",
+      "generatedDescription": "Bounded current Equipment routing summary.",
+      "coverageTopics": ["startup checks", "seal inspection"]
+    }],
+    "activeDocuments": [{
+      "documentId": "document-id",
+      "documentVersionId": "active-version-id",
+      "title": "Pump service manual",
+      "documentSummary": "summary returned by extraction",
+      "inclusion": "EQUIPMENT_DIRECT | PROJECT_DIRECT | EQUIPMENT_DERIVED"
+    }]
+  }
+}
+```
+
+```json
+{
+  "requestId": "uuid",
+  "status": "upserted | failed",
+  "entityId": "entity-id",
+  "profileVersion": 7,
+  "profileId": "entity-profile:entity-id:7",
+  "generatedDescription": "What the entity is, its systems, coverage, and likely query vocabulary.",
+  "coverage": [{ "topic": "seal replacement", "documentVersionIds": ["active-version-id"] }],
+  "profileFingerprint": "hash-of-input-provenance",
+  "errors": []
+}
+```
+
+MongoDB stores the structured result/provenance/freshness. Pinecone stores the derived embedding and compact filter metadata. Included Equipment profile objects give the Project profile builder bounded summaries and provenance without an implicit Pinecone join; authoritative entity/document expansion still comes from the current Web manifest.
+
+## Question request
+
+```json
+{
+  "requestId": "uuid",
+  "contractVersion": "v1",
+  "actor": { "id": "user-id", "tenantId": "tenant-id" },
+  "chatSession": {
+    "id": "conversation-id",
+    "recentTurns": [{ "role": "user | assistant", "content": "string" }]
+  },
+  "assignedReferences": [{
+    "type": "DOCUMENT | EQUIPMENT | PROJECT | ENTITY",
+    "id": "reference-id"
+  }],
+  "question": "Pressure will not stabilize after startup",
+  "retrievalScopeManifest": {
+    "allowedDocumentVersions": [{
+      "documentId": "document-id",
+      "documentVersionId": "active-version-id",
+      "inclusionPaths": ["EQUIPMENT_DERIVED"],
+      "sourceEntityIds": ["equipment-id", "project-id"]
+    }],
+    "entities": [{
+      "type": "EQUIPMENT | PROJECT",
+      "id": "entity-id",
+      "profileId": "entity-profile:entity-id:7",
+      "profileVersion": 7,
+      "profileState": "FRESH | STALE | MISSING",
+      "directDocumentVersionIds": ["active-version-id"]
+    }],
+    "relationships": [{
+      "projectId": "project-id",
+      "equipmentIds": ["equipment-id"],
+      "directDocumentVersionIds": ["project-doc-version-id"]
+    }]
+  },
+  "retrievalPolicy": {
+    "approvedOnly": true,
+    "requireSourceLocation": true,
+    "allowStructuralFallback": true
+  }
+}
+```
+
+## Question response
+
+```json
+{
+  "requestId": "uuid",
+  "chatSession": {
+    "id": "conversation-id",
+    "suggestedTitle": "Pump pressure instability"
+  },
+  "turnId": "chat-turn-id",
+  "status": "approved | incomplete | conflicting | outdated | unavailable",
+  "routing": {
+    "selectedEntities": [{ "type": "EQUIPMENT", "id": "equipment-id", "reason": "profile match" }],
+    "usedStructuralFallback": false,
+    "profileVersions": [7]
+  },
+  "answer": {
+    "summary": "string or null",
+    "steps": [{ "id": "step-1", "text": "string", "citationIds": ["citation-1"] }]
+  },
+  "citations": [{
+    "id": "citation-1",
+    "documentVersionId": "active-version-id",
+    "documentTitle": "Pump service manual",
+    "revision": "3",
+    "page": 84,
+    "section": "6.2",
+    "excerpt": "string",
+    "approvalState": "APPROVED"
+  }],
+  "warnings": [],
+  "followUpAllowed": true
+}
+```
+
+## Project maintenance-log draft contract
+
+The request must include `projectId` and one of:
+
+- `scopeType: PROJECT`, `equipmentId: null`; or
+- `scopeType: EQUIPMENT`, `equipmentId` referencing an Equipment included in the Project.
+
+FastAPI returns editable text, suggested structured fields, and citation IDs only. It never creates or submits the MongoDB log.
+
+## Project procedure generation contract
+
+Web calls FastAPI only after the required Project description and at least one approved/indexed direct Project source are available. The request is idempotent by `generationRequestId` plus `inputFingerprint`. Explicitly applicable included-Equipment sources may supplement direct Project sources but cannot silently replace them.
+
+```json
+{
+  "requestId": "uuid",
+  "contractVersion": "v1",
+  "generationRequestId": "project-id:input-fingerprint",
+  "projectId": "project-id",
+  "projectDescription": "Required description of the Project and pipeline.",
+  "inputFingerprint": "sha256-of-description-and-active-source-set",
+  "timezone": "Asia/Kolkata",
+  "activeSources": [{
+    "documentVersionId": "active-project-version-id",
+    "documentTitle": "Boiler upgrade execution plan",
+    "revision": "2",
+    "inclusionPath": "PROJECT_DIRECT"
+  }],
+  "supplementalEquipmentSources": [{
+    "equipmentId": "equipment-id",
+    "documentVersionId": "active-equipment-version-id",
+    "applicability": "Explicitly selected for this Project procedure"
+  }]
+}
+```
+
+```json
+{
+  "requestId": "uuid",
+  "generationRequestId": "project-id:input-fingerprint",
+  "inputFingerprint": "sha256-of-description-and-active-source-set",
+  "title": "Boiler feed pump vibration check",
+  "reviewAnalysis": {
+    "reviewNeed": "HIGH",
+    "sourceCoverage": "PARTIAL",
+    "conflicts": "NONE_DETECTED",
+    "freshness": "CURRENT",
+    "hardwareCriticality": "HIGH",
+    "blockingFindings": [],
+    "reasons": ["Two of three required topics have cited support"]
+  },
+  "steps": [{
+    "stepId": "stable-step-id",
+    "position": 1,
+    "title": "Safety and isolation",
+    "instructions": "Follow the cited isolation procedure before inspection.",
+    "required": true,
+    "citationIds": ["citation-1"],
+    "evidenceState": "SUPPORTED"
+  }],
+  "citations": [{
+    "id": "citation-1",
+    "documentVersionId": "active-project-version-id",
+    "page": 12,
+    "section": "3.1",
+    "excerpt": "string"
+  }],
+  "requiresHumanReview": true
+}
+```
+
+Review need is one of `LOW | MODERATE | HIGH | SEVERE` and is derived from coverage, conflicts, freshness, applicability, and hardware/safety criticality. It is not a safety approval. `SEVERE` includes at least one blocking finding and Web rejects publication until resolved.
+
+## Procedure definition and run rules
+
+- Web owns persistence. AI never creates/updates a `SafetyProcedure`, `ProcedureVersion`, `ProcedureRun`, or step completion.
+- Step reorder is an ordered stable-step-ID mutation with optimistic concurrency/version checks. Drag-and-drop and Move up/Move down call the same endpoint.
+- Manual instruction/title changes set `citationReviewState: NEEDS_REVIEW` until the user confirms/replaces citations or a source-bounded revalidation succeeds.
+- Publishing freezes that `ProcedureVersion`; later edits fork a new draft version.
+- Recurrence uses an RFC 5545-compatible rule or validated preset plus IANA timezone. A unique key on `procedureId + procedureVersionId + periodStart + periodEnd` prevents duplicate runs.
+- Run completion updates only the current `ProcedureRun`. A fresh period creates a new unchecked run and retains prior ticks/notes/timestamps.
+- Normal completion requires every required step checked. Any allowed exception carries reason, actor, timestamp, and audit event.
+
+## Contract rules
+
+- Web resolves current active versions for every turn; never reuse a previously stored Chat manifest.
+- `assignedReferences` are authorization-checked and only narrow/prioritize scope.
+- FastAPI filters entity-profile search to allowed profile IDs/tenant, then filters source retrieval to allowed active version IDs before similarity matching.
+- A stale/missing/low-confidence profile triggers fan-out or structural fallback; it never proves absence of evidence.
+- Only `SOURCE_CHUNK` citations can support answer claims. `ENTITY_PROFILE` content cannot be cited as source evidence.
+- Web validates every citation and returned routed entity against the request manifest before exposing it.
+- Maintenance-log and procedure AI output is draft-only; product mutations remain Web-owned.

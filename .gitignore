@@ -1,0 +1,20 @@
+# Real environment files - commit only the .env.example templates
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+ai/.env
+ai/.env.local
+ai/.env.development
+ai/.env.test
+ai/.env.production
+
+# Local dependencies and generated runtime artifacts
+web/node_modules/
+ai/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.next/
+coverage/
