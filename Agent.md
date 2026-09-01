@@ -52,6 +52,7 @@ ai/                                  # Python FastAPI retrieval and AI service
 12. Chat sessions are user-owned and have auto-generated titles. Conversation history aids interpretation but is never evidence; every new user turn recomputes current access, performs fresh scoped retrieval, and receives response-scoped citations.
 13. Project descriptions are mandatory. Equipment descriptions are optional but recommended. AI-generated Equipment/Project retrieval profiles are derived, versioned routing aids and must never replace current MongoDB links, active-version resolution, or source-chunk citations.
 14. Equipment/Project creation may upload documents through the standard ingestion flow or skip the step. The same document manager later supports `ADD_NEW_DOCUMENT` and `ADD_NEW_VERSION`.
+15. For OpenAI, Pinecone, embeddings, retrievers, loaders, rerankers, and similar external AI capabilities, `ai` implementation must prefer maintained LangChain integrations and LangGraph orchestration. Do not use a provider SDK directly in workflow code unless no suitable framework capability exists; isolate and document any such exception in `ai/adapters/` with tests and a migration path.
 
 ## Six-phase synchronization rule
 

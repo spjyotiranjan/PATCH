@@ -1,5 +1,9 @@
 # Retrieval, Entity Routing, Citation, and Safety Design
 
+## Integration boundary
+
+Implement model calls, embeddings, Pinecone vector-store access, loaders, retrievers, and related AI-provider capabilities through maintained LangChain integrations; compose multi-step control flow in LangGraph. Do not use OpenAI, Pinecone, or comparable provider SDKs directly in application workflow code. If no suitable LangChain/LangGraph capability exists, isolate a documented, tested exception in `adapters/` with a migration path back to the framework abstraction.
+
 ## Why entity profiles help—and where they do not
 
 Equipment/Project profile vectors can reduce the number of source documents searched and add vocabulary that a short user question may omit. They are useful as a first-stage router. They are not a database join, access-control record, active-version pointer, or answer source.

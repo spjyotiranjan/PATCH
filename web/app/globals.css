@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --patch-navigation: #08233f;
+  --patch-accent: #087bee;
+  --patch-canvas: #f5f9fe;
+  --patch-surface: #ffffff;
+  --patch-text: #0b2440;
+  --patch-muted: #52647a;
+  --patch-boundary: #dce7f2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--patch-canvas);
+  color: var(--patch-text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.bootstrap-page {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.bootstrap-page h1,
+.bootstrap-page p {
+  margin: 0;
+}
+
+.bootstrap-eyebrow {
+  color: var(--patch-accent);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}

@@ -16,9 +16,18 @@ Deliver the internal AI service that owns extraction, source indexing, Equipment
 ## Boundaries
 
 - Receive immutable file references, reviewed metadata, entity/profile inputs, and current authorization manifests from Web.
-- Own extraction/OCR, normalization, summaries, chunks, embeddings, Pinecone `SOURCE_CHUNK` and `ENTITY_PROFILE` records, retrieval/reranking, LangGraph orchestration, citations, and drafts.
+- Own extraction/OCR, normalization, summaries, chunks, embeddings, Pinecone `SOURCE_CHUNK` and `ENTITY_PROFILE` records, retrieval/reranking, LangGraph orchestration, citations, and drafts. Use LangChain provider adapters (`langchain-openai`, `langchain-pinecone`) as the application integration layer; do not call OpenAI or Pinecone SDKs directly from workflow code.
 - Return structured results only. Never read/write MongoDB directly, own browser authentication, activate versions, change links, submit Project logs, publish procedures, control equipment, or grant access.
 - Receive only short-lived R2 URLs. AI never has R2 credentials.
+
+## AI integration policy
+
+Use LangChain integrations as the default implementation boundary for every external AI capability, including chat models, embeddings, vector stores, document loaders, retrievers, rerankers, and tool-facing model services. Use LangGraph to compose the stateful ingestion, profile-refresh, answering, and procedure-generation workflows.
+
+- Prefer the maintained LangChain integration for a providerâ€”for example, `langchain-openai` for OpenAI models/embeddings and `langchain-pinecone` for Pinecone vector operations.
+- Do not import or call OpenAI, Pinecone, or comparable provider SDKs directly in application, graph, service, or API-route code. Their SDKs may be installed only as transitive dependencies of the LangChain adapter.
+- A direct provider SDK is permitted only when LangChain/LangGraph has no suitable supported capability and the use is isolated in `adapters/`, protected by tests, and justified in a short architecture decision record that explains the gap, fallback, and migration path.
+- Keep provider-specific configuration and return types behind adapter interfaces so models or vector providers can be exchanged without changing graph/business logic.
 
 ## Suggested service layout
 
