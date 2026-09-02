@@ -1,23 +1,6 @@
-/**
- * Phase 1 OpenAPI surface. This stays intentionally narrow until FastAPI
- * publishes the complete v1 schema; later generated types extend this file.
- */
-export interface AiHealthResponse {
-  service: string;
-  status: "ready" | "configuration_required";
-  missingConfiguration: string[];
-}
+import type { components as GeneratedComponents } from "./generated";
 
-export interface paths {
-  "/health": {
-    get: {
-      responses: {
-        200: {
-          content: {
-            "application/json": AiHealthResponse;
-          };
-        };
-      };
-    };
-  };
-}
+export type { components, operations, paths } from "./generated";
+
+export type AiReadinessResponse =
+  GeneratedComponents["schemas"]["ReadinessStatus"];

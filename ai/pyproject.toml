@@ -2,7 +2,7 @@
 name = "patch-ai"
 version = "0.1.0"
 description = "P.A.T.C.H. ingestion, retrieval, and generation service"
-readme = "README.md"
+readme = "docs/README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
   "beautifulsoup4>=4.12",
@@ -50,6 +50,9 @@ dev = [
 
 [project.scripts]
 patch-ai = "patch_ai.main:run"
+
+[tool.hatch.envs.default.scripts]
+export-openapi = "python scripts/export_openapi.py"
 
 [build-system]
 requires = ["hatchling>=1.27"]

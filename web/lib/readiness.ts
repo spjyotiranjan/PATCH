@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAiHealth } from "@/lib/ai/client";
+import { getAiReadiness } from "@/lib/ai/client";
 import { getUnconfiguredServices, validateServerConfig } from "@/lib/config";
 import { checkMongoReadiness } from "@/lib/database/mongodb";
 import { logEvent } from "@/lib/observability/logger";
@@ -28,11 +28,11 @@ export async function getReadinessReport(): Promise<ReadinessReport> {
   const [mongodb, r2, ai] = await Promise.all([
     checkMongoReadiness(validation.config),
     checkR2Readiness(validation.config),
-    getAiHealth(validation.config)
+    getAiReadiness(validation.config)
       .then(
-        (health) =>
+        (readiness) =>
           ({
-            status: health.status === "ready" ? "ready" : "unavailable",
+            status: readiness.status === "ready" ? "ready" : "unavailable",
           }) as const,
       )
       .catch(() => ({ status: "unavailable" }) as const),
