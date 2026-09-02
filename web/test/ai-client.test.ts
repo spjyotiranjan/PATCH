@@ -21,17 +21,18 @@ describe("AI service authentication", () => {
   it("creates a deterministic signature for a canonical request", () => {
     expect(
       createAiRequestSignature({
-        secret: clientConfig.AI_SERVICE_SHARED_SECRET,
+        secret: "phase-one-test-service-secret-that-is-long-enough",
         method: "post",
         pathname: "/v1/questions",
         body: '{"question":"status"}',
-        requestId: "request-1",
+        requestId: "123e4567-e89b-12d3-a456-426614174000",
         timestamp: 1_700_000_000,
       }),
-    ).toMatchObject({
-      requestId: "request-1",
+    ).toEqual({
+      requestId: "123e4567-e89b-12d3-a456-426614174000",
       timestamp: 1_700_000_000,
-      signature: expect.stringMatching(/^v1=[a-f0-9]{64}$/),
+      signature:
+        "v1=fee49640534c5f5e100300284061261b35fec5c9aeaab6ed78c7919df6ed4b1d",
     });
   });
 
@@ -51,7 +52,6 @@ describe("AI service authentication", () => {
           JSON.stringify({
             service: "patch-ai",
             status: "ready",
-            missingConfiguration: [],
           }),
         );
       },
@@ -62,7 +62,7 @@ describe("AI service authentication", () => {
       fetchImplementation,
     );
 
-    await authenticatedFetch("http://localhost:8000/health");
+    await authenticatedFetch("http://localhost:8000/readiness");
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });

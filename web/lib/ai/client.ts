@@ -4,7 +4,7 @@ import createClient from "openapi-fetch";
 
 import type { ServerConfig } from "@/lib/config";
 
-import type { AiHealthResponse, paths } from "./contracts";
+import type { AiReadinessResponse, paths } from "./contracts";
 import {
   AI_CONTRACT_VERSION,
   AI_CONTRACT_VERSION_HEADER,
@@ -94,7 +94,7 @@ export function createAiServiceClient(
   });
 }
 
-export async function getAiHealth(
+export async function getAiReadiness(
   config: Pick<
     ServerConfig,
     | "AI_SERVICE_BASE_URL"
@@ -103,13 +103,15 @@ export async function getAiHealth(
     | "AI_SERVICE_RETRY_COUNT"
   >,
   fetchImplementation?: FetchImplementation,
-): Promise<AiHealthResponse> {
+): Promise<AiReadinessResponse> {
   const response = await createAiServiceClient(config, fetchImplementation).GET(
-    "/health",
+    "/readiness",
   );
 
   if (!response.data) {
-    throw new AiServiceError("AI service returned an invalid health response");
+    throw new AiServiceError(
+      "AI service returned an invalid readiness response",
+    );
   }
 
   return response.data;

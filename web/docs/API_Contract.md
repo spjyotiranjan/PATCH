@@ -6,16 +6,18 @@ The browser calls only Next.js routes. Next.js authenticates/authorizes, owns Mo
 
 Every service request includes `requestId`, `contractVersion`, service authentication, and sufficient immutable identifiers for idempotency. Contract-breaking changes require a versioned route or compatible optional-field evolution.
 
+After changing this contract, reconcile [Setup_Guide.md](../../Setup_Guide.md), export the FastAPI OpenAPI document, regenerate the Web types, and verify the updated services before marking the current phase complete.
+
 ## Service authentication and correlation
 
 Web signs every FastAPI request on the server. The browser never receives the shared secret and must never call FastAPI directly.
 
-| Header | Value |
-|---|---|
-| `x-patch-contract-version` | `v1` |
-| `x-patch-request-id` | One UUID per service request. |
-| `x-patch-timestamp` | Unix timestamp in seconds. |
-| `x-patch-signature` | `v1=<hex-hmac-sha256>` using `AI_SERVICE_SHARED_SECRET`. |
+| Header                     | Value                                                    |
+| -------------------------- | -------------------------------------------------------- |
+| `x-patch-contract-version` | `v1`                                                     |
+| `x-patch-request-id`       | One UUID per service request.                            |
+| `x-patch-timestamp`        | Unix timestamp in seconds.                               |
+| `x-patch-signature`        | `v1=<hex-hmac-sha256>` using `AI_SERVICE_SHARED_SECRET`. |
 
 For `v1`, Web signs the UTF-8 canonical string below. `bodySha256` is the lowercase SHA-256 hex digest of the exact request body, or of the empty string when no body is sent.
 
@@ -27,22 +29,22 @@ FastAPI rejects missing/invalid signatures, unsupported contract versions, dupli
 
 ## Web-owned browser resources
 
-| Resource/route | Required behavior |
-|---|---|
-| `POST /equipments` | Creates Equipment with optional description and `documentsMode: ADD_NOW | SKIP_FOR_NOW`. |
-| `POST /projects` | Requires description; creates included Equipment links and one active creator `OWNER` transactionally; supports optional document step. |
-| Project membership routes | Discover/request/Owner approve-or-reject; only `OWNER` and `MEMBER`. |
-| Equipment/Project document routes | List composed documents, add new logical document, add immutable version, link/unlink, review, approve, and inspect indexing/profile state. |
-| `POST /documents/:documentId/versions` | Creates a new immutable version; never overwrites the active version. |
-| `POST /document-versions/:versionId/activate` | Internal/authorized transition after successful approval and indexing; atomically updates logical `activeVersionId`. |
-| `/projects/:projectId/maintenance-logs` | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`. |
-| `/projects/:projectId/procedures` | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`. |
-| `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history. |
-| `/projects/:projectId/procedures/:procedureId/runs` | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone. |
-| `/procedure-runs/:runId/steps/:stepId/completion` | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run. |
-| Chat/session routes | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access. |
-| Settings routes | Read/update profile fields and `theme: LIGHT | DARK | SYSTEM`. |
-| `POST /api/auth/signup` | Creates a first-party email/password account from `name`, `email`, `password`, and `confirmPassword`. It never accepts or exposes social-provider data. |
+| Resource/route                                          | Required behavior                                                                                                                                                                         |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /equipments`                                      | Creates Equipment with optional description and `documentsMode: ADD_NOW                                                                                                                   | SKIP_FOR_NOW`. |
+| `POST /projects`                                        | Requires description; creates included Equipment links and one active creator `OWNER` transactionally; supports optional document step.                                                   |
+| Project membership routes                               | Discover/request/Owner approve-or-reject; only `OWNER` and `MEMBER`.                                                                                                                      |
+| Equipment/Project document routes                       | List composed documents, add new logical document, add immutable version, link/unlink, review, approve, and inspect indexing/profile state.                                               |
+| `POST /documents/:documentId/versions`                  | Creates a new immutable version; never overwrites the active version.                                                                                                                     |
+| `POST /document-versions/:versionId/activate`           | Internal/authorized transition after successful approval and indexing; atomically updates logical `activeVersionId`.                                                                      |
+| `/projects/:projectId/maintenance-logs`                 | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`.                                                                                                                 |
+| `/projects/:projectId/procedures`                       | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`. |
+| `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history.                                            |
+| `/projects/:projectId/procedures/:procedureId/runs`     | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone.                                          |
+| `/procedure-runs/:runId/steps/:stepId/completion`       | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run.                                                         |
+| Chat/session routes                                     | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access.                                                                                 |
+| Settings routes                                         | Read/update profile fields and `theme: LIGHT                                                                                                                                              | DARK           | SYSTEM`. |
+| `POST /api/auth/signup`                                 | Creates a first-party email/password account from `name`, `email`, `password`, and `confirmPassword`. It never accepts or exposes social-provider data.                                   |
 
 ## First-party account sign-up
 
@@ -86,17 +88,20 @@ Web de-duplicates by resolved `documentVersionId` but preserves all inclusion pa
 
 ## Required AI service endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /health` | Service liveness/readiness. |
-| `POST /v1/ingestions/extract` | Fetch an immutable original, extract/OCR, locate sections/pages, and produce review metadata/summary. |
-| `POST /v1/ingestions/index` | Chunk/embed/upsert one approved `DocumentVersion` as `SOURCE_CHUNK` records. |
-| `POST /v1/entity-profiles/upsert` | Generate and embed one versioned Equipment/Project routing profile. |
-| `POST /v1/questions` | Perform entity routing, source retrieval, evidence assessment, and cited answer generation. |
-| `POST /v1/log-drafts` | Create an editable Project maintenance-log draft only. |
-| `POST /v1/procedure-drafts` | Generate a source-bounded Project procedure candidate with per-step citations, coverage analysis, and review-need classification. Returns data only; Web saves it. |
+| Endpoint                          | Purpose                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /health`                     | Public process liveness only; returns `service` and `status: available`.                                                                                           |
+| `GET /readiness`                  | Authenticated aggregate runtime readiness; returns `service` and a `ready` or `unavailable` status without dependency or configuration details.                    |
+| `POST /v1/ingestions/extract`     | Fetch an immutable original, extract/OCR, locate sections/pages, and produce review metadata/summary.                                                              |
+| `POST /v1/ingestions/index`       | Chunk/embed/upsert one approved `DocumentVersion` as `SOURCE_CHUNK` records.                                                                                       |
+| `POST /v1/entity-profiles/upsert` | Generate and embed one versioned Equipment/Project routing profile.                                                                                                |
+| `POST /v1/questions`              | Perform entity routing, source retrieval, evidence assessment, and cited answer generation.                                                                        |
+| `POST /v1/log-drafts`             | Create an editable Project maintenance-log draft only.                                                                                                             |
+| `POST /v1/procedure-drafts`       | Generate a source-bounded Project procedure candidate with per-step citations, coverage analysis, and review-need classification. Returns data only; Web saves it. |
 
 Extraction and indexing may be one internal LangGraph workflow, but the contract keeps review/approval before retrievable source upsert. If implemented as an asynchronous job, the result payloads below become job result schemas without changing their content.
+
+During Phase 1, workflow endpoints are deterministic contract stubs. They return explicit `failed` or `unavailable` states and never fabricate extraction data, chunks, profiles, answers, citations, logs, or procedure steps. Authentication, validation, replay, and internal errors use the OpenAPI-described safe error envelope and never echo request values, configuration names, or secrets.
 
 ## Ingestion contracts
 
@@ -185,7 +190,10 @@ After activation, Web records/emits the derived cascade explicitly so retries an
   "supersededVersionId": "document-version-2",
   "affectedEquipmentIds": ["equipment-id"],
   "affectedProjectIds": ["project-id"],
-  "profileRefreshEventIds": ["refresh-equipment-event", "refresh-project-event"],
+  "profileRefreshEventIds": [
+    "refresh-equipment-event",
+    "refresh-project-event"
+  ],
   "outboxEventId": "outbox-event-id"
 }
 ```
@@ -205,22 +213,26 @@ Entity profiles help route questions; they are not answer evidence.
     "id": "entity-id",
     "profileVersion": 7,
     "userDescription": "optional for Equipment; required Project description",
-    "includedEquipmentProfiles": [{
-      "equipmentId": "equipment-id",
-      "profileId": "entity-profile:equipment-id:4",
-      "profileVersion": 4,
-      "profileFingerprint": "equipment-profile-input-hash",
-      "freshnessState": "FRESH | STALE",
-      "generatedDescription": "Bounded current Equipment routing summary.",
-      "coverageTopics": ["startup checks", "seal inspection"]
-    }],
-    "activeDocuments": [{
-      "documentId": "document-id",
-      "documentVersionId": "active-version-id",
-      "title": "Pump service manual",
-      "documentSummary": "summary returned by extraction",
-      "inclusion": "EQUIPMENT_DIRECT | PROJECT_DIRECT | EQUIPMENT_DERIVED"
-    }]
+    "includedEquipmentProfiles": [
+      {
+        "equipmentId": "equipment-id",
+        "profileId": "entity-profile:equipment-id:4",
+        "profileVersion": 4,
+        "profileFingerprint": "equipment-profile-input-hash",
+        "freshnessState": "FRESH | STALE",
+        "generatedDescription": "Bounded current Equipment routing summary.",
+        "coverageTopics": ["startup checks", "seal inspection"]
+      }
+    ],
+    "activeDocuments": [
+      {
+        "documentId": "document-id",
+        "documentVersionId": "active-version-id",
+        "title": "Pump service manual",
+        "documentSummary": "summary returned by extraction",
+        "inclusion": "EQUIPMENT_DIRECT | PROJECT_DIRECT | EQUIPMENT_DERIVED"
+      }
+    ]
   }
 }
 ```
@@ -233,7 +245,9 @@ Entity profiles help route questions; they are not answer evidence.
   "profileVersion": 7,
   "profileId": "entity-profile:entity-id:7",
   "generatedDescription": "What the entity is, its systems, coverage, and likely query vocabulary.",
-  "coverage": [{ "topic": "seal replacement", "documentVersionIds": ["active-version-id"] }],
+  "coverage": [
+    { "topic": "seal replacement", "documentVersionIds": ["active-version-id"] }
+  ],
   "profileFingerprint": "hash-of-input-provenance",
   "errors": []
 }
@@ -252,31 +266,39 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
     "id": "conversation-id",
     "recentTurns": [{ "role": "user | assistant", "content": "string" }]
   },
-  "assignedReferences": [{
-    "type": "DOCUMENT | EQUIPMENT | PROJECT | ENTITY",
-    "id": "reference-id"
-  }],
+  "assignedReferences": [
+    {
+      "type": "DOCUMENT | EQUIPMENT | PROJECT | ENTITY",
+      "id": "reference-id"
+    }
+  ],
   "question": "Pressure will not stabilize after startup",
   "retrievalScopeManifest": {
-    "allowedDocumentVersions": [{
-      "documentId": "document-id",
-      "documentVersionId": "active-version-id",
-      "inclusionPaths": ["EQUIPMENT_DERIVED"],
-      "sourceEntityIds": ["equipment-id", "project-id"]
-    }],
-    "entities": [{
-      "type": "EQUIPMENT | PROJECT",
-      "id": "entity-id",
-      "profileId": "entity-profile:entity-id:7",
-      "profileVersion": 7,
-      "profileState": "FRESH | STALE | MISSING",
-      "directDocumentVersionIds": ["active-version-id"]
-    }],
-    "relationships": [{
-      "projectId": "project-id",
-      "equipmentIds": ["equipment-id"],
-      "directDocumentVersionIds": ["project-doc-version-id"]
-    }]
+    "allowedDocumentVersions": [
+      {
+        "documentId": "document-id",
+        "documentVersionId": "active-version-id",
+        "inclusionPaths": ["EQUIPMENT_DERIVED"],
+        "sourceEntityIds": ["equipment-id", "project-id"]
+      }
+    ],
+    "entities": [
+      {
+        "type": "EQUIPMENT | PROJECT",
+        "id": "entity-id",
+        "profileId": "entity-profile:entity-id:7",
+        "profileVersion": 7,
+        "profileState": "FRESH | STALE | MISSING",
+        "directDocumentVersionIds": ["active-version-id"]
+      }
+    ],
+    "relationships": [
+      {
+        "projectId": "project-id",
+        "equipmentIds": ["equipment-id"],
+        "directDocumentVersionIds": ["project-doc-version-id"]
+      }
+    ]
   },
   "retrievalPolicy": {
     "approvedOnly": true,
@@ -298,24 +320,30 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
   "turnId": "chat-turn-id",
   "status": "approved | incomplete | conflicting | outdated | unavailable",
   "routing": {
-    "selectedEntities": [{ "type": "EQUIPMENT", "id": "equipment-id", "reason": "profile match" }],
+    "selectedEntities": [
+      { "type": "EQUIPMENT", "id": "equipment-id", "reason": "profile match" }
+    ],
     "usedStructuralFallback": false,
     "profileVersions": [7]
   },
   "answer": {
     "summary": "string or null",
-    "steps": [{ "id": "step-1", "text": "string", "citationIds": ["citation-1"] }]
+    "steps": [
+      { "id": "step-1", "text": "string", "citationIds": ["citation-1"] }
+    ]
   },
-  "citations": [{
-    "id": "citation-1",
-    "documentVersionId": "active-version-id",
-    "documentTitle": "Pump service manual",
-    "revision": "3",
-    "page": 84,
-    "section": "6.2",
-    "excerpt": "string",
-    "approvalState": "APPROVED"
-  }],
+  "citations": [
+    {
+      "id": "citation-1",
+      "documentVersionId": "active-version-id",
+      "documentTitle": "Pump service manual",
+      "revision": "3",
+      "page": 84,
+      "section": "6.2",
+      "excerpt": "string",
+      "approvalState": "APPROVED"
+    }
+  ],
   "warnings": [],
   "followUpAllowed": true
 }
@@ -343,17 +371,21 @@ Web calls FastAPI only after the required Project description and at least one a
   "projectDescription": "Required description of the Project and pipeline.",
   "inputFingerprint": "sha256-of-description-and-active-source-set",
   "timezone": "Asia/Kolkata",
-  "activeSources": [{
-    "documentVersionId": "active-project-version-id",
-    "documentTitle": "Boiler upgrade execution plan",
-    "revision": "2",
-    "inclusionPath": "PROJECT_DIRECT"
-  }],
-  "supplementalEquipmentSources": [{
-    "equipmentId": "equipment-id",
-    "documentVersionId": "active-equipment-version-id",
-    "applicability": "Explicitly selected for this Project procedure"
-  }]
+  "activeSources": [
+    {
+      "documentVersionId": "active-project-version-id",
+      "documentTitle": "Boiler upgrade execution plan",
+      "revision": "2",
+      "inclusionPath": "PROJECT_DIRECT"
+    }
+  ],
+  "supplementalEquipmentSources": [
+    {
+      "equipmentId": "equipment-id",
+      "documentVersionId": "active-equipment-version-id",
+      "applicability": "Explicitly selected for this Project procedure"
+    }
+  ]
 }
 ```
 
@@ -372,22 +404,26 @@ Web calls FastAPI only after the required Project description and at least one a
     "blockingFindings": [],
     "reasons": ["Two of three required topics have cited support"]
   },
-  "steps": [{
-    "stepId": "stable-step-id",
-    "position": 1,
-    "title": "Safety and isolation",
-    "instructions": "Follow the cited isolation procedure before inspection.",
-    "required": true,
-    "citationIds": ["citation-1"],
-    "evidenceState": "SUPPORTED"
-  }],
-  "citations": [{
-    "id": "citation-1",
-    "documentVersionId": "active-project-version-id",
-    "page": 12,
-    "section": "3.1",
-    "excerpt": "string"
-  }],
+  "steps": [
+    {
+      "stepId": "stable-step-id",
+      "position": 1,
+      "title": "Safety and isolation",
+      "instructions": "Follow the cited isolation procedure before inspection.",
+      "required": true,
+      "citationIds": ["citation-1"],
+      "evidenceState": "SUPPORTED"
+    }
+  ],
+  "citations": [
+    {
+      "id": "citation-1",
+      "documentVersionId": "active-project-version-id",
+      "page": 12,
+      "section": "3.1",
+      "excerpt": "string"
+    }
+  ],
   "requiresHumanReview": true
 }
 ```

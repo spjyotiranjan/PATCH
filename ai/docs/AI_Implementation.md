@@ -2,16 +2,20 @@
 
 ## Delivery status
 
-| Item | Status |
-|---|---|
-| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined. |
-| FastAPI/Pydantic contract implementation | Not started. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows | Not started. |
-| Evaluation and production readiness | Not started. |
+| Item                                                                         | Status                                                                                                                               |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                             |
+| FastAPI/Pydantic contract implementation                                     | Phase 1 complete: authenticated service, exported OpenAPI, generated Web types, deterministic stubs, and cross-service verification. |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Not started.                                                                                                                         |
+| Evaluation and production readiness                                          | Not started.                                                                                                                         |
 
 ## Goal
 
 Deliver the internal AI service that owns extraction, source indexing, Equipment/Project retrieval-profile generation, hierarchical retrieval, cited answers, and draft generation. It may use profiles to decide where to search, but it must produce operational answers only from authorized current source chunks and exact citations.
+
+## Setup-guide maintenance
+
+Before marking any AI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new AI dependency, environment variable, model/vector prerequisite, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
 ## Boundaries
 
@@ -116,7 +120,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 1 - FastAPI foundation and contract
 
-**Status:** Not started
+**Status:** Complete (2026-09-03)
 
 **Goal:** Establish secure observable service and stable schemas.
 

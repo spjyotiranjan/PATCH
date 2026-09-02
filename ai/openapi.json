@@ -1,0 +1,2533 @@
+{
+  "components": {
+    "schemas": {
+      "ActiveDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentSummary": {
+            "title": "Documentsummary",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "inclusion": {
+            "enum": [
+              "EQUIPMENT_DIRECT",
+              "PROJECT_DIRECT",
+              "EQUIPMENT_DERIVED"
+            ],
+            "title": "Inclusion",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentId",
+          "documentVersionId",
+          "title",
+          "documentSummary",
+          "inclusion"
+        ],
+        "title": "ActiveDocument",
+        "type": "object"
+      },
+      "Actor": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId"
+        ],
+        "title": "Actor",
+        "type": "object"
+      },
+      "AllowedDocumentVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "inclusionPaths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Inclusionpaths",
+            "type": "array"
+          },
+          "sourceEntityIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Sourceentityids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "documentId",
+          "documentVersionId",
+          "inclusionPaths"
+        ],
+        "title": "AllowedDocumentVersion",
+        "type": "object"
+      },
+      "Answer": {
+        "additionalProperties": false,
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AnswerStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "title": "Answer",
+        "type": "object"
+      },
+      "AnswerStep": {
+        "additionalProperties": false,
+        "properties": {
+          "citationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Citationids",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "citationIds"
+        ],
+        "title": "AnswerStep",
+        "type": "object"
+      },
+      "ApiErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error",
+          "requestId"
+        ],
+        "title": "ApiErrorResponse",
+        "type": "object"
+      },
+      "AssignedReference": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "DOCUMENT",
+              "EQUIPMENT",
+              "PROJECT",
+              "ENTITY"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "title": "AssignedReference",
+        "type": "object"
+      },
+      "ChatSessionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "recentTurns": {
+            "items": {
+              "$ref": "#/components/schemas/ChatTurnContext"
+            },
+            "maxItems": 20,
+            "title": "Recentturns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ChatSessionInput",
+        "type": "object"
+      },
+      "ChatSessionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "suggestedTitle": {
+            "title": "Suggestedtitle",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "suggestedTitle"
+        ],
+        "title": "ChatSessionResult",
+        "type": "object"
+      },
+      "ChatTurnContext": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "maxLength": 20000,
+            "title": "Content",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "ChatTurnContext",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "anyOf": [
+              {
+                "const": "APPROVED",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approvalstate"
+          },
+          "documentTitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Documenttitle"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          }
+        },
+        "required": [
+          "id",
+          "documentVersionId",
+          "excerpt"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "DeclaredMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "documentType": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Documenttype",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "documentType"
+        ],
+        "title": "DeclaredMetadata",
+        "type": "object"
+      },
+      "DocumentSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "searchHints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Searchhints",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "systems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Systems",
+            "type": "array"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "DocumentSummary",
+        "type": "object"
+      },
+      "EntityProfileInput": {
+        "additionalProperties": false,
+        "properties": {
+          "activeDocuments": {
+            "items": {
+              "$ref": "#/components/schemas/ActiveDocument"
+            },
+            "title": "Activedocuments",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "includedEquipmentProfiles": {
+            "items": {
+              "$ref": "#/components/schemas/IncludedEquipmentProfile"
+            },
+            "title": "Includedequipmentprofiles",
+            "type": "array"
+          },
+          "profileVersion": {
+            "minimum": 1.0,
+            "title": "Profileversion",
+            "type": "integer"
+          },
+          "type": {
+            "enum": [
+              "EQUIPMENT",
+              "PROJECT"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "userDescription": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userdescription"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "profileVersion"
+        ],
+        "title": "EntityProfileInput",
+        "type": "object"
+      },
+      "EntityProfileRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/EntityProfileInput"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "entity"
+        ],
+        "title": "EntityProfileRequest",
+        "type": "object"
+      },
+      "EntityProfileResult": {
+        "additionalProperties": false,
+        "properties": {
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/ProfileCoverage"
+            },
+            "title": "Coverage",
+            "type": "array"
+          },
+          "entityId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Entityid",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "generatedDescription": {
+            "title": "Generateddescription",
+            "type": "string"
+          },
+          "profileFingerprint": {
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "profileId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Profileid",
+            "type": "string"
+          },
+          "profileVersion": {
+            "minimum": 1.0,
+            "title": "Profileversion",
+            "type": "integer"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "upserted",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "status",
+          "entityId",
+          "profileVersion",
+          "profileId",
+          "generatedDescription",
+          "profileFingerprint"
+        ],
+        "title": "EntityProfileResult",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "ExtractRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "declaredMetadata": {
+            "$ref": "#/components/schemas/DeclaredMetadata"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          },
+          "versionNumber": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Versionnumber",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "documentId",
+          "documentVersionId",
+          "versionNumber",
+          "sourceFile",
+          "declaredMetadata"
+        ],
+        "title": "ExtractRequest",
+        "type": "object"
+      },
+      "ExtractResult": {
+        "additionalProperties": false,
+        "properties": {
+          "documentSummary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "extractedMetadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtractedMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extractionQuality": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Extractionquality",
+            "type": "number"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "needs_review",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "status",
+          "documentVersionId",
+          "extractionQuality"
+        ],
+        "title": "ExtractResult",
+        "type": "object"
+      },
+      "ExtractedMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "pageCount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pagecount"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "ExtractedMetadata",
+        "type": "object"
+      },
+      "HealthStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "const": "patch-ai",
+            "default": "patch-ai",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "available",
+            "default": "available",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "HealthStatus",
+        "type": "object"
+      },
+      "IncludedEquipmentProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "coverageTopics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Coveragetopics",
+            "type": "array"
+          },
+          "equipmentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Equipmentid",
+            "type": "string"
+          },
+          "freshnessState": {
+            "enum": [
+              "FRESH",
+              "STALE"
+            ],
+            "title": "Freshnessstate",
+            "type": "string"
+          },
+          "generatedDescription": {
+            "title": "Generateddescription",
+            "type": "string"
+          },
+          "profileFingerprint": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "profileId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Profileid",
+            "type": "string"
+          },
+          "profileVersion": {
+            "minimum": 1.0,
+            "title": "Profileversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "equipmentId",
+          "profileId",
+          "profileVersion",
+          "profileFingerprint",
+          "freshnessState",
+          "generatedDescription"
+        ],
+        "title": "IncludedEquipmentProfile",
+        "type": "object"
+      },
+      "IndexRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "reviewedMetadata": {
+            "$ref": "#/components/schemas/ReviewedMetadata"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "documentId",
+          "documentVersionId",
+          "approvalState",
+          "reviewedMetadata",
+          "sourceFile"
+        ],
+        "title": "IndexRequest",
+        "type": "object"
+      },
+      "IndexResult": {
+        "additionalProperties": false,
+        "properties": {
+          "chunkCount": {
+            "minimum": 0.0,
+            "title": "Chunkcount",
+            "type": "integer"
+          },
+          "contentFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contentfingerprint"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "indexReference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexreference"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceLocations": {
+            "items": {
+              "$ref": "#/components/schemas/SourceLocation"
+            },
+            "title": "Sourcelocations",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "indexed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "status",
+          "documentVersionId",
+          "chunkCount"
+        ],
+        "title": "IndexResult",
+        "type": "object"
+      },
+      "LogDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "citationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Citationids",
+            "type": "array"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "equipmentId": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipmentid"
+          },
+          "projectId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Projectid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "scopeType": {
+            "$ref": "#/components/schemas/LogScope"
+          },
+          "sourceText": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Sourcetext",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "projectId",
+          "scopeType",
+          "sourceText"
+        ],
+        "title": "LogDraftRequest",
+        "type": "object"
+      },
+      "LogDraftResult": {
+        "additionalProperties": false,
+        "properties": {
+          "citationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Citationids",
+            "type": "array"
+          },
+          "draftText": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Drafttext"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "drafted",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "suggestedFields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Suggestedfields",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requestId",
+          "status"
+        ],
+        "title": "LogDraftResult",
+        "type": "object"
+      },
+      "LogScope": {
+        "enum": [
+          "PROJECT",
+          "EQUIPMENT"
+        ],
+        "title": "LogScope",
+        "type": "string"
+      },
+      "ManifestEntity": {
+        "additionalProperties": false,
+        "properties": {
+          "directDocumentVersionIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Directdocumentversionids",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "profileId": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileid"
+          },
+          "profileState": {
+            "enum": [
+              "FRESH",
+              "STALE",
+              "MISSING"
+            ],
+            "title": "Profilestate",
+            "type": "string"
+          },
+          "profileVersion": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileversion"
+          },
+          "type": {
+            "enum": [
+              "EQUIPMENT",
+              "PROJECT"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "profileState"
+        ],
+        "title": "ManifestEntity",
+        "type": "object"
+      },
+      "ManifestRelationship": {
+        "additionalProperties": false,
+        "properties": {
+          "directDocumentVersionIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Directdocumentversionids",
+            "type": "array"
+          },
+          "equipmentIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Equipmentids",
+            "type": "array"
+          },
+          "projectId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Projectid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "title": "ManifestRelationship",
+        "type": "object"
+      },
+      "ProcedureDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSources": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureSource"
+            },
+            "minItems": 1,
+            "title": "Activesources",
+            "type": "array"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "generationRequestId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Generationrequestid",
+            "type": "string"
+          },
+          "inputFingerprint": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Inputfingerprint",
+            "type": "string"
+          },
+          "projectDescription": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Projectdescription",
+            "type": "string"
+          },
+          "projectId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Projectid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "supplementalEquipmentSources": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementalEquipmentSource"
+            },
+            "title": "Supplementalequipmentsources",
+            "type": "array"
+          },
+          "timezone": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "generationRequestId",
+          "projectId",
+          "projectDescription",
+          "inputFingerprint",
+          "timezone",
+          "activeSources"
+        ],
+        "title": "ProcedureDraftRequest",
+        "type": "object"
+      },
+      "ProcedureDraftResult": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "generationRequestId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Generationrequestid",
+            "type": "string"
+          },
+          "inputFingerprint": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Inputfingerprint",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "requiresHumanReview": {
+            "const": true,
+            "default": true,
+            "title": "Requireshumanreview",
+            "type": "boolean"
+          },
+          "reviewAnalysis": {
+            "$ref": "#/components/schemas/ReviewAnalysis"
+          },
+          "status": {
+            "enum": [
+              "generated",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "requestId",
+          "generationRequestId",
+          "inputFingerprint",
+          "status",
+          "reviewAnalysis"
+        ],
+        "title": "ProcedureDraftResult",
+        "type": "object"
+      },
+      "ProcedureSource": {
+        "additionalProperties": false,
+        "properties": {
+          "documentTitle": {
+            "title": "Documenttitle",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "inclusionPath": {
+            "const": "PROJECT_DIRECT",
+            "title": "Inclusionpath",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documentVersionId",
+          "documentTitle",
+          "revision",
+          "inclusionPath"
+        ],
+        "title": "ProcedureSource",
+        "type": "object"
+      },
+      "ProcedureStep": {
+        "additionalProperties": false,
+        "properties": {
+          "citationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Citationids",
+            "type": "array"
+          },
+          "evidenceState": {
+            "title": "Evidencestate",
+            "type": "string"
+          },
+          "instructions": {
+            "title": "Instructions",
+            "type": "string"
+          },
+          "position": {
+            "minimum": 1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "stepId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stepId",
+          "position",
+          "title",
+          "instructions",
+          "required",
+          "citationIds",
+          "evidenceState"
+        ],
+        "title": "ProcedureStep",
+        "type": "object"
+      },
+      "ProfileCoverage": {
+        "additionalProperties": false,
+        "properties": {
+          "documentVersionIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Documentversionids",
+            "type": "array"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "documentVersionIds"
+        ],
+        "title": "ProfileCoverage",
+        "type": "object"
+      },
+      "QuestionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "assignedReferences": {
+            "items": {
+              "$ref": "#/components/schemas/AssignedReference"
+            },
+            "title": "Assignedreferences",
+            "type": "array"
+          },
+          "chatSession": {
+            "$ref": "#/components/schemas/ChatSessionInput"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "retrievalPolicy": {
+            "$ref": "#/components/schemas/RetrievalPolicy"
+          },
+          "retrievalScopeManifest": {
+            "$ref": "#/components/schemas/RetrievalScopeManifest"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "actor",
+          "chatSession",
+          "question",
+          "retrievalScopeManifest",
+          "retrievalPolicy"
+        ],
+        "title": "QuestionRequest",
+        "type": "object"
+      },
+      "QuestionResult": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "$ref": "#/components/schemas/Answer"
+          },
+          "chatSession": {
+            "$ref": "#/components/schemas/ChatSessionResult"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "followUpAllowed": {
+            "title": "Followupallowed",
+            "type": "boolean"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/RoutingResult"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "incomplete",
+              "conflicting",
+              "outdated",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "turnId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Turnid",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requestId",
+          "chatSession",
+          "turnId",
+          "status",
+          "routing",
+          "answer",
+          "followUpAllowed"
+        ],
+        "title": "QuestionResult",
+        "type": "object"
+      },
+      "ReadinessStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "const": "patch-ai",
+            "default": "patch-ai",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ReadinessStatus",
+        "type": "object"
+      },
+      "RetrievalPolicy": {
+        "additionalProperties": false,
+        "properties": {
+          "allowStructuralFallback": {
+            "default": true,
+            "title": "Allowstructuralfallback",
+            "type": "boolean"
+          },
+          "approvedOnly": {
+            "const": true,
+            "default": true,
+            "title": "Approvedonly",
+            "type": "boolean"
+          },
+          "requireSourceLocation": {
+            "const": true,
+            "default": true,
+            "title": "Requiresourcelocation",
+            "type": "boolean"
+          }
+        },
+        "title": "RetrievalPolicy",
+        "type": "object"
+      },
+      "RetrievalScopeManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "allowedDocumentVersions": {
+            "items": {
+              "$ref": "#/components/schemas/AllowedDocumentVersion"
+            },
+            "title": "Alloweddocumentversions",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestEntity"
+            },
+            "title": "Entities",
+            "type": "array"
+          },
+          "relationships": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestRelationship"
+            },
+            "title": "Relationships",
+            "type": "array"
+          }
+        },
+        "title": "RetrievalScopeManifest",
+        "type": "object"
+      },
+      "ReviewAnalysis": {
+        "additionalProperties": false,
+        "properties": {
+          "blockingFindings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockingfindings",
+            "type": "array"
+          },
+          "conflicts": {
+            "title": "Conflicts",
+            "type": "string"
+          },
+          "freshness": {
+            "title": "Freshness",
+            "type": "string"
+          },
+          "hardwareCriticality": {
+            "title": "Hardwarecriticality",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "reviewNeed": {
+            "enum": [
+              "LOW",
+              "MODERATE",
+              "HIGH",
+              "SEVERE"
+            ],
+            "title": "Reviewneed",
+            "type": "string"
+          },
+          "sourceCoverage": {
+            "title": "Sourcecoverage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewNeed",
+          "sourceCoverage",
+          "conflicts",
+          "freshness",
+          "hardwareCriticality"
+        ],
+        "title": "ReviewAnalysis",
+        "type": "object"
+      },
+      "ReviewedMetadata": {
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Revision",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "revision"
+        ],
+        "title": "ReviewedMetadata",
+        "type": "object"
+      },
+      "RoutedEntity": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "EQUIPMENT",
+              "PROJECT"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "reason"
+        ],
+        "title": "RoutedEntity",
+        "type": "object"
+      },
+      "RoutingResult": {
+        "additionalProperties": false,
+        "properties": {
+          "profileVersions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Profileversions",
+            "type": "array"
+          },
+          "selectedEntities": {
+            "items": {
+              "$ref": "#/components/schemas/RoutedEntity"
+            },
+            "title": "Selectedentities",
+            "type": "array"
+          },
+          "usedStructuralFallback": {
+            "title": "Usedstructuralfallback",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "usedStructuralFallback"
+        ],
+        "title": "RoutingResult",
+        "type": "object"
+      },
+      "ServiceError": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ServiceError",
+        "type": "object"
+      },
+      "SourceFile": {
+        "additionalProperties": false,
+        "properties": {
+          "contentType": {
+            "title": "Contenttype",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "contentType",
+          "sha256"
+        ],
+        "title": "SourceFile",
+        "type": "object"
+      },
+      "SourceLocation": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          }
+        },
+        "title": "SourceLocation",
+        "type": "object"
+      },
+      "SupplementalEquipmentSource": {
+        "additionalProperties": false,
+        "properties": {
+          "applicability": {
+            "minLength": 1,
+            "title": "Applicability",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "equipmentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Equipmentid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "equipmentId",
+          "documentVersionId",
+          "applicability"
+        ],
+        "title": "SupplementalEquipmentSource",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Private ingestion, retrieval, and generation service for P.A.T.C.H.",
+    "title": "P.A.T.C.H. AI Service",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "Process liveness. This endpoint intentionally does not inspect dependencies.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/readiness": {
+      "get": {
+        "description": "Aggregate runtime readiness without exposing configuration names or values.",
+        "operationId": "readiness_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/v1/entity-profiles/upsert": {
+      "post": {
+        "operationId": "upsert_entity_profile_v1_entity_profiles_upsert_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntityProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntityProfileResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Upsert Entity Profile",
+        "tags": [
+          "entity-profiles"
+        ]
+      }
+    },
+    "/v1/ingestions/extract": {
+      "post": {
+        "operationId": "extract_document_v1_ingestions_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Extract Document",
+        "tags": [
+          "ingestion"
+        ]
+      }
+    },
+    "/v1/ingestions/index": {
+      "post": {
+        "operationId": "index_document_v1_ingestions_index_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Index Document",
+        "tags": [
+          "ingestion"
+        ]
+      }
+    },
+    "/v1/log-drafts": {
+      "post": {
+        "operationId": "draft_log_v1_log_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogDraftResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Draft Log",
+        "tags": [
+          "drafts"
+        ]
+      }
+    },
+    "/v1/procedure-drafts": {
+      "post": {
+        "operationId": "draft_procedure_v1_procedure_drafts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProcedureDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcedureDraftResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Draft Procedure",
+        "tags": [
+          "drafts"
+        ]
+      }
+    },
+    "/v1/questions": {
+      "post": {
+        "operationId": "answer_question_v1_questions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "summary": "Answer Question",
+        "tags": [
+          "questions"
+        ]
+      }
+    }
+  }
+}

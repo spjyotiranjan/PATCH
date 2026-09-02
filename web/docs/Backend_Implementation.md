@@ -2,16 +2,20 @@
 
 ## Delivery status
 
-| Item | Status |
-|---|---|
-| Architecture, entity/version model, and API boundary | Defined. |
-| MongoDB models and browser-facing API | Phase 1 user, settings, audit, and runtime foundation implemented. Phase 2 domain APIs not started. |
-| Authenticated AI client and background coordination | Web signed client implemented; FastAPI verification remains in AI Phase 1. |
-| Phase 1-6 delivery | Web-owned Phase 1 implementation complete; cross-module Phase 1 gate pending AI implementation and configured-service verification. |
+| Item                                                 | Status                                                                                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Architecture, entity/version model, and API boundary | Defined.                                                                                             |
+| MongoDB models and browser-facing API                | Phase 1 user, settings, audit, and runtime foundation implemented. Phase 2 domain APIs not started.  |
+| Authenticated AI client and background coordination  | Phase 1 signed client implemented and verified against the authenticated FastAPI readiness endpoint. |
+| Phase 1-6 delivery                                   | Web Backend Phase 1 complete; Phases 2-6 not started.                                                |
 
 ## Goal
 
 Provide the secure product API and authoritative relationship graph for P.A.T.C.H. The Next.js backend owns authorization, MongoDB, Cloudflare R2 originals, active document versions, Equipment/Project links, Project maintenance logs, controlled workflows, and audit records. It mediates typed AI calls but never implements extraction, embeddings, Pinecone retrieval, LangGraph, or prompting.
+
+## Setup-guide maintenance
+
+Before marking any backend phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new Web dependency, environment variable, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
 ## Scope and boundaries
 
@@ -38,23 +42,23 @@ Provide the secure product API and authoritative relationship graph for P.A.T.C.
 
 ## Core records
 
-| Record | Required purpose |
-|---|---|
-| `User` | Authenticated identity, profile preferences, and light/dark/system theme setting. |
-| `Equipment` | Installed Equipment with name, type/model, location, operational state, optional user description, generated-description status, and profile reference/status. |
-| `Project` | Required description, included Equipment IDs, Owner/Member workflow, generated profile reference/status, and Project workflow state. |
-| `ProjectMembership`, `MembershipRequest` | Only `OWNER` or `MEMBER`; creation and request/decision history. |
-| `Document` | Logical document identity, title/type, owner/creator, `activeVersionId`, lifecycle state, and stable identity across revisions. |
-| `DocumentVersion` | Immutable revision with R2 object key, checksum, approval/extraction/index status, metadata, source locations, and supersession history. |
-| `EquipmentDocumentLink`, `ProjectDocumentLink` | References `documentId`; default `versionPolicy: LATEST_APPROVED`, optional controlled `PINNED` version. Stores applicability, not copied content. |
-| `EntityRetrievalProfile` | Derived Mongo projection containing profile version, generated summary, coverage/hints, provenance hashes, Pinecone profile ID, freshness state, and refresh timestamps. |
-| `MaintenanceLog` | Project-owned final record with `scopeType: PROJECT | EQUIPMENT`, optional validated `equipmentId`, final user wording, attachments, and citation snapshots. |
-| `ChatSession`, `ChatTurn` | User-owned transcript, `@` assignments, routed entities, evidence state, and immutable citations. |
-| `SafetyProcedure` | Stable Project-owned procedure identity, current published/draft version pointers, generation state, recurrence definition, and next-run scheduling state. |
-| `ProcedureVersion` | Immutable published/superseded definition or mutable pre-publication draft containing ordered stable step IDs, editable titles/instructions, required flags, citation bindings, review-need analysis, source/input fingerprint, and reviewer history. Publishing freezes the version. |
-| `ProcedureRun` | One execution occurrence for one published procedure version and recurrence period, with status, due window/timezone, assignee, notes, and completion/exception audit. |
-| `ProcedureStepCompletion` | Run-scoped step state with stable step ID, checked state, actor/time, note, and exception metadata; never stored on the reusable procedure definition. |
-| `AuditEvent` | Immutable evidence of uploads, activation, links, profile refreshes, membership, logs, questions, and publishing. |
+| Record                                         | Required purpose                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`                                         | Authenticated identity, profile preferences, and light/dark/system theme setting.                                                                                                                                                                                                     |
+| `Equipment`                                    | Installed Equipment with name, type/model, location, operational state, optional user description, generated-description status, and profile reference/status.                                                                                                                        |
+| `Project`                                      | Required description, included Equipment IDs, Owner/Member workflow, generated profile reference/status, and Project workflow state.                                                                                                                                                  |
+| `ProjectMembership`, `MembershipRequest`       | Only `OWNER` or `MEMBER`; creation and request/decision history.                                                                                                                                                                                                                      |
+| `Document`                                     | Logical document identity, title/type, owner/creator, `activeVersionId`, lifecycle state, and stable identity across revisions.                                                                                                                                                       |
+| `DocumentVersion`                              | Immutable revision with R2 object key, checksum, approval/extraction/index status, metadata, source locations, and supersession history.                                                                                                                                              |
+| `EquipmentDocumentLink`, `ProjectDocumentLink` | References `documentId`; default `versionPolicy: LATEST_APPROVED`, optional controlled `PINNED` version. Stores applicability, not copied content.                                                                                                                                    |
+| `EntityRetrievalProfile`                       | Derived Mongo projection containing profile version, generated summary, coverage/hints, provenance hashes, Pinecone profile ID, freshness state, and refresh timestamps.                                                                                                              |
+| `MaintenanceLog`                               | Project-owned final record with `scopeType: PROJECT                                                                                                                                                                                                                                   | EQUIPMENT`, optional validated `equipmentId`, final user wording, attachments, and citation snapshots. |
+| `ChatSession`, `ChatTurn`                      | User-owned transcript, `@` assignments, routed entities, evidence state, and immutable citations.                                                                                                                                                                                     |
+| `SafetyProcedure`                              | Stable Project-owned procedure identity, current published/draft version pointers, generation state, recurrence definition, and next-run scheduling state.                                                                                                                            |
+| `ProcedureVersion`                             | Immutable published/superseded definition or mutable pre-publication draft containing ordered stable step IDs, editable titles/instructions, required flags, citation bindings, review-need analysis, source/input fingerprint, and reviewer history. Publishing freezes the version. |
+| `ProcedureRun`                                 | One execution occurrence for one published procedure version and recurrence period, with status, due window/timezone, assignee, notes, and completion/exception audit.                                                                                                                |
+| `ProcedureStepCompletion`                      | Run-scoped step state with stable step ID, checked state, actor/time, note, and exception metadata; never stored on the reusable procedure definition.                                                                                                                                |
+| `AuditEvent`                                   | Immutable evidence of uploads, activation, links, profile refreshes, membership, logs, questions, and publishing.                                                                                                                                                                     |
 
 ## Document and version invariants
 
@@ -112,7 +116,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 1 - Secure runtime foundation
 
-**Status:** Web implementation complete; cross-module integration pending AI Phase 1 and configured-service verification.
+**Status:** Complete (2026-09-03)
 
 **Goal:** Establish the trusted Web runtime, common API conventions, and AI connection.
 

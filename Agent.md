@@ -53,6 +53,7 @@ ai/                                  # Python FastAPI retrieval and AI service
 13. Project descriptions are mandatory. Equipment descriptions are optional but recommended. AI-generated Equipment/Project retrieval profiles are derived, versioned routing aids and must never replace current MongoDB links, active-version resolution, or source-chunk citations.
 14. Equipment/Project creation may upload documents through the standard ingestion flow or skip the step. The same document manager later supports `ADD_NEW_DOCUMENT` and `ADD_NEW_VERSION`.
 15. For OpenAI, Pinecone, embeddings, retrievers, loaders, rerankers, and similar external AI capabilities, `ai` implementation must prefer maintained LangChain integrations and LangGraph orchestration. Do not use a provider SDK directly in workflow code unless no suitable framework capability exists; isolate and document any such exception in `ai/adapters/` with tests and a migration path.
+16. [Setup_Guide.md](Setup_Guide.md) is the canonical setup and operational verification guide. At the end of every phase, reconcile and test it against the implemented services, environment templates, migrations, contracts, and commands before marking that phase complete.
 
 ## Six-phase synchronization rule
 

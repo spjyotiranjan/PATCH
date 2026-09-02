@@ -2,17 +2,19 @@
 
 The complete environment-variable contract for the initial P.A.T.C.H. implementation is defined in `../.env.example` and `../../ai/.env.example`. Add a new variable only through an approved architecture/configuration change; do not introduce undeclared phase-specific settings.
 
+Follow [Setup_Guide.md](../../Setup_Guide.md) for the complete local setup procedure. Every phase that changes this environment contract must reconcile the guide before it is marked complete.
+
 ## Ownership
 
-| Setting group | Web | AI |
-|---|---|---|
-| Authentication, sessions, MongoDB, project access | Owns | Does not receive |
-| Cloudflare R2 credentials and original-file keys | Owns | Does not receive |
-| R2 pre-signed source URL | Creates per ingestion request | Reads for that request only |
-| Web-to-AI shared secret | Sends authenticated request | Validates request |
-| OpenAI, Pinecone, LangChain/LangGraph | Does not receive | Owns |
-| Entity-profile routing/fallback limits | Does not receive | Owns through committed AI template |
-| Sentry/OTLP configuration | Owns service-specific settings | Owns service-specific settings |
+| Setting group                                     | Web                            | AI                                 |
+| ------------------------------------------------- | ------------------------------ | ---------------------------------- |
+| Authentication, sessions, MongoDB, project access | Owns                           | Does not receive                   |
+| Cloudflare R2 credentials and original-file keys  | Owns                           | Does not receive                   |
+| R2 pre-signed source URL                          | Creates per ingestion request  | Reads for that request only        |
+| Web-to-AI shared secret                           | Sends authenticated request    | Validates request                  |
+| OpenAI, Pinecone, LangChain/LangGraph             | Does not receive               | Owns                               |
+| Entity-profile routing/fallback limits            | Does not receive               | Owns through committed AI template |
+| Sentry/OTLP configuration                         | Owns service-specific settings | Owns service-specific settings     |
 
 ## Authentication policy
 
@@ -35,7 +37,7 @@ The complete environment-variable contract for the initial P.A.T.C.H. implementa
 - Rotate `AI_SERVICE_SHARED_SECRET`, R2 keys, OpenAI keys, and Pinecone keys through the deployment secret manager; never place real values in either example file.
 - `.gitignore` permits the committed templates and excludes real Web/AI environment files.
 - Startup validation must fail with a clear error when a required non-optional setting is missing or malformed.
-- Public health and readiness responses expose only `service` and `status`. They never reveal environment-variable names, secret values, dependency names, or connection diagnostics. Server console output may identify unavailable services by safe service name only.
+- Public Web health/readiness and AI liveness responses expose only `service` and `status`. AI readiness is service-authenticated. None reveal environment-variable names, secret values, dependency names, or connection diagnostics. Server console output may identify unavailable services by safe service name only.
 
 ## Database initialization
 
