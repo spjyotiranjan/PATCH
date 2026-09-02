@@ -6,6 +6,25 @@ The browser calls only Next.js routes. Next.js authenticates/authorizes, owns Mo
 
 Every service request includes `requestId`, `contractVersion`, service authentication, and sufficient immutable identifiers for idempotency. Contract-breaking changes require a versioned route or compatible optional-field evolution.
 
+## Service authentication and correlation
+
+Web signs every FastAPI request on the server. The browser never receives the shared secret and must never call FastAPI directly.
+
+| Header | Value |
+|---|---|
+| `x-patch-contract-version` | `v1` |
+| `x-patch-request-id` | One UUID per service request. |
+| `x-patch-timestamp` | Unix timestamp in seconds. |
+| `x-patch-signature` | `v1=<hex-hmac-sha256>` using `AI_SERVICE_SHARED_SECRET`. |
+
+For `v1`, Web signs the UTF-8 canonical string below. `bodySha256` is the lowercase SHA-256 hex digest of the exact request body, or of the empty string when no body is sent.
+
+```text
+v1.<timestamp>.<requestId>.<UPPERCASE_METHOD>.<url-pathname>.<bodySha256>
+```
+
+FastAPI rejects missing/invalid signatures, unsupported contract versions, duplicate/replayed request IDs, and timestamps outside `AI_SERVICE_REQUEST_MAX_SKEW_SECONDS`. It must propagate `requestId` in structured logs and responses where the endpoint schema permits it. Web applies `AI_SERVICE_TIMEOUT_MS` to every service request and exposes only typed unavailable states to browser callers.
+
 ## Web-owned browser resources
 
 | Resource/route | Required behavior |
@@ -23,6 +42,31 @@ Every service request includes `requestId`, `contractVersion`, service authentic
 | `/procedure-runs/:runId/steps/:stepId/completion` | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run. |
 | Chat/session routes | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access. |
 | Settings routes | Read/update profile fields and `theme: LIGHT | DARK | SYSTEM`. |
+| `POST /api/auth/signup` | Creates a first-party email/password account from `name`, `email`, `password`, and `confirmPassword`. It never accepts or exposes social-provider data. |
+
+## First-party account sign-up
+
+P.A.T.C.H. does not support social sign-in. The sign-up request is intentionally small:
+
+```json
+{
+  "name": "Technician name",
+  "email": "technician@example.com",
+  "password": "user-selected-password",
+  "confirmPassword": "user-selected-password"
+}
+```
+
+Web validates the confirmation, normalizes the email, stores only a salted password hash, and returns the non-sensitive user identity. Password, confirmation, and password hash are never returned or added to audit/log context.
+
+## Browser API conventions
+
+- Protected browser APIs resolve the Auth.js server session and derive `{ userId, tenantId }`; client-supplied identity or role headers are never trusted.
+- A valid incoming `x-request-id` UUID is preserved; otherwise Web generates one. The response includes the same ID and structured server logs use it for correlation.
+- Errors use `{ "error": { "code": "STABLE_CODE" }, "requestId": "uuid" }`. Unexpected exception messages and configuration details are never returned.
+- JSON request bodies are schema-validated before business logic. Mutations persist an `AuditEvent` with the actor, request ID, action, timestamp, and non-sensitive context.
+- `GET /api/settings` returns the authenticated user's editable profile/preferences. `PATCH /api/settings` accepts `name` and/or `theme: LIGHT | DARK | SYSTEM`; email is read-only through this endpoint.
+- Health and readiness are operational exceptions: their bodies contain only Web service identity and aggregate availability and do not disclose individual dependencies.
 
 ## Logical document composition
 

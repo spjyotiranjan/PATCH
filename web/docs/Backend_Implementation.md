@@ -5,9 +5,9 @@
 | Item | Status |
 |---|---|
 | Architecture, entity/version model, and API boundary | Defined. |
-| MongoDB models and browser-facing API | Not started. |
-| Authenticated AI client and background coordination | Not started. |
-| Phase 1-6 delivery | Planned; update only with tested implementation evidence. |
+| MongoDB models and browser-facing API | Phase 1 user, settings, audit, and runtime foundation implemented. Phase 2 domain APIs not started. |
+| Authenticated AI client and background coordination | Web signed client implemented; FastAPI verification remains in AI Phase 1. |
+| Phase 1-6 delivery | Web-owned Phase 1 implementation complete; cross-module Phase 1 gate pending AI implementation and configured-service verification. |
 
 ## Goal
 
@@ -19,6 +19,22 @@ Provide the secure product API and authoritative relationship graph for P.A.T.C.
 - `web` is the only caller of FastAPI. Browser code never receives the AI service secret or direct Pinecone/OpenAI access.
 - `ai` owns extraction/OCR, source and profile embeddings, Pinecone operations, hierarchical retrieval, reranking, LangGraph flows, evidence grading, citations, answer generation, and AI drafts.
 - MongoDB is authoritative. Pinecone contains rebuildable derived vectors: `SOURCE_CHUNK` and `ENTITY_PROFILE` (and optionally approved `MAINTENANCE_LOG` records). A Pinecone ID is never used as a relational join.
+
+## Authentication
+
+- P.A.T.C.H. uses first-party email/password authentication only. Do not add Google, GitHub, Microsoft, or any other social/OAuth provider.
+- Sign-up accepts exactly `name`, `email`, `password`, and `confirmPassword`. The confirmation is validated at the API boundary and is never stored.
+- Email addresses are normalized to lowercase and unique. Passwords are stored only as versioned, salted scrypt hashes; plaintext passwords, password confirmations, and password hashes never appear in browser responses, audit context, or logs.
+- Auth.js uses its credentials provider with JWT sessions. The credentials provider verifies the password against the MongoDB `User` record; it is not a social-login fallback.
+- Authentication establishes identity only. Project authorization still uses the explicit `OWNER` and `MEMBER` membership rules.
+
+## Phase 1 runtime conventions
+
+- Protected browser routes use the shared authenticated route wrapper, which resolves the server session, derives the actor, validates request data, assigns/preserves a correlation ID, emits structured redacted logs, and returns stable error codes.
+- The idempotent `0001_phase_one_foundation` database migration creates the unique normalized-email index and audit timeline indexes, then records itself in `schemaMigrations`. It is safe to retry after failure and once per database/process during normal runtime.
+- There is deliberately no production user seed. The first and subsequent accounts use the audited email/password sign-up route. Test fixtures remain test-only.
+- `GET /api/settings` and `PATCH /api/settings` own the authenticated user's name and `LIGHT | DARK | SYSTEM` theme preference; email remains read-only.
+- Public health/readiness bodies expose aggregate Web availability only. Detailed logs contain safe service names and correlation metadata, never environment-variable names or values.
 
 ## Core records
 
@@ -96,13 +112,13 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 1 - Secure runtime foundation
 
-**Status:** Not started
+**Status:** Web implementation complete; cross-module integration pending AI Phase 1 and configured-service verification.
 
 **Goal:** Establish the trusted Web runtime, common API conventions, and AI connection.
 
-**Prerequisites:** Environment contract, auth provider, MongoDB/R2 environments, service-auth design, contract version, and correlation-ID policy.
+**Prerequisites:** Environment contract, email/password credential provider, MongoDB/R2 environments, service-auth design, contract version, and correlation-ID policy.
 
-**Deliverables:** Environment/schema validation; MongoDB/R2 checks; migrations/seeding approach; auth/session middleware; role/permission helpers; profile/theme preferences; structured logs/audits; health route; authenticated timeout-bounded OpenAPI client.
+**Deliverables:** Environment/schema validation; MongoDB/R2 checks; idempotent migration/no-production-seed approach; email/password auth and server-session middleware; role/permission helpers; profile/theme preference APIs; structured redacted logs and persisted audits; aggregate health/readiness routes; authenticated timeout/retry-bounded OpenAPI client.
 
 **Exit criteria:** Signed-in Web connects to MongoDB/R2 and AI readiness without exposing private secrets; browser APIs consistently authenticate, authorize, validate, and audit.
 
