@@ -6,15 +6,15 @@ Follow [Setup_Guide.md](../../Setup_Guide.md) for the complete local setup proce
 
 ## Ownership
 
-| Setting group                                     | Web                            | AI                                 |
-| ------------------------------------------------- | ------------------------------ | ---------------------------------- |
-| Authentication, sessions, MongoDB, project access | Owns                           | Does not receive                   |
-| Cloudflare R2 credentials and original-file keys  | Owns                           | Does not receive                   |
-| R2 pre-signed source URL                          | Creates per ingestion request  | Reads for that request only        |
-| Web-to-AI shared secret                           | Sends authenticated request    | Validates request                  |
-| OpenAI, Pinecone, LangChain/LangGraph             | Does not receive               | Owns                               |
-| Entity-profile routing/fallback limits            | Does not receive               | Owns through committed AI template |
-| Sentry/OTLP configuration                         | Owns service-specific settings | Owns service-specific settings     |
+| Setting group                                            | Web                            | AI                                 |
+| -------------------------------------------------------- | ------------------------------ | ---------------------------------- |
+| Authentication, sessions, hosted MongoDB, project access | Owns                           | Does not receive                   |
+| Cloudflare R2 credentials and original-file keys         | Owns                           | Does not receive                   |
+| R2 pre-signed source URL                                 | Creates per ingestion request  | Reads for that request only        |
+| Web-to-AI shared secret                                  | Sends authenticated request    | Validates request                  |
+| OpenAI, Pinecone, LangChain/LangGraph                    | Does not receive               | Owns                               |
+| Entity-profile routing/fallback limits                   | Does not receive               | Owns through committed AI template |
+| Sentry/OTLP configuration                                | Owns service-specific settings | Owns service-specific settings     |
 
 ## Authentication policy
 
@@ -41,6 +41,7 @@ Follow [Setup_Guide.md](../../Setup_Guide.md) for the complete local setup proce
 
 ## Database initialization
 
-- Web applies the idempotent Phase 1 foundation migration before user/authenticated-settings data access. Applied migration IDs are recorded in MongoDB `schemaMigrations`.
+- `MONGODB_URI` must be a private hosted `mongodb+srv://` connection string. Local MongoDB URIs are rejected, and the hosted deployment must support multi-document transactions.
+- Web applies the idempotent Phase 1 foundation migration and Phase 2 Equipment/Project/access migration before database-backed API access. Applied migration IDs are recorded in MongoDB `schemaMigrations`.
 - Production and staging have no seeded user credentials. Accounts are created only through the audited sign-up API. Automated-test fixtures must never be promoted into another environment.
 - Hierarchical routing uses the committed `ENTITY_PROFILE_*` and `STRUCTURAL_FALLBACK_*` limits in `ai/.env.example`; do not add phase-local hidden tuning variables. `MAINTENANCE_LOG_INDEXING_ENABLED` remains false until the Project-log evidence policy and evaluation gate approve it.

@@ -2,12 +2,12 @@
 
 ## Delivery status
 
-| Item                                                                         | Status                                                                                                                               |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                             |
-| FastAPI/Pydantic contract implementation                                     | Phase 1 complete: authenticated service, exported OpenAPI, generated Web types, deterministic stubs, and cross-service verification. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Not started.                                                                                                                         |
-| Evaluation and production readiness                                          | Not started.                                                                                                                         |
+| Item                                                                         | Status                                                                                                                             |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                           |
+| FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs. |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phase 2 validation/profile contracts complete; provider-backed Phase 3 workflows not started.                                      |
+| Evaluation and production readiness                                          | Not started.                                                                                                                       |
 
 ## Goal
 
@@ -132,7 +132,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 2 - Scope and profile schema
 
-**Status:** Not started
+**Status:** Complete (2026-09-04)
 
 **Goal:** Validate entity/profile/version scope before Pinecone access.
 

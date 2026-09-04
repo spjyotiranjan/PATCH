@@ -180,7 +180,13 @@ export interface components {
       /** Documentversionid */
       documentVersionId: string;
       /** Inclusionpaths */
-      inclusionPaths: string[];
+      inclusionPaths: (
+        | "PERSONAL"
+        | "PROJECT_DIRECT"
+        | "EQUIPMENT_DERIVED"
+        | "PROJECT_PROCEDURE"
+        | "PROJECT_LOG"
+      )[];
       /** Sourceentityids */
       sourceEntityIds?: string[];
     };
@@ -306,20 +312,30 @@ export interface components {
        */
       contractVersion: "v1";
       entity: components["schemas"]["EntityProfileInput"];
+      /** Inputfingerprint */
+      inputFingerprint: string;
       /**
        * Requestid
        * Format: uuid
        */
       requestId: string;
+      /** Tenantid */
+      tenantId: string;
     };
     /** EntityProfileResult */
     EntityProfileResult: {
+      /** Capabilities */
+      capabilities?: string[];
+      /** Components */
+      components?: string[];
       /** Coverage */
       coverage?: components["schemas"]["ProfileCoverage"][];
       /** Entityid */
       entityId: string;
       /** Errors */
       errors?: components["schemas"]["ServiceError"][];
+      /** Failuremodes */
+      failureModes?: string[];
       /** Generateddescription */
       generatedDescription: string;
       /** Profilefingerprint */
@@ -328,16 +344,21 @@ export interface components {
       profileId: string;
       /** Profileversion */
       profileVersion: number;
+      provenance: components["schemas"]["ProfileProvenance"];
       /**
        * Requestid
        * Format: uuid
        */
       requestId: string;
+      /** Searchhints */
+      searchHints?: string[];
       /**
        * Status
        * @enum {string}
        */
       status: "upserted" | "failed";
+      /** Systems */
+      systems?: string[];
     };
     /** ErrorDetail */
     ErrorDetail: {
@@ -657,6 +678,17 @@ export interface components {
       documentVersionIds: string[];
       /** Topic */
       topic: string;
+    };
+    /** ProfileProvenance */
+    ProfileProvenance: {
+      /** Documentversionids */
+      documentVersionIds?: string[];
+      /** Includedequipmentprofilefingerprints */
+      includedEquipmentProfileFingerprints?: string[];
+      /** Inputfingerprint */
+      inputFingerprint: string;
+      /** Tenantid */
+      tenantId: string;
     };
     /** QuestionRequest */
     QuestionRequest: {

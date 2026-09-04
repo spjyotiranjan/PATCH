@@ -32,7 +32,17 @@ export const serverConfigSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  MONGODB_URI: z.string().url(),
+  MONGODB_URI: z
+    .string()
+    .trim()
+    .startsWith(
+      "mongodb+srv://",
+      "must be a hosted MongoDB SRV connection string",
+    )
+    .refine(
+      (value) => !value.includes("replace-with-"),
+      "must not use the example placeholder",
+    ),
   MONGODB_DB_NAME: requiredText,
   AI_SERVICE_BASE_URL: z.string().url(),
   AI_SERVICE_SHARED_SECRET: nonPlaceholderSecret,
@@ -88,9 +98,7 @@ export type ConfigValidation =
     };
 
 function isMissingOrPlaceholder(value: string | undefined): boolean {
-  return (
-    !value || value.trim().length === 0 || value.startsWith("replace-with-")
-  );
+  return !value || value.trim().length === 0 || value.includes("replace-with-");
 }
 
 export function validateServerConfig(

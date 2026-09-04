@@ -65,12 +65,14 @@ def test_index_and_profile_stubs_return_contract_valid_failures(client: TestClie
         sourceFile=SOURCE_FILE,
     )
     profile_payload = contract_request(
+        tenantId="tenant-1",
+        inputFingerprint="b" * 64,
         entity={
             "type": "EQUIPMENT",
             "id": "equipment-1",
             "profileVersion": 1,
             "activeDocuments": [],
-        }
+        },
     )
 
     index_response = post(client, "/v1/ingestions/index", index_payload)
@@ -80,8 +82,9 @@ def test_index_and_profile_stubs_return_contract_valid_failures(client: TestClie
     assert index_response.json()["status"] == "failed"
     assert index_response.json()["chunkCount"] == 0
     assert profile_response.status_code == 200
-    assert profile_response.json()["status"] == "failed"
-    assert profile_response.json()["profileFingerprint"]
+    assert profile_response.json()["status"] == "upserted"
+    assert profile_response.json()["profileFingerprint"] == "b" * 64
+    assert profile_response.json()["provenance"]["tenantId"] == "tenant-1"
 
 
 def test_question_stub_returns_no_unsupported_answer_or_citations(client: TestClient) -> None:

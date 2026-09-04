@@ -23,13 +23,13 @@ from patch_ai.schemas.contracts import (
     ReadinessStatus,
 )
 from patch_ai.services.phase_one_stubs import (
-    entity_profile_stub,
     extract_stub,
     index_stub,
     log_draft_stub,
     procedure_draft_stub,
     question_stub,
 )
+from patch_ai.services.phase_two_profiles import generate_profile_stub
 
 router = APIRouter()
 
@@ -96,7 +96,7 @@ async def index_document(request: IndexRequest) -> IndexResult:
     tags=["entity-profiles"],
 )
 async def upsert_entity_profile(request: EntityProfileRequest) -> EntityProfileResult:
-    return entity_profile_stub(request)
+    return generate_profile_stub(request)
 
 
 @router.post(

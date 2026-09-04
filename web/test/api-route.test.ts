@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { publicApiRoute } from "../lib/api/route";
+import { DomainError } from "../lib/domain/errors";
 
 describe("API route conventions", () => {
   it("accepts a valid correlation ID and returns it on the response", async () => {
@@ -34,5 +35,33 @@ describe("API route conventions", () => {
     expect(response.status).toBe(500);
     expect(body.error).toEqual({ code: "INTERNAL_ERROR" });
     expect(JSON.stringify(body)).not.toContain("database connection string");
+  });
+
+  it("resolves dynamic route parameters for wrapped handlers", async () => {
+    const route = publicApiRoute<{ equipmentId: string }>(
+      async (_request, { params }) => Response.json(params),
+    );
+
+    const response = await route(
+      new Request("http://localhost/api/equipments/equipment-1"),
+      { params: Promise.resolve({ equipmentId: "equipment-1" }) },
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      equipmentId: "equipment-1",
+    });
+  });
+
+  it("maps domain authorization failures to stable errors", async () => {
+    const route = publicApiRoute(async () => {
+      throw new DomainError(403, "EQUIPMENT_OWNER_REQUIRED");
+    });
+
+    const response = await route(new Request("http://localhost/api/example"));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "EQUIPMENT_OWNER_REQUIRED" },
+    });
   });
 });

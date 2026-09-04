@@ -66,4 +66,30 @@ describe("AI service authentication", () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
   });
+
+  it("signs a typed request with the requestId from its JSON body", async () => {
+    const requestId = "c5a876a0-cd09-4a2d-846d-cc6b75df7f2d";
+    const mockFetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(input, init);
+        expect(request.headers.get(AI_REQUEST_ID_HEADER)).toBe(requestId);
+        return new Response(JSON.stringify({ status: "upserted" }));
+      },
+    );
+    const authenticatedFetch = createAuthenticatedAiFetch(
+      clientConfig,
+      mockFetch as unknown as typeof fetch,
+    );
+
+    await authenticatedFetch(
+      "http://localhost:8000/v1/entity-profiles/upsert",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestId }),
+      },
+    );
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
 });

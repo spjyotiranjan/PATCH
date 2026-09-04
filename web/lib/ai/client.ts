@@ -26,6 +26,30 @@ export class AiServiceError extends Error {
 
 export type FetchImplementation = typeof fetch;
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function contractRequestId(body: string): string | undefined {
+  if (!body) {
+    return undefined;
+  }
+  try {
+    const payload: unknown = JSON.parse(body);
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "requestId" in payload &&
+      typeof payload.requestId === "string" &&
+      UUID_PATTERN.test(payload.requestId)
+    ) {
+      return payload.requestId;
+    }
+  } catch {
+    // Non-JSON payloads still receive an independently generated request ID.
+  }
+  return undefined;
+}
+
 export function createAuthenticatedAiFetch(
   config: Pick<
     ServerConfig,
@@ -38,6 +62,7 @@ export function createAuthenticatedAiFetch(
   return async (input, init) => {
     const request = new Request(input, init);
     const body = await request.clone().text();
+    const bodyRequestId = contractRequestId(body);
     let lastError: unknown;
 
     for (
@@ -50,6 +75,7 @@ export function createAuthenticatedAiFetch(
         method: request.method,
         pathname: new URL(request.url).pathname,
         body,
+        requestId: bodyRequestId,
       });
       const headers = new Headers(request.headers);
 

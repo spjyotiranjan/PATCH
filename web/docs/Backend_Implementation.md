@@ -2,12 +2,12 @@
 
 ## Delivery status
 
-| Item                                                 | Status                                                                                               |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Architecture, entity/version model, and API boundary | Defined.                                                                                             |
-| MongoDB models and browser-facing API                | Phase 1 user, settings, audit, and runtime foundation implemented. Phase 2 domain APIs not started.  |
-| Authenticated AI client and background coordination  | Phase 1 signed client implemented and verified against the authenticated FastAPI readiness endpoint. |
-| Phase 1-6 delivery                                   | Web Backend Phase 1 complete; Phases 2-6 not started.                                                |
+| Item                                                 | Status                                                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Architecture, entity/version model, and API boundary | Defined.                                                                                              |
+| MongoDB models and browser-facing API                | Phases 1-2 complete: runtime, Equipment/Project CRUD, scoped access requests, membership, and audits. |
+| Authenticated AI client and background coordination  | Phase 1 signed client implemented and verified against the authenticated FastAPI readiness endpoint.  |
+| Phase 1-6 delivery                                   | Web Backend Phases 1-2 complete; Phases 3-6 not started.                                              |
 
 ## Goal
 
@@ -19,7 +19,7 @@ Before marking any backend phase complete, reconcile and run the applicable inst
 
 ## Scope and boundaries
 
-- `web` owns browser-facing routes, authentication/session handling, Project Owner/Member authorization, Equipment/Project records, MongoDB persistence, private R2 lifecycle, logical documents and immutable versions, entity links, active-version switching, Project maintenance logs, procedures, citations, and audits.
+- `web` owns browser-facing routes, authentication/session handling, Equipment owner/manage-access and Project Owner/Member authorization, Equipment/Project records, MongoDB persistence, private R2 lifecycle, logical documents and immutable versions, entity links, active-version switching, Project maintenance logs, procedures, citations, and audits.
 - `web` is the only caller of FastAPI. Browser code never receives the AI service secret or direct Pinecone/OpenAI access.
 - `ai` owns extraction/OCR, source and profile embeddings, Pinecone operations, hierarchical retrieval, reranking, LangGraph flows, evidence grading, citations, answer generation, and AI drafts.
 - MongoDB is authoritative. Pinecone contains rebuildable derived vectors: `SOURCE_CHUNK` and `ENTITY_PROFILE` (and optionally approved `MAINTENANCE_LOG` records). A Pinecone ID is never used as a relational join.
@@ -30,7 +30,7 @@ Before marking any backend phase complete, reconcile and run the applicable inst
 - Sign-up accepts exactly `name`, `email`, `password`, and `confirmPassword`. The confirmation is validated at the API boundary and is never stored.
 - Email addresses are normalized to lowercase and unique. Passwords are stored only as versioned, salted scrypt hashes; plaintext passwords, password confirmations, and password hashes never appear in browser responses, audit context, or logs.
 - Auth.js uses its credentials provider with JWT sessions. The credentials provider verifies the password against the MongoDB `User` record; it is not a social-login fallback.
-- Authentication establishes identity only. Project authorization still uses the explicit `OWNER` and `MEMBER` membership rules.
+- Authentication establishes identity only. Project authorization uses explicit `OWNER` and `MEMBER` membership rules. Equipment authorization uses its creator as owner plus owner-approved Equipment-scoped manage access; it never grants or changes Project membership.
 
 ## Phase 1 runtime conventions
 
@@ -42,23 +42,24 @@ Before marking any backend phase complete, reconcile and run the applicable inst
 
 ## Core records
 
-| Record                                         | Required purpose                                                                                                                                                                                                                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `User`                                         | Authenticated identity, profile preferences, and light/dark/system theme setting.                                                                                                                                                                                                     |
-| `Equipment`                                    | Installed Equipment with name, type/model, location, operational state, optional user description, generated-description status, and profile reference/status.                                                                                                                        |
-| `Project`                                      | Required description, included Equipment IDs, Owner/Member workflow, generated profile reference/status, and Project workflow state.                                                                                                                                                  |
-| `ProjectMembership`, `MembershipRequest`       | Only `OWNER` or `MEMBER`; creation and request/decision history.                                                                                                                                                                                                                      |
-| `Document`                                     | Logical document identity, title/type, owner/creator, `activeVersionId`, lifecycle state, and stable identity across revisions.                                                                                                                                                       |
-| `DocumentVersion`                              | Immutable revision with R2 object key, checksum, approval/extraction/index status, metadata, source locations, and supersession history.                                                                                                                                              |
-| `EquipmentDocumentLink`, `ProjectDocumentLink` | References `documentId`; default `versionPolicy: LATEST_APPROVED`, optional controlled `PINNED` version. Stores applicability, not copied content.                                                                                                                                    |
-| `EntityRetrievalProfile`                       | Derived Mongo projection containing profile version, generated summary, coverage/hints, provenance hashes, Pinecone profile ID, freshness state, and refresh timestamps.                                                                                                              |
-| `MaintenanceLog`                               | Project-owned final record with `scopeType: PROJECT                                                                                                                                                                                                                                   | EQUIPMENT`, optional validated `equipmentId`, final user wording, attachments, and citation snapshots. |
-| `ChatSession`, `ChatTurn`                      | User-owned transcript, `@` assignments, routed entities, evidence state, and immutable citations.                                                                                                                                                                                     |
-| `SafetyProcedure`                              | Stable Project-owned procedure identity, current published/draft version pointers, generation state, recurrence definition, and next-run scheduling state.                                                                                                                            |
-| `ProcedureVersion`                             | Immutable published/superseded definition or mutable pre-publication draft containing ordered stable step IDs, editable titles/instructions, required flags, citation bindings, review-need analysis, source/input fingerprint, and reviewer history. Publishing freezes the version. |
-| `ProcedureRun`                                 | One execution occurrence for one published procedure version and recurrence period, with status, due window/timezone, assignee, notes, and completion/exception audit.                                                                                                                |
-| `ProcedureStepCompletion`                      | Run-scoped step state with stable step ID, checked state, actor/time, note, and exception metadata; never stored on the reusable procedure definition.                                                                                                                                |
-| `AuditEvent`                                   | Immutable evidence of uploads, activation, links, profile refreshes, membership, logs, questions, and publishing.                                                                                                                                                                     |
+| Record                                            | Required purpose                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `User`                                            | Authenticated identity, profile preferences, and light/dark/system theme setting.                                                                                                                                                                                                     |
+| `Equipment`                                       | Installed Equipment with creator/owner, name, type/model, location, operational state, optional user description, generated-description status, and profile reference/status.                                                                                                         |
+| `EquipmentManageAccess`, `EquipmentAccessRequest` | Owner-approved Equipment-scoped mutation grant and request/decision history. An approved grant permits mutation only; it cannot approve requests or grant Project access.                                                                                                             |
+| `Project`                                         | Required description, included Equipment IDs, Owner/Member workflow, generated profile reference/status, and Project workflow state.                                                                                                                                                  |
+| `ProjectMembership`, `MembershipRequest`          | Only `OWNER` or `MEMBER`; creation and request/decision history.                                                                                                                                                                                                                      |
+| `Document`                                        | Logical document identity, title/type, owner/creator, `activeVersionId`, lifecycle state, and stable identity across revisions.                                                                                                                                                       |
+| `DocumentVersion`                                 | Immutable revision with R2 object key, checksum, approval/extraction/index status, metadata, source locations, and supersession history.                                                                                                                                              |
+| `EquipmentDocumentLink`, `ProjectDocumentLink`    | References `documentId`; default `versionPolicy: LATEST_APPROVED`, optional controlled `PINNED` version. Stores applicability, not copied content.                                                                                                                                    |
+| `EntityRetrievalProfile`                          | Derived Mongo projection containing profile version, generated summary, coverage/hints, provenance hashes, Pinecone profile ID, freshness state, and refresh timestamps.                                                                                                              |
+| `MaintenanceLog`                                  | Project-owned final record with `scopeType: PROJECT                                                                                                                                                                                                                                   | EQUIPMENT`, optional validated `equipmentId`, final user wording, attachments, and citation snapshots. |
+| `ChatSession`, `ChatTurn`                         | User-owned transcript, `@` assignments, routed entities, evidence state, and immutable citations.                                                                                                                                                                                     |
+| `SafetyProcedure`                                 | Stable Project-owned procedure identity, current published/draft version pointers, generation state, recurrence definition, and next-run scheduling state.                                                                                                                            |
+| `ProcedureVersion`                                | Immutable published/superseded definition or mutable pre-publication draft containing ordered stable step IDs, editable titles/instructions, required flags, citation bindings, review-need analysis, source/input fingerprint, and reviewer history. Publishing freezes the version. |
+| `ProcedureRun`                                    | One execution occurrence for one published procedure version and recurrence period, with status, due window/timezone, assignee, notes, and completion/exception audit.                                                                                                                |
+| `ProcedureStepCompletion`                         | Run-scoped step state with stable step ID, checked state, actor/time, note, and exception metadata; never stored on the reusable procedure definition.                                                                                                                                |
+| `AuditEvent`                                      | Immutable evidence of uploads, activation, links, profile refreshes, membership, logs, questions, and publishing.                                                                                                                                                                     |
 
 ## Document and version invariants
 
@@ -128,15 +129,15 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 2 - Equipment, Project, and access APIs
 
-**Status:** Not started
+**Status:** Complete (2026-09-04)
 
 **Goal:** Make Equipment/Project identity, description rules, membership, and relationships authoritative.
 
-**Prerequisites:** Phase 1 runtime; accepted Equipment mutation policy; accepted Project role and discovery rules.
+**Prerequisites:** Phase 1 runtime; Equipment owner/manage-access policy; accepted Project role and discovery rules.
 
-**Deliverables:** `/equipments` CRUD with optional description; `/projects` CRUD with mandatory description; Project Equipment selection; atomic creator `OWNER`; project discovery and request/decision APIs; selected-entity validation; optional/skip document-step state; audits.
+**Deliverables:** `/equipments` CRUD with optional description; creator ownership; request-safe Equipment discovery; Equipment manage-access request/owner decision APIs; `/projects` CRUD with mandatory description; Project Equipment selection; atomic creator `OWNER`; Project discovery and request/decision APIs; selected-entity validation; optional/skip document-step state; an idempotently indexed initial `WAITING_FOR_SOURCES` procedure-generation request; audits.
 
-**Exit criteria:** Project description is enforced server-side; Equipment description may be absent; creator is the initial Owner; non-members cannot read Project content; Project membership of each Equipment is queryable without copied document data.
+**Exit criteria:** Project description is enforced server-side; Equipment description may be absent; Equipment creator is owner and only the owner or an owner-approved manager can mutate it; creator is the initial Project Owner; non-members cannot read Project content; Project membership of each Equipment is queryable without copied document data.
 
 ### Phase 3 - Document lifecycle, activation, and profile coordination
 

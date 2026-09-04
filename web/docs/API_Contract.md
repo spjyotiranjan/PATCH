@@ -25,26 +25,27 @@ For `v1`, Web signs the UTF-8 canonical string below. `bodySha256` is the lowerc
 v1.<timestamp>.<requestId>.<UPPERCASE_METHOD>.<url-pathname>.<bodySha256>
 ```
 
-FastAPI rejects missing/invalid signatures, unsupported contract versions, duplicate/replayed request IDs, and timestamps outside `AI_SERVICE_REQUEST_MAX_SKEW_SECONDS`. It must propagate `requestId` in structured logs and responses where the endpoint schema permits it. Web applies `AI_SERVICE_TIMEOUT_MS` to every service request and exposes only typed unavailable states to browser callers.
+FastAPI rejects missing/invalid signatures, unsupported contract versions, duplicate/replayed request IDs, and timestamps outside `AI_SERVICE_REQUEST_MAX_SKEW_SECONDS`. For JSON contract requests, the signed `x-patch-request-id` must equal the body `requestId`; the Web signer derives the header from that body field. FastAPI must propagate `requestId` in structured logs and responses where the endpoint schema permits it. Web applies `AI_SERVICE_TIMEOUT_MS` to every service request and exposes only typed unavailable states to browser callers.
 
 ## Web-owned browser resources
 
-| Resource/route                                          | Required behavior                                                                                                                                                                         |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /equipments`                                      | Creates Equipment with optional description and `documentsMode: ADD_NOW                                                                                                                   | SKIP_FOR_NOW`. |
-| `POST /projects`                                        | Requires description; creates included Equipment links and one active creator `OWNER` transactionally; supports optional document step.                                                   |
-| Project membership routes                               | Discover/request/Owner approve-or-reject; only `OWNER` and `MEMBER`.                                                                                                                      |
-| Equipment/Project document routes                       | List composed documents, add new logical document, add immutable version, link/unlink, review, approve, and inspect indexing/profile state.                                               |
-| `POST /documents/:documentId/versions`                  | Creates a new immutable version; never overwrites the active version.                                                                                                                     |
-| `POST /document-versions/:versionId/activate`           | Internal/authorized transition after successful approval and indexing; atomically updates logical `activeVersionId`.                                                                      |
-| `/projects/:projectId/maintenance-logs`                 | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`.                                                                                                                 |
-| `/projects/:projectId/procedures`                       | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`. |
-| `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history.                                            |
-| `/projects/:projectId/procedures/:procedureId/runs`     | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone.                                          |
-| `/procedure-runs/:runId/steps/:stepId/completion`       | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run.                                                         |
-| Chat/session routes                                     | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access.                                                                                 |
-| Settings routes                                         | Read/update profile fields and `theme: LIGHT                                                                                                                                              | DARK           | SYSTEM`. |
-| `POST /api/auth/signup`                                 | Creates a first-party email/password account from `name`, `email`, `password`, and `confirmPassword`. It never accepts or exposes social-provider data.                                   |
+| Resource/route                                          | Required behavior                                                                                                                                                                                                                                             |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /equipments`                                      | Creates Equipment with optional description and `documentsMode: ADD_NOW                                                                                                                                                                                       | SKIP_FOR_NOW`. |
+| Equipment manage-access routes                          | An authenticated user requests Equipment manage access. Only that Equipment's creator/owner can approve or reject the request. An approved grant allows mutation of that Equipment only; it grants no Project membership and cannot approve further requests. |
+| `POST /projects`                                        | Requires description; creates included Equipment links and one active creator `OWNER` transactionally; supports optional document step.                                                                                                                       |
+| Project membership routes                               | Discover/request/Owner approve-or-reject; only `OWNER` and `MEMBER`.                                                                                                                                                                                          |
+| Equipment/Project document routes                       | List composed documents, add new logical document, add immutable version, link/unlink, review, approve, and inspect indexing/profile state.                                                                                                                   |
+| `POST /documents/:documentId/versions`                  | Creates a new immutable version; never overwrites the active version.                                                                                                                                                                                         |
+| `POST /document-versions/:versionId/activate`           | Internal/authorized transition after successful approval and indexing; atomically updates logical `activeVersionId`.                                                                                                                                          |
+| `/projects/:projectId/maintenance-logs`                 | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`.                                                                                                                                                                                     |
+| `/projects/:projectId/procedures`                       | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`.                                                                     |
+| `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history.                                                                                                                |
+| `/projects/:projectId/procedures/:procedureId/runs`     | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone.                                                                                                              |
+| `/procedure-runs/:runId/steps/:stepId/completion`       | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run.                                                                                                                             |
+| Chat/session routes                                     | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access.                                                                                                                                                     |
+| Settings routes                                         | Read/update profile fields and `theme: LIGHT                                                                                                                                                                                                                  | DARK           | SYSTEM`. |
+| `POST /api/auth/signup`                                 | Creates a first-party email/password account from `name`, `email`, `password`, and `confirmPassword`. It never accepts or exposes social-provider data.                                                                                                       |
 
 ## First-party account sign-up
 
@@ -60,6 +61,41 @@ P.A.T.C.H. does not support social sign-in. The sign-up request is intentionally
 ```
 
 Web validates the confirmation, normalizes the email, stores only a salted password hash, and returns the non-sensitive user identity. Password, confirmation, and password hash are never returned or added to audit/log context.
+
+## Phase 2 Equipment, Project, and access contract
+
+All routes below are authenticated, tenant-scoped, return the standard correlation header/error envelope, and persist an audit event for every mutation or access decision. Identifiers are MongoDB ObjectId strings. List responses use `{ "items": [...] }`; discovery never returns private Project content.
+
+### Equipment resources
+
+- `GET /api/equipments` lists Equipment owned by the actor or covered by an active manage-access grant.
+- `POST /api/equipments` creates an Equipment and makes the actor its owner.
+- `GET /api/equipments/discover` lists request-safe summaries for same-tenant Equipment the actor cannot already manage.
+- `GET /api/equipments/:equipmentId` requires owner or active manage access.
+- `PATCH /api/equipments/:equipmentId` requires owner or active manage access.
+- `DELETE /api/equipments/:equipmentId` is owner-only and is rejected while the Equipment is included in a Project.
+- `GET|POST /api/equipments/:equipmentId/access-requests` lists requests for the owner or creates one request for the current actor.
+- `POST /api/equipments/:equipmentId/access-requests/:requestId/decision` is owner-only and accepts `{ "decision": "APPROVE" }` or `{ "decision": "REJECT" }`.
+
+Equipment create/update fields are `name`, `type`, `location`, optional `description`, and `documentsMode`. Name, type, and location are required at creation. Description is optional and limited to 1,000 characters. `documentsMode` is `ADD_NOW` or `SKIP_FOR_NOW`; it records the creation workflow choice and does not upload a document in Phase 2.
+
+Equipment discovery returns only `id`, `name`, `type`, `location`, and the caller's latest request state. It never exposes descriptions or owner details.
+
+An approved Equipment request creates one active, idempotent manage-access grant. A manager may read and mutate that Equipment but cannot delete it, approve/reject requests, transfer ownership, or gain access to any Project through the grant.
+
+### Project resources
+
+- `GET /api/projects` lists Projects where the actor has active `OWNER` or `MEMBER` membership.
+- `POST /api/projects` creates the Project, included-Equipment references, creator `OWNER` membership, and initial `WAITING_FOR_SOURCES` procedure-generation request atomically.
+- `GET /api/projects/discover` lists only discoverable identity/status summaries for Projects where the actor is not an active member.
+- `GET /api/projects/:projectId` requires active Project membership.
+- `PATCH|DELETE /api/projects/:projectId` is Project-Owner-only.
+- `GET|POST /api/projects/:projectId/membership-requests` lists requests for an Owner or creates one request for the current actor.
+- `POST /api/projects/:projectId/membership-requests/:requestId/decision` is Owner-only and accepts `{ "decision": "APPROVE" }` or `{ "decision": "REJECT" }`.
+
+Project create/update fields are `name`, mandatory `description`, `status`, `includedEquipmentIds`, and `documentsMode`. The actor must have owner or active manage access to every selected Equipment. Project inclusion stores Equipment IDs only; it never copies Equipment records, documents, chunks, or vectors. Project status is `PLANNING`, `ACTIVE`, `ON_HOLD`, or `COMPLETED`.
+
+Access-request states are `PENDING`, `APPROVED`, or `REJECTED`. Only a pending request can be decided. One actor can have at most one pending request for the same resource. Approval is idempotent and does not create duplicate memberships/grants.
 
 ## Browser API conventions
 
@@ -208,6 +244,8 @@ Entity profiles help route questions; they are not answer evidence.
 {
   "requestId": "uuid",
   "contractVersion": "v1",
+  "tenantId": "tenant-id",
+  "inputFingerprint": "64-character-sha256",
   "entity": {
     "type": "EQUIPMENT | PROJECT",
     "id": "entity-id",
@@ -218,7 +256,7 @@ Entity profiles help route questions; they are not answer evidence.
         "equipmentId": "equipment-id",
         "profileId": "entity-profile:equipment-id:4",
         "profileVersion": 4,
-        "profileFingerprint": "equipment-profile-input-hash",
+        "profileFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "freshnessState": "FRESH | STALE",
         "generatedDescription": "Bounded current Equipment routing summary.",
         "coverageTopics": ["startup checks", "seal inspection"]
@@ -245,10 +283,23 @@ Entity profiles help route questions; they are not answer evidence.
   "profileVersion": 7,
   "profileId": "entity-profile:entity-id:7",
   "generatedDescription": "What the entity is, its systems, coverage, and likely query vocabulary.",
+  "systems": ["hydraulic circuit"],
+  "components": ["seal assembly"],
+  "capabilities": ["startup checks"],
+  "failureModes": ["seal leakage"],
+  "searchHints": ["pressure instability"],
   "coverage": [
     { "topic": "seal replacement", "documentVersionIds": ["active-version-id"] }
   ],
-  "profileFingerprint": "hash-of-input-provenance",
+  "profileFingerprint": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "provenance": {
+    "tenantId": "tenant-id",
+    "inputFingerprint": "64-character-sha256",
+    "documentVersionIds": ["active-version-id"],
+    "includedEquipmentProfileFingerprints": [
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  },
   "errors": []
 }
 ```
@@ -449,3 +500,6 @@ Review need is one of `LOW | MODERATE | HIGH | SEVERE` and is derived from cover
 - Only `SOURCE_CHUNK` citations can support answer claims. `ENTITY_PROFILE` content cannot be cited as source evidence.
 - Web validates every citation and returned routed entity against the request manifest before exposing it.
 - Maintenance-log and procedure AI output is draft-only; product mutations remain Web-owned.
+- Duplicate manifest entities, document versions, relationships, inclusion paths, and assigned references are invalid. Entity direct-document and relationship document IDs must be subsets of `allowedDocumentVersions`; relationship entity IDs must exist with the corresponding type.
+- Empty allowed profile/version sets produce a no-query result, never an unfiltered Pinecone query. Phase 2 filter builders always include tenant/environment, exact `recordType`, and an explicit allowed-ID constraint before any future similarity operation.
+- A Project profile requires a non-empty user description. Included Equipment profiles are bounded, unique by Equipment ID/profile ID, and carry explicit version/fingerprint/freshness provenance. Equipment profiles cannot contain included-Equipment profiles.

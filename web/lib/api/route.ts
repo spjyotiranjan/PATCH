@@ -10,6 +10,7 @@ import {
   AuthenticationRequiredError,
   requireAuthenticatedActor,
 } from "@/lib/auth/session";
+import { DomainError } from "@/lib/domain/errors";
 import { logEvent } from "@/lib/observability/logger";
 
 const REQUEST_ID_HEADER = "x-request-id";
@@ -31,9 +32,19 @@ export interface ApiRequestContext {
   requestId: string;
 }
 
-type ApiRouteHandler = (
+export interface ApiRouteContext<
+  Params extends Record<string, string> = Record<string, never>,
+> extends ApiRequestContext {
+  params: Params;
+}
+
+interface NextRouteContext<Params extends Record<string, string>> {
+  params: Promise<Params>;
+}
+
+type ApiRouteHandler<Params extends Record<string, string>> = (
   request: Request,
-  context: ApiRequestContext,
+  context: ApiRouteContext<Params>,
 ) => Promise<Response>;
 
 function requestIdFor(request: Request): string {
@@ -52,18 +63,22 @@ function errorResponse(
   );
 }
 
-function createApiRoute(
+function createApiRoute<Params extends Record<string, string>>(
   authenticated: boolean,
-  handler: ApiRouteHandler,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
+  handler: ApiRouteHandler<Params>,
+): (
+  request: Request,
+  routeContext?: NextRouteContext<Params>,
+) => Promise<Response> {
+  return async (request, routeContext) => {
     const requestId = requestIdFor(request);
     const startedAt = performance.now();
     const pathname = new URL(request.url).pathname;
 
     try {
       const actor = authenticated ? await requireAuthenticatedActor() : null;
-      const response = await handler(request, { actor, requestId });
+      const params = routeContext ? await routeContext.params : ({} as Params);
+      const response = await handler(request, { actor, requestId, params });
       response.headers.set(REQUEST_ID_HEADER, requestId);
       logEvent("info", "patch_web.api.completed", {
         requestId,
@@ -80,6 +95,9 @@ function createApiRoute(
       if (error instanceof ApiError) {
         return errorResponse(error.status, error.code, requestId);
       }
+      if (error instanceof DomainError) {
+        return errorResponse(error.status, error.code, requestId);
+      }
 
       logEvent("error", "patch_web.api.failed", {
         requestId,
@@ -92,11 +110,15 @@ function createApiRoute(
   };
 }
 
-export function authenticatedApiRoute(handler: ApiRouteHandler) {
+export function authenticatedApiRoute<
+  Params extends Record<string, string> = Record<string, never>,
+>(handler: ApiRouteHandler<Params>) {
   return createApiRoute(true, handler);
 }
 
-export function publicApiRoute(handler: ApiRouteHandler) {
+export function publicApiRoute<
+  Params extends Record<string, string> = Record<string, never>,
+>(handler: ApiRouteHandler<Params>) {
   return createApiRoute(false, handler);
 }
 

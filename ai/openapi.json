@@ -11,6 +11,8 @@
             "type": "string"
           },
           "documentSummary": {
+            "maxLength": 20000,
+            "minLength": 1,
             "title": "Documentsummary",
             "type": "string"
           },
@@ -30,6 +32,8 @@
             "type": "string"
           },
           "title": {
+            "maxLength": 500,
+            "minLength": 1,
             "title": "Title",
             "type": "string"
           }
@@ -84,8 +88,16 @@
           },
           "inclusionPaths": {
             "items": {
+              "enum": [
+                "PERSONAL",
+                "PROJECT_DIRECT",
+                "EQUIPMENT_DERIVED",
+                "PROJECT_PROCEDURE",
+                "PROJECT_LOG"
+              ],
               "type": "string"
             },
+            "minItems": 1,
             "title": "Inclusionpaths",
             "type": "array"
           },
@@ -95,6 +107,7 @@
               "minLength": 1,
               "type": "string"
             },
+            "maxItems": 200,
             "title": "Sourceentityids",
             "type": "array"
           }
@@ -428,6 +441,7 @@
             "items": {
               "$ref": "#/components/schemas/ActiveDocument"
             },
+            "maxItems": 500,
             "title": "Activedocuments",
             "type": "array"
           },
@@ -441,6 +455,7 @@
             "items": {
               "$ref": "#/components/schemas/IncludedEquipmentProfile"
             },
+            "maxItems": 100,
             "title": "Includedequipmentprofiles",
             "type": "array"
           },
@@ -460,6 +475,7 @@
           "userDescription": {
             "anyOf": [
               {
+                "maxLength": 20000,
                 "type": "string"
               },
               {
@@ -488,15 +504,28 @@
           "entity": {
             "$ref": "#/components/schemas/EntityProfileInput"
           },
+          "inputFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Inputfingerprint",
+            "type": "string"
+          },
           "requestId": {
             "format": "uuid",
             "title": "Requestid",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
             "type": "string"
           }
         },
         "required": [
           "requestId",
           "contractVersion",
+          "tenantId",
+          "inputFingerprint",
           "entity"
         ],
         "title": "EntityProfileRequest",
@@ -505,10 +534,27 @@
       "EntityProfileResult": {
         "additionalProperties": false,
         "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "components": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Components",
+            "type": "array"
+          },
           "coverage": {
             "items": {
               "$ref": "#/components/schemas/ProfileCoverage"
             },
+            "maxItems": 500,
             "title": "Coverage",
             "type": "array"
           },
@@ -525,11 +571,22 @@
             "title": "Errors",
             "type": "array"
           },
+          "failureModes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Failuremodes",
+            "type": "array"
+          },
           "generatedDescription": {
+            "maxLength": 20000,
+            "minLength": 1,
             "title": "Generateddescription",
             "type": "string"
           },
           "profileFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
             "title": "Profilefingerprint",
             "type": "string"
           },
@@ -544,10 +601,21 @@
             "title": "Profileversion",
             "type": "integer"
           },
+          "provenance": {
+            "$ref": "#/components/schemas/ProfileProvenance"
+          },
           "requestId": {
             "format": "uuid",
             "title": "Requestid",
             "type": "string"
+          },
+          "searchHints": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Searchhints",
+            "type": "array"
           },
           "status": {
             "enum": [
@@ -556,6 +624,14 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "systems": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Systems",
+            "type": "array"
           }
         },
         "required": [
@@ -565,7 +641,8 @@
           "profileVersion",
           "profileId",
           "generatedDescription",
-          "profileFingerprint"
+          "profileFingerprint",
+          "provenance"
         ],
         "title": "EntityProfileResult",
         "type": "object"
@@ -783,6 +860,7 @@
             "items": {
               "type": "string"
             },
+            "maxItems": 100,
             "title": "Coveragetopics",
             "type": "array"
           },
@@ -801,12 +879,13 @@
             "type": "string"
           },
           "generatedDescription": {
+            "maxLength": 20000,
+            "minLength": 1,
             "title": "Generateddescription",
             "type": "string"
           },
           "profileFingerprint": {
-            "maxLength": 200,
-            "minLength": 1,
+            "pattern": "^[a-fA-F0-9]{64}$",
             "title": "Profilefingerprint",
             "type": "string"
           },
@@ -1091,6 +1170,7 @@
               "minLength": 1,
               "type": "string"
             },
+            "maxItems": 500,
             "title": "Directdocumentversionids",
             "type": "array"
           },
@@ -1160,6 +1240,7 @@
               "minLength": 1,
               "type": "string"
             },
+            "maxItems": 500,
             "title": "Directdocumentversionids",
             "type": "array"
           },
@@ -1169,6 +1250,7 @@
               "minLength": 1,
               "type": "string"
             },
+            "maxItems": 200,
             "title": "Equipmentids",
             "type": "array"
           },
@@ -1423,10 +1505,13 @@
               "minLength": 1,
               "type": "string"
             },
+            "maxItems": 500,
             "title": "Documentversionids",
             "type": "array"
           },
           "topic": {
+            "maxLength": 500,
+            "minLength": 1,
             "title": "Topic",
             "type": "string"
           }
@@ -1436,6 +1521,45 @@
           "documentVersionIds"
         ],
         "title": "ProfileCoverage",
+        "type": "object"
+      },
+      "ProfileProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "documentVersionIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Documentversionids",
+            "type": "array"
+          },
+          "includedEquipmentProfileFingerprints": {
+            "items": {
+              "pattern": "^[a-fA-F0-9]{64}$",
+              "type": "string"
+            },
+            "title": "Includedequipmentprofilefingerprints",
+            "type": "array"
+          },
+          "inputFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Inputfingerprint",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenantId",
+          "inputFingerprint"
+        ],
+        "title": "ProfileProvenance",
         "type": "object"
       },
       "QuestionRequest": {
@@ -1448,6 +1572,7 @@
             "items": {
               "$ref": "#/components/schemas/AssignedReference"
             },
+            "maxItems": 50,
             "title": "Assignedreferences",
             "type": "array"
           },
@@ -1609,6 +1734,7 @@
             "items": {
               "$ref": "#/components/schemas/AllowedDocumentVersion"
             },
+            "maxItems": 1000,
             "title": "Alloweddocumentversions",
             "type": "array"
           },
@@ -1616,6 +1742,7 @@
             "items": {
               "$ref": "#/components/schemas/ManifestEntity"
             },
+            "maxItems": 500,
             "title": "Entities",
             "type": "array"
           },
@@ -1623,6 +1750,7 @@
             "items": {
               "$ref": "#/components/schemas/ManifestRelationship"
             },
+            "maxItems": 200,
             "title": "Relationships",
             "type": "array"
           }

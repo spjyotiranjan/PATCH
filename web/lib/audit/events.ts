@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ClientSession } from "mongodb";
+
 import type { AuthenticatedActor } from "@/lib/auth/authorization";
 import type { ServerConfig } from "@/lib/config";
 import { getDatabase } from "@/lib/database/mongodb";
@@ -27,8 +29,9 @@ export function createAuditEvent(input: AuditEventInput): AuditEvent {
 export async function persistAuditEvent(
   input: AuditEventInput,
   config: Pick<ServerConfig, "MONGODB_URI" | "MONGODB_DB_NAME">,
+  session?: ClientSession,
 ): Promise<void> {
   await getDatabase(config)
     .collection<AuditEvent>("auditEvents")
-    .insertOne(createAuditEvent(input));
+    .insertOne(createAuditEvent(input), { session });
 }

@@ -1,11 +1,8 @@
-import hashlib
 from uuid import NAMESPACE_URL, uuid5
 
 from patch_ai.schemas.contracts import (
     Answer,
     ChatSessionResult,
-    EntityProfileRequest,
-    EntityProfileResult,
     ExtractRequest,
     ExtractResult,
     IndexRequest,
@@ -43,23 +40,6 @@ def index_stub(request: IndexRequest) -> IndexResult:
         status="failed",
         document_version_id=request.document_version_id,
         chunk_count=0,
-        errors=[PHASE_ONE_UNAVAILABLE],
-    )
-
-
-def entity_profile_stub(request: EntityProfileRequest) -> EntityProfileResult:
-    entity = request.entity
-    fingerprint = hashlib.sha256(
-        request.model_dump_json(by_alias=True, exclude={"request_id"}).encode()
-    ).hexdigest()
-    return EntityProfileResult(
-        request_id=request.request_id,
-        status="failed",
-        entity_id=entity.id,
-        profile_version=entity.profile_version,
-        profile_id=f"entity-profile:{entity.id}:{entity.profile_version}",
-        generated_description="",
-        profile_fingerprint=fingerprint,
         errors=[PHASE_ONE_UNAVAILABLE],
     )
 

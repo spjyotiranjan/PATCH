@@ -124,17 +124,17 @@ class IncludedEquipmentProfile(ApiModel):
     equipment_id: Identifier
     profile_id: Identifier
     profile_version: int = Field(ge=1)
-    profile_fingerprint: Identifier
+    profile_fingerprint: Sha256
     freshness_state: Literal["FRESH", "STALE"]
-    generated_description: str
-    coverage_topics: list[str] = Field(default_factory=list)
+    generated_description: str = Field(min_length=1, max_length=20_000)
+    coverage_topics: list[str] = Field(default_factory=list, max_length=100)
 
 
 class ActiveDocument(ApiModel):
     document_id: Identifier
     document_version_id: Identifier
-    title: str
-    document_summary: str
+    title: str = Field(min_length=1, max_length=500)
+    document_summary: str = Field(min_length=1, max_length=20_000)
     inclusion: Literal["EQUIPMENT_DIRECT", "PROJECT_DIRECT", "EQUIPMENT_DERIVED"]
 
 
@@ -142,18 +142,47 @@ class EntityProfileInput(ApiModel):
     type: Literal["EQUIPMENT", "PROJECT"]
     id: Identifier
     profile_version: int = Field(ge=1)
-    user_description: str | None = None
-    included_equipment_profiles: list[IncludedEquipmentProfile] = Field(default_factory=list)
-    active_documents: list[ActiveDocument] = Field(default_factory=list)
+    user_description: str | None = Field(default=None, max_length=20_000)
+    included_equipment_profiles: list[IncludedEquipmentProfile] = Field(
+        default_factory=list, max_length=100
+    )
+    active_documents: list[ActiveDocument] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_profile_scope(self) -> "EntityProfileInput":
+        equipment_ids = [item.equipment_id for item in self.included_equipment_profiles]
+        profile_ids = [item.profile_id for item in self.included_equipment_profiles]
+        document_ids = [item.document_id for item in self.active_documents]
+        version_ids = [item.document_version_id for item in self.active_documents]
+        if len(set(equipment_ids)) != len(equipment_ids) or len(set(profile_ids)) != len(
+            profile_ids
+        ):
+            raise ValueError("included Equipment profiles must be unique")
+        if len(set(document_ids)) != len(document_ids) or len(set(version_ids)) != len(version_ids):
+            raise ValueError("active documents must be unique")
+        if self.type == "PROJECT" and not (self.user_description or "").strip():
+            raise ValueError("userDescription is required for PROJECT profiles")
+        if self.type == "EQUIPMENT" and self.included_equipment_profiles:
+            raise ValueError("EQUIPMENT profiles cannot include Equipment profiles")
+        return self
 
 
 class EntityProfileRequest(ContractRequest):
+    tenant_id: Identifier
+    input_fingerprint: Sha256
     entity: EntityProfileInput
 
 
 class ProfileCoverage(ApiModel):
-    topic: str
-    document_version_ids: list[Identifier]
+    topic: str = Field(min_length=1, max_length=500)
+    document_version_ids: list[Identifier] = Field(max_length=500)
+
+
+class ProfileProvenance(ApiModel):
+    tenant_id: Identifier
+    input_fingerprint: Sha256
+    document_version_ids: list[Identifier] = Field(default_factory=list)
+    included_equipment_profile_fingerprints: list[Sha256] = Field(default_factory=list)
 
 
 class EntityProfileResult(ApiModel):
@@ -162,9 +191,15 @@ class EntityProfileResult(ApiModel):
     entity_id: Identifier
     profile_version: int = Field(ge=1)
     profile_id: Identifier
-    generated_description: str
-    coverage: list[ProfileCoverage] = Field(default_factory=list)
-    profile_fingerprint: str
+    generated_description: str = Field(min_length=1, max_length=20_000)
+    systems: list[str] = Field(default_factory=list, max_length=100)
+    components: list[str] = Field(default_factory=list, max_length=200)
+    capabilities: list[str] = Field(default_factory=list, max_length=200)
+    failure_modes: list[str] = Field(default_factory=list, max_length=200)
+    search_hints: list[str] = Field(default_factory=list, max_length=200)
+    coverage: list[ProfileCoverage] = Field(default_factory=list, max_length=500)
+    profile_fingerprint: Sha256
+    provenance: ProfileProvenance
     errors: list[ServiceError] = Field(default_factory=list)
 
 
@@ -191,8 +226,24 @@ class AssignedReference(ApiModel):
 class AllowedDocumentVersion(ApiModel):
     document_id: Identifier
     document_version_id: Identifier
-    inclusion_paths: list[str]
-    source_entity_ids: list[Identifier] = Field(default_factory=list)
+    inclusion_paths: list[
+        Literal[
+            "PERSONAL",
+            "PROJECT_DIRECT",
+            "EQUIPMENT_DERIVED",
+            "PROJECT_PROCEDURE",
+            "PROJECT_LOG",
+        ]
+    ] = Field(min_length=1)
+    source_entity_ids: list[Identifier] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_unique_paths(self) -> "AllowedDocumentVersion":
+        if len(set(self.inclusion_paths)) != len(self.inclusion_paths):
+            raise ValueError("inclusionPaths must be unique")
+        if len(set(self.source_entity_ids)) != len(self.source_entity_ids):
+            raise ValueError("sourceEntityIds must be unique")
+        return self
 
 
 class ManifestEntity(ApiModel):
@@ -201,19 +252,84 @@ class ManifestEntity(ApiModel):
     profile_id: Identifier | None = None
     profile_version: int | None = Field(default=None, ge=1)
     profile_state: Literal["FRESH", "STALE", "MISSING"]
-    direct_document_version_ids: list[Identifier] = Field(default_factory=list)
+    direct_document_version_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_profile_reference(self) -> "ManifestEntity":
+        if len(set(self.direct_document_version_ids)) != len(self.direct_document_version_ids):
+            raise ValueError("directDocumentVersionIds must be unique")
+        if self.profile_state == "MISSING":
+            if self.profile_id is not None or self.profile_version is not None:
+                raise ValueError("MISSING profiles cannot include a profile reference")
+        elif self.profile_id is None or self.profile_version is None:
+            raise ValueError("FRESH or STALE profiles require an id and version")
+        return self
 
 
 class ManifestRelationship(ApiModel):
     project_id: Identifier
-    equipment_ids: list[Identifier] = Field(default_factory=list)
-    direct_document_version_ids: list[Identifier] = Field(default_factory=list)
+    equipment_ids: list[Identifier] = Field(default_factory=list, max_length=200)
+    direct_document_version_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_unique_relationship_values(self) -> "ManifestRelationship":
+        if len(set(self.equipment_ids)) != len(self.equipment_ids):
+            raise ValueError("equipmentIds must be unique")
+        if len(set(self.direct_document_version_ids)) != len(self.direct_document_version_ids):
+            raise ValueError("directDocumentVersionIds must be unique")
+        return self
 
 
 class RetrievalScopeManifest(ApiModel):
-    allowed_document_versions: list[AllowedDocumentVersion] = Field(default_factory=list)
-    entities: list[ManifestEntity] = Field(default_factory=list)
-    relationships: list[ManifestRelationship] = Field(default_factory=list)
+    allowed_document_versions: list[AllowedDocumentVersion] = Field(
+        default_factory=list, max_length=1_000
+    )
+    entities: list[ManifestEntity] = Field(default_factory=list, max_length=500)
+    relationships: list[ManifestRelationship] = Field(default_factory=list, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_scope_graph(self) -> "RetrievalScopeManifest":
+        document_ids = [item.document_id for item in self.allowed_document_versions]
+        version_ids = [item.document_version_id for item in self.allowed_document_versions]
+        entity_keys = [(item.type, item.id) for item in self.entities]
+        profile_ids = [item.profile_id for item in self.entities if item.profile_id]
+        project_ids = [item.project_id for item in self.relationships]
+
+        if len(set(document_ids)) != len(document_ids) or len(set(version_ids)) != len(version_ids):
+            raise ValueError("allowed document versions must be unique")
+        if len(set(entity_keys)) != len(entity_keys):
+            raise ValueError("manifest entities must be unique")
+        if len(set(profile_ids)) != len(profile_ids):
+            raise ValueError("profileIds must be unique")
+        if len(set(project_ids)) != len(project_ids):
+            raise ValueError("manifest relationships must be unique by projectId")
+
+        allowed_versions = set(version_ids)
+        known_entity_ids = {item.id for item in self.entities}
+        equipment_ids = {item.id for item in self.entities if item.type == "EQUIPMENT"}
+        projects = {item.id for item in self.entities if item.type == "PROJECT"}
+        entity_documents = {
+            item.id: set(item.direct_document_version_ids) for item in self.entities
+        }
+
+        for document in self.allowed_document_versions:
+            if not set(document.source_entity_ids).issubset(known_entity_ids):
+                raise ValueError("document sourceEntityIds must reference manifest entities")
+        for entity in self.entities:
+            if not set(entity.direct_document_version_ids).issubset(allowed_versions):
+                raise ValueError("entity documents must be allowed document versions")
+        for relationship in self.relationships:
+            if relationship.project_id not in projects:
+                raise ValueError("relationship projectId must reference a PROJECT entity")
+            if not set(relationship.equipment_ids).issubset(equipment_ids):
+                raise ValueError("relationship equipmentIds must reference EQUIPMENT entities")
+            if not set(relationship.direct_document_version_ids).issubset(allowed_versions):
+                raise ValueError("relationship documents must be allowed document versions")
+            if not set(relationship.direct_document_version_ids).issubset(
+                entity_documents[relationship.project_id]
+            ):
+                raise ValueError("relationship documents must be direct Project documents")
+        return self
 
 
 class RetrievalPolicy(ApiModel):
@@ -225,10 +341,43 @@ class RetrievalPolicy(ApiModel):
 class QuestionRequest(ContractRequest):
     actor: Actor
     chat_session: ChatSessionInput
-    assigned_references: list[AssignedReference] = Field(default_factory=list)
+    assigned_references: list[AssignedReference] = Field(default_factory=list, max_length=50)
     question: str = Field(min_length=1, max_length=10_000)
     retrieval_scope_manifest: RetrievalScopeManifest
     retrieval_policy: RetrievalPolicy
+
+    @model_validator(mode="after")
+    def validate_assigned_references(self) -> "QuestionRequest":
+        references = [(item.type, item.id) for item in self.assigned_references]
+        if len(set(references)) != len(references):
+            raise ValueError("assignedReferences must be unique")
+
+        manifest = self.retrieval_scope_manifest
+        document_ids = {item.document_id for item in manifest.allowed_document_versions}
+        version_ids = {item.document_version_id for item in manifest.allowed_document_versions}
+        equipment_ids = {item.id for item in manifest.entities if item.type == "EQUIPMENT"}
+        project_ids = {item.id for item in manifest.entities if item.type == "PROJECT"}
+        entity_ids = equipment_ids | project_ids
+        for reference in self.assigned_references:
+            allowed = (
+                reference.id in document_ids | version_ids
+                if reference.type == "DOCUMENT"
+                else reference.id in equipment_ids
+                if reference.type == "EQUIPMENT"
+                else reference.id in project_ids
+                if reference.type == "PROJECT"
+                else reference.id in entity_ids
+            )
+            if not allowed:
+                raise ValueError("assigned reference is outside the authorized manifest")
+        return self
+
+
+class CitableVectorRecord(ApiModel):
+    record_type: Literal["SOURCE_CHUNK"]
+    tenant_id: Identifier
+    document_version_id: Identifier
+    chunk_id: Identifier
 
 
 class ChatSessionResult(ApiModel):

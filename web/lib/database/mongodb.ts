@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MongoClient, type Db } from "mongodb";
+import { MongoClient, type ClientSession, type Db } from "mongodb";
 
 import type { ServerConfig } from "@/lib/config";
 
@@ -34,4 +34,27 @@ export async function checkMongoReadiness(
   } catch {
     return { status: "unavailable" };
   }
+}
+
+export async function withDatabaseTransaction<T>(
+  config: Pick<ServerConfig, "MONGODB_URI" | "MONGODB_DB_NAME">,
+  operation: (database: Db, session: ClientSession) => Promise<T>,
+): Promise<T> {
+  const client = getMongoClient(config);
+  const database = client.db(config.MONGODB_DB_NAME);
+  const session = client.startSession();
+  let result: T | undefined;
+
+  try {
+    await session.withTransaction(async () => {
+      result = await operation(database, session);
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  if (result === undefined) {
+    throw new Error("Database transaction completed without a result.");
+  }
+  return result;
 }

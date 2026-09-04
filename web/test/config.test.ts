@@ -12,7 +12,7 @@ const validEnvironment: ServerEnvironment = {
   NODE_ENV: "test",
   AUTH_SECRET: "a-very-long-non-placeholder-authentication-secret",
   AUTH_URL: "http://localhost:3000",
-  MONGODB_URI: "mongodb://localhost:27017",
+  MONGODB_URI: "mongodb+srv://patch.example.mongodb.net/",
   MONGODB_DB_NAME: "patch_test",
   AI_SERVICE_BASE_URL: "http://localhost:8000",
   AI_SERVICE_SHARED_SECRET: "a-very-long-non-placeholder-ai-service-secret",
@@ -47,6 +47,15 @@ describe("server configuration", () => {
       ]);
       expect(validation.config.AUTH_TRUST_HOST).toBe(false);
     }
+  });
+
+  it("rejects a local MongoDB connection string", () => {
+    const result = validateServerConfig({
+      ...validEnvironment,
+      MONGODB_URI: "mongodb://localhost:27017/patch",
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("rejects example placeholders instead of treating them as credentials", () => {
