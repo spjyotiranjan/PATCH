@@ -1,0 +1,2 @@
+import { PlaceholderPage } from "@/components/app-shell";
+export default function ProjectsPage() { return <PlaceholderPage title="Projects" description="Project discovery and workspaces will be delivered in Phase 2." />; }
