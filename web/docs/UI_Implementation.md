@@ -2,16 +2,20 @@
 
 ## Delivery status
 
-| Item | Status |
-|---|---|
-| Updated route/design asset plan | Defined. |
-| Production Next.js UI | Not started. |
-| Shared Web-to-AI contract | Defined in `API_Contract.md`. |
-| Phase 1-6 delivery | Planned; update only with implementation and test evidence. |
+| Item                            | Status                                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Updated route/design asset plan | Defined.                                                                                            |
+| Production Next.js UI           | Phase 1 complete: authenticated shell, credentials access, settings, themes, and shared primitives. |
+| Shared Web-to-AI contract       | Implemented and synchronized through the completed backend phases in `API_Contract.md`.             |
+| Phase 1-6 delivery              | UI Phase 1 complete; Phases 2-6 not started.                                                        |
 
 ## Goal
 
 Deliver a technician-first desktop/tablet UI for Equipments, Projects, versioned documents, global Chat, and Project workflows. Every authenticated page uses one `AppSidebar`, one `PageTitleBar`, one token set, and the same icon/badge/control components. Maintenance logs exist only within Project space.
+
+## Setup-guide maintenance
+
+Before marking any UI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new browser route, authentication step, persisted preference, dependency, startup command, verification flow, supported viewport, or troubleshooting procedure introduced by that phase.
 
 ## Prerequisites
 
@@ -25,35 +29,37 @@ Deliver a technician-first desktop/tablet UI for Equipments, Projects, versioned
 
 ```text
 app/
-  (public)/sign-in/
-  (authenticated)/
+  sign-in/page.tsx
+  sign-up/page.tsx
+  page.tsx
+  equipments/
     page.tsx
-    equipments/
+    new/page.tsx
+    [equipmentId]/
       page.tsx
-      new/page.tsx
-      [equipmentId]/
+      documents/page.tsx
+  projects/
+    page.tsx
+    new/page.tsx
+    [projectId]/
+      page.tsx
+      documents/page.tsx
+      maintenance-logs/page.tsx
+      procedures/
         page.tsx
-        documents/page.tsx
-    projects/
-      page.tsx
-      new/page.tsx
-      [projectId]/
-        page.tsx
-        documents/page.tsx
-        maintenance-logs/page.tsx
-        procedures/
-          page.tsx
-          [procedureId]/
-            edit/page.tsx
-            runs/[runId]/page.tsx
-    documents/
-      page.tsx
-      [documentVersionId]/page.tsx
-    chat/
-      page.tsx
-      [conversationId]/page.tsx
-    settings/page.tsx
+        [procedureId]/
+          edit/page.tsx
+          runs/[runId]/page.tsx
+  documents/
+    page.tsx
+    [documentVersionId]/page.tsx
+  chat/
+    page.tsx
+    [conversationId]/page.tsx
+  settings/page.tsx
 ```
+
+The implemented Phase 1 routes use the flat App Router structure above. Later-phase nested routes are added only when their corresponding UI phase begins.
 
 There is no top-level maintenance-log route. Redirecting a legacy link requires a `projectId`; otherwise show a context-selection explanation.
 
@@ -76,23 +82,23 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 1 - Canonical shell, settings, and access
 
-**Status:** Not started
+**Status:** Complete (2026-09-04)
 
 **Goal:** Establish the exact shared shell and token/component system before feature screens.
 
-**Prerequisites:** Auth/session behavior, supplied shell references, theme persistence contract, icon library, accessibility baseline.
+**Prerequisites:** First-party email/password auth and session behavior, supplied shell references, settings API and theme persistence contract, icon library, accessibility baseline.
 
-**Deliverables:** Public sign-in; canonical sidebar; title bar; navigation/session behavior; Settings profile/theme page; light/dark tokens; typography; icons; buttons; fields; tables; tabs; drawers; badges; loading/error/unauthorized states.
+**Deliverables:** Public email/password sign-in and four-field sign-up; authenticated-route guard; canonical sidebar; title bar; navigation/session behavior; API-backed Settings profile/theme page and sign-out; light/dark/system tokens; typography; icons; buttons; fields; tables; tabs; drawers; badges; loading/error/unauthorized states.
 
-| View/component | Image path |
-|---|---|
-| Palette and semantic components | `web/ui-design/foundations/color-palette.webp` |
-| Canonical sidebar and PageTitleBar | `web/ui-design/components/app-shell/canonical-shell.webp` |
-| Sign-in/session state | `web/ui-design/app/(public)/sign-in/session-expired.webp` |
-| Operations home | `web/ui-design/app/(authenticated)/page/dashboard.webp` |
-| Settings: profile and theme | `web/ui-design/app/(authenticated)/settings/settings.webp` |
+| View/component                     | Image path                                                 |
+| ---------------------------------- | ---------------------------------------------------------- |
+| Palette and semantic components    | `web/ui-design/foundations/color-palette.webp`             |
+| Canonical sidebar and PageTitleBar | `web/ui-design/components/app-shell/canonical-shell.webp`  |
+| Sign-in/session state              | `web/ui-design/app/(public)/sign-in/session-expired.webp`  |
+| Operations home                    | `web/ui-design/app/(authenticated)/page/dashboard.webp`    |
+| Settings: profile and theme        | `web/ui-design/app/(authenticated)/settings/settings.webp` |
 
-**Exit criteria:** Every route placeholder renders the same sidebar/title-bar components pixel-consistently. Reference screenshot diffs use a 1440x900 desktop capture with a 205px sidebar, 56px title bar, and 24px content gutter; sidebar/title-bar geometry has zero route-specific variance. No authenticated top bar exposes profile identity. Theme choice persists and all core semantic statuses pass contrast/non-colour checks.
+**Exit criteria:** Every route placeholder renders the same sidebar/title-bar components pixel-consistently. Reference screenshot review uses a 1440x900 desktop capture with a 205px sidebar, 56px title bar, and 24px content gutter; sidebar/title-bar geometry has zero route-specific variance. No authenticated top bar exposes profile identity. Credentials flows match the backend contract, protected content is withheld from unauthenticated users, Settings reads/writes the authenticated API, theme choice persists, and core semantic statuses use text as well as colour. These behaviors are covered by Phase 1 component/integration tests and the Web quality gate.
 
 ### Phase 2 - Equipment and Project creation/context
 
@@ -104,16 +110,16 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 **Deliverables:** Equipment directory/detail/create; Project discovery/request/Owner inbox/create/workspace; required/optional description rules; included-Equipment selection; optional creation-time Documents step; context tabs and status states.
 
-| View/component | Image path |
-|---|---|
-| Equipment directory | `web/ui-design/app/(authenticated)/equipments/directory.webp` |
-| Equipment overview | `web/ui-design/app/(authenticated)/equipments/[equipmentId]/overview.webp` |
-| Equipment creation details and recommended description | `web/ui-design/app/(authenticated)/equipments/new/details.webp` |
-| Equipment creation Documents: add now or skip | `web/ui-design/app/(authenticated)/equipments/new/documents.webp` |
-| Project discovery and membership request | `web/ui-design/app/(authenticated)/projects/discover-and-request.webp` |
-| Project creation details and mandatory description | `web/ui-design/app/(authenticated)/projects/new/details.webp` |
-| Project creation Documents: inherited/direct/add/skip | `web/ui-design/app/(authenticated)/projects/new/documents.webp` |
-| Project workspace | `web/ui-design/app/(authenticated)/projects/[projectId]/workspace.webp` |
+| View/component                                         | Image path                                                                 |
+| ------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Equipment directory                                    | `web/ui-design/app/(authenticated)/equipments/directory.webp`              |
+| Equipment overview                                     | `web/ui-design/app/(authenticated)/equipments/[equipmentId]/overview.webp` |
+| Equipment creation details and recommended description | `web/ui-design/app/(authenticated)/equipments/new/details.webp`            |
+| Equipment creation Documents: add now or skip          | `web/ui-design/app/(authenticated)/equipments/new/documents.webp`          |
+| Project discovery and membership request               | `web/ui-design/app/(authenticated)/projects/discover-and-request.webp`     |
+| Project creation details and mandatory description     | `web/ui-design/app/(authenticated)/projects/new/details.webp`              |
+| Project creation Documents: inherited/direct/add/skip  | `web/ui-design/app/(authenticated)/projects/new/documents.webp`            |
+| Project workspace                                      | `web/ui-design/app/(authenticated)/projects/[projectId]/workspace.webp`    |
 
 **Exit criteria:** UI/server both enforce Project description; Equipment description may be skipped with recommendation copy; users can add documents now or skip; Owner/Member visibility and request states match server authorization.
 
@@ -127,14 +133,14 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 **Deliverables:** Equipment and Project Manage documents; global accessible Documents library; new-document/new-version dialogs; upload/extract/review/approve/index/activate progress; direct vs inherited Project documents; source/version viewer; profile refresh states and propagation copy.
 
-| View/component | Image path |
-|---|---|
-| Equipment Manage documents | `web/ui-design/app/(authenticated)/equipments/[equipmentId]/documents/manage.webp` |
-| Project Manage documents and inherited Equipment sources | `web/ui-design/app/(authenticated)/projects/[projectId]/documents/manage.webp` |
-| Deduplicated global Documents library | `web/ui-design/app/(authenticated)/documents/library.webp` |
-| Upload/review/activation workflow | `web/ui-design/app/(authenticated)/documents/upload-review.webp` |
-| Indexing failure, prior active version, and profile refresh | `web/ui-design/app/(authenticated)/documents/processing-state.webp` |
-| Current and historical source viewer | `web/ui-design/app/(authenticated)/documents/[documentVersionId]/source-viewer.webp` |
+| View/component                                              | Image path                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Equipment Manage documents                                  | `web/ui-design/app/(authenticated)/equipments/[equipmentId]/documents/manage.webp`   |
+| Project Manage documents and inherited Equipment sources    | `web/ui-design/app/(authenticated)/projects/[projectId]/documents/manage.webp`       |
+| Deduplicated global Documents library                       | `web/ui-design/app/(authenticated)/documents/library.webp`                           |
+| Upload/review/activation workflow                           | `web/ui-design/app/(authenticated)/documents/upload-review.webp`                     |
+| Indexing failure, prior active version, and profile refresh | `web/ui-design/app/(authenticated)/documents/processing-state.webp`                  |
+| Current and historical source viewer                        | `web/ui-design/app/(authenticated)/documents/[documentVersionId]/source-viewer.webp` |
 
 **Exit criteria:** A user can distinguish logical document from version, add either kind correctly, and see which revision is active. Project views update when an Equipment document activates and explain `Updated via <Equipment>` without showing copied sources. Failed indexing retains and identifies the prior active version.
 
@@ -148,10 +154,10 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 **Deliverables:** New chat; auto-titled session list; transcript; multiline composer; `@document|equipment|project|entity` search/chips; routing/loading copy; inline citations; Evidence Used; exact source opening; response actions; insufficient/conflicting/outdated/unavailable states.
 
-| View/component | Image path |
-|---|---|
+| View/component        | Image path                                                                  |
+| --------------------- | --------------------------------------------------------------------------- |
 | Global Chat workspace | `web/ui-design/app/(authenticated)/chat/[conversationId]/session-chat.webp` |
-| Evidence Used drawer | `web/ui-design/components/chat/evidence-used-drawer.webp` |
+| Evidence Used drawer  | `web/ui-design/components/chat/evidence-used-drawer.webp`                   |
 
 **Exit criteria:** Every step cites a current accessible source. UI may say which Equipments/Projects were searched, but never treats generated entity profiles as evidence. `@` and fallback behavior are understandable without exposing internal chain-of-thought.
 
@@ -165,11 +171,11 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 **Deliverables:** Project Maintenance logs tab; list/filter; create/edit/submit drawer; Overall Project/Equipment scope selector; evidence/attachments; generation states (`WAITING_FOR_SOURCES|QUEUED|GENERATING|READY|FAILED`); auto-saved draft; review-analysis panel and four review-need badges; editable/addable/removable/reorderable source-linked steps with drag and Move up/Move down; citation-revalidation state after edits; request-change/approve/publish/history; recurrence settings/next-run preview; current run checklist, progress, notes, required-step gate, overdue/exception states, and retained run history.
 
-| View/component | Image path |
-|---|---|
-| Project maintenance-log workspace | `web/ui-design/app/(authenticated)/projects/[projectId]/maintenance-logs/workspace.webp` |
-| Generated procedure review/editor | `web/ui-design/app/(authenticated)/projects/[projectId]/procedures/review.webp` |
-| Recurring procedure run and completion history | `web/ui-design/app/(authenticated)/projects/[projectId]/procedures/recurring-run.webp` |
+| View/component                                 | Image path                                                                               |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Project maintenance-log workspace              | `web/ui-design/app/(authenticated)/projects/[projectId]/maintenance-logs/workspace.webp` |
+| Generated procedure review/editor              | `web/ui-design/app/(authenticated)/projects/[projectId]/procedures/review.webp`          |
+| Recurring procedure run and completion history | `web/ui-design/app/(authenticated)/projects/[projectId]/procedures/recurring-run.webp`   |
 
 **Exit criteria:** No standalone maintenance-log navigation exists. Equipment choices are limited to the Project. A source-ready Project shows one saved draft per input fingerprint; skipped/pending documents show Waiting for Project sources. Every generated step exposes citations and review reasons. Users can edit and keyboard-reorder steps without losing stable IDs; edited citations are revalidated. Severe blocking findings cannot publish. Published versions are immutable. A recurring period creates one unchecked run; ticks record actor/time, prior runs remain unchanged, and normal completion is unavailable while a required step is incomplete. Publication remains Owner-only; AI cannot tick or complete work.
 

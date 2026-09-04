@@ -5,7 +5,7 @@
 | Item                                                                         | Status                                                                                                                             |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                           |
-| FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs. |
+| FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs; Phase 1 integration revalidated 2026-09-04. |
 | Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phase 2 validation/profile contracts complete; provider-backed Phase 3 workflows not started.                                      |
 | Evaluation and production readiness                                          | Not started.                                                                                                                       |
 

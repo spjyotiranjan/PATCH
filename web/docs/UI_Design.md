@@ -58,37 +58,37 @@ The definitive swatches are in `../ui-design/foundations/color-palette.webp`.
 
 ### Light theme
 
-| Token | Value | Use |
-|---|---|---|
-| `nav` | `#08233F` | Sidebar |
-| `accent` | `#087BEE` | Primary actions/selected route/focus |
-| `canvas` | `#F5F9FE` | Main workspace |
-| `surface` | `#FFFFFF` | Panels, fields, title bar |
-| `text` | `#0B2440` | Primary text |
-| `textMuted` | `#52647A` | Secondary metadata |
-| `border` | `#DCE7F2` | Dividers and control/panel boundaries |
+| Token       | Value     | Use                                   |
+| ----------- | --------- | ------------------------------------- |
+| `nav`       | `#08233F` | Sidebar                               |
+| `accent`    | `#087BEE` | Primary actions/selected route/focus  |
+| `canvas`    | `#F5F9FE` | Main workspace                        |
+| `surface`   | `#FFFFFF` | Panels, fields, title bar             |
+| `text`      | `#0B2440` | Primary text                          |
+| `textMuted` | `#52647A` | Secondary metadata                    |
+| `border`    | `#DCE7F2` | Dividers and control/panel boundaries |
 
 ### Dark theme
 
-| Token | Value | Use |
-|---|---|---|
-| `nav` | `#061A30` | Sidebar |
-| `accent` | `#2994FF` | Selected/focus/primary |
-| `canvas` | `#0D1826` | Main workspace |
-| `surface` | `#142235` | Panels, fields, title bar |
-| `text` | `#F2F7FC` | Primary text |
-| `textMuted` | `#A9BACD` | Secondary metadata |
-| `border` | `#2A3B50` | Boundaries |
+| Token       | Value     | Use                       |
+| ----------- | --------- | ------------------------- |
+| `nav`       | `#061A30` | Sidebar                   |
+| `accent`    | `#2994FF` | Selected/focus/primary    |
+| `canvas`    | `#0D1826` | Main workspace            |
+| `surface`   | `#142235` | Panels, fields, title bar |
+| `text`      | `#F2F7FC` | Primary text              |
+| `textMuted` | `#A9BACD` | Secondary metadata        |
+| `border`    | `#2A3B50` | Boundaries                |
 
 ### Semantic states
 
-| State | Light colour | Required text examples |
-|---|---|---|
-| Success/current | `#15803D` | Healthy, Active, Approved, Indexed |
-| Attention | `#D97706` | Warning, Needs review, Profile stale |
-| Danger/failure | `#C2410C` | Failed, Rejected, Conflict |
-| Information | `#087BEE` | Extracting, Indexing, Auto-generated |
-| Neutral | `#52647A` | Draft, Superseded, Not indexed |
+| State           | Light colour | Required text examples               |
+| --------------- | ------------ | ------------------------------------ |
+| Success/current | `#15803D`    | Healthy, Active, Approved, Indexed   |
+| Attention       | `#D97706`    | Warning, Needs review, Profile stale |
+| Danger/failure  | `#C2410C`    | Failed, Rejected, Conflict           |
+| Information     | `#087BEE`    | Extracting, Indexing, Auto-generated |
+| Neutral         | `#52647A`    | Draft, Superseded, Not indexed       |
 
 Never communicate a state by colour alone. Use one shared `StatusBadge` with icon, label, size, radius, and dark-theme mapping.
 
@@ -147,11 +147,16 @@ Creation wizards reuse this component in a bounded Documents step and provide `S
 
 Settings is the only profile-management surface:
 
-- profile: display name, work email (read-only if identity-provider owned), avatar/initials, optional job title and support contact;
+- profile: editable display name, read-only account email, and generated initials;
 - appearance: Light, Dark, System with preview tiles and immediate persisted application;
-- accessibility: reduced motion and density preferences if included in MVP;
-- account/session actions and support links;
+- account/session actions for first-party email/password authentication and administrator support guidance;
 - save/success/error states using shared controls/badges.
+
+## Public authentication
+
+- Sign-in accepts email and password only and returns the user to a validated local callback route.
+- Sign-up contains exactly Name, Email, Password, and Confirm password. Password confirmation is checked before the API request and is never retained.
+- Social login, SSO, and passwordless email-link actions are not supported. The supplied session-expired image remains a layout and state reference only; this authentication policy overrides any obsolete provider actions shown in that image.
 
 ## Asset structure
 

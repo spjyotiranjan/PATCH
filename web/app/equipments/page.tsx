@@ -1,0 +1,2 @@
+import { PlaceholderPage } from "@/components/app-shell";
+export default function EquipmentsPage() { return <PlaceholderPage title="Equipments" description="The Equipment directory will be delivered in Phase 2." />; }

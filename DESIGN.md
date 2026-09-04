@@ -96,7 +96,8 @@
 
 ## Settings and themes
 
-- Settings owns profile editing, theme selection, accessibility preferences, account actions, and support.
+- Public authentication uses first-party email and password only. Sign-in asks for email and password; sign-up asks for exactly name, email, password, and password confirmation. Social login, SSO, and passwordless sign-in links are not product actions even if an older visual reference contains them.
+- Settings owns display-name editing, the read-only account email, theme selection, account/session actions, and support.
 - Light, Dark, and System are explicit choices with preview tiles and immediate persisted application.
 - Dark mode preserves structure and semantic roles rather than simply inverting colours.
 

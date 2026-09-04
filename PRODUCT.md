@@ -36,7 +36,7 @@ P.A.T.C.H. combines canonical document/version management with an authorization-
 - Cloudflare R2 stores immutable original versions; MongoDB is the product system of record; Pinecone stores derived source-chunk vectors and AI routing-profile vectors.
 - Next.js is the UI and product backend. Python FastAPI owns ingestion, retrieval, LangGraph/LangChain orchestration, OpenAI calls, evidence assessment, citations, and AI drafts.
 - AI procedure output carries source citations and a `LOW | MODERATE | HIGH | SEVERE` review-need classification derived from coverage, conflicts, freshness, applicability, and hardware/safety criticality. Every level still requires human review; severe evidence gaps block publication.
-- Equipment mutation authorization outside Project roles remains an implementation policy to confirm before Phase 2; no third Project role may be introduced implicitly.
+- An Equipment's creator is its owner. The owner may mutate it and approve or reject Equipment-scoped manage-access requests; approved managers may mutate that Equipment. This access never grants Project membership or introduces a third Project role.
 
 ## Brand Commitments
 

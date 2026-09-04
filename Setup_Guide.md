@@ -164,6 +164,16 @@ Then open <http://localhost:3000/api/readiness>. A `200` response with `status: 
 
 Do not call AI `/readiness` directly from a browser. It is intentionally private and requires the server-to-server HMAC headers that the Web API client creates. `/health` is the public AI liveness check.
 
+### Verify Phase 1 account and UI readiness
+
+1. Open <http://localhost:3000/sign-up>. Create a development account using exactly Name, Email, Password, and Confirm password. There are no social-login, SSO, or passwordless-link options.
+2. Sign out from Settings, then sign in at <http://localhost:3000/sign-in> with the same email and password. Opening `/`, `/equipments`, `/projects`, `/documents`, `/chat`, or `/settings` without a session must redirect to sign-in without exposing protected content.
+3. Confirm each authenticated route uses the same P.A.T.C.H. sidebar and title bar. The sidebar contains Home, Equipments, Projects, Documents, Chat, Settings, and Help & support; it never contains a top-level Maintenance logs item.
+4. In Settings, edit the display name and select Light, Dark, and System. Refresh the page and confirm the saved profile and theme are restored through `/api/settings`. The account email is read-only.
+5. Open <http://localhost:3000/api/readiness>. Only aggregate service availability is returned. Missing dependency names are written to the Web server console without environment-variable names or values.
+
+The Operations home and later feature placeholders provide the Phase 1 shell and visual foundation. Equipment, Project, document, and Chat data flows become production UI only in their matching later UI phases; do not treat illustrative shell content as persisted records.
+
 ### Verify Phase 2 data and API readiness
 
 No manual migration command is required. On the first database-backed request, Web idempotently applies `0001_phase_one_foundation` followed by `0002_equipment_project_access`. Phase 2 adds indexes for Equipment ownership and manage access, pending Equipment access requests, Project membership and pending requests, included-Equipment lookup, and idempotent procedure-generation inputs. Restarting Web safely retries this bootstrap.
@@ -246,3 +256,7 @@ At the end of every implementation phase, before changing its status to complete
 5. Update links in `Development_Plan.md`, `web/docs`, and `ai/docs` when the phase introduces a new setup requirement.
 
 This reconciliation is part of the phase definition of done. A phase may not be marked complete while its setup instructions are stale or unverified.
+
+### Reconciliation record
+
+- **Phase 1 (2026-09-04):** Reconciled UI, Web backend, AI backend, environment ownership, startup commands, credentials-only authentication, aggregate readiness, and the signed Web-to-AI contract. Verified Web contract generation, lint, TypeScript, 39 automated tests, and the production build; verified AI lint/format/type gates and 26 tests; ran the live signed readiness/profile-contract integration; and visually reviewed the public credentials screens with no browser errors. Hosted MongoDB and R2 connectivity remains a per-environment check through `/api/readiness` because credentials are intentionally not stored in the repository.

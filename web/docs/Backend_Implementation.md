@@ -6,7 +6,7 @@
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Architecture, entity/version model, and API boundary | Defined.                                                                                              |
 | MongoDB models and browser-facing API                | Phases 1-2 complete: runtime, Equipment/Project CRUD, scoped access requests, membership, and audits. |
-| Authenticated AI client and background coordination  | Phase 1 signed client implemented and verified against the authenticated FastAPI readiness endpoint.  |
+| Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04. |
 | Phase 1-6 delivery                                   | Web Backend Phases 1-2 complete; Phases 3-6 not started.                                              |
 
 ## Goal
