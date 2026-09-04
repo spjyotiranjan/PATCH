@@ -45,6 +45,17 @@ cd ..
 
 If `uv` reports that `README.md` is missing while building `patch-ai`, update your branch first. The package metadata must reference `ai/docs/README.md`.
 
+### Adding or upgrading dependencies
+
+Do not install a package ad hoc. First follow the selection and documentation rules in [AGENTS.md](AGENTS.md) and [Agent.md](Agent.md), including checking official maintenance, license, security, runtime compatibility, overlap with the existing stack, and module ownership.
+
+- Web: run the appropriate `npm install`/`npm uninstall` command from `web/` and include both `package.json` and `package-lock.json`.
+- AI: run the appropriate `uv add`/`uv remove` command from `ai/` and include both `pyproject.toml` and `uv.lock`.
+- Record why the dependency is needed in the owning implementation document. Reconcile new environment values, operating prerequisites, migrations, deployment/rollback effects, and verification commands in this guide and `web/docs/Environment.md`.
+- Run the complete affected module gate and any Web-to-AI integration tests. A locally importable package is not sufficient evidence of compatibility.
+
+Never edit only a manifest, depend on an undeclared transitive package, or commit an unlocked dependency graph.
+
 ## 3. Configure hosted MongoDB
 
 P.A.T.C.H. uses a hosted MongoDB deployment only. Do not run a local MongoDB instance or Docker container for this project.

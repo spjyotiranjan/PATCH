@@ -1,5 +1,9 @@
 # Web-to-AI API Contract
 
+## Mandatory contributor workflow
+
+Before modifying this contract or either implementation, read and strictly follow `../../AGENTS.md`, `../../Agent.md`, `../../Development_Plan.md`, both module implementation documents, `Environment.md`, and `../../ai/docs/RAG_and_Safety.md`. Contract changes are contract-first: update Pydantic schemas and this document, export the committed OpenAPI artifact, regenerate Web types, update both consumers, and pass the cross-module tests in one coordinated change. Dependency or provider examples never override repository ownership, safety, or package-selection rules.
+
 ## Boundary and schema ownership
 
 The browser calls only Next.js routes. Next.js authenticates/authorizes, owns MongoDB/R2 and product workflows, resolves current active versions, and calls FastAPI over a private authenticated boundary. FastAPI Pydantic models and exported OpenAPI are the canonical shared schemas; Web consumes generated/validated TypeScript types.

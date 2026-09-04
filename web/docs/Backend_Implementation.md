@@ -2,12 +2,12 @@
 
 ## Delivery status
 
-| Item                                                 | Status                                                                                                |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Architecture, entity/version model, and API boundary | Defined.                                                                                              |
-| MongoDB models and browser-facing API                | Phases 1-2 complete: runtime, Equipment/Project CRUD, scoped access requests, membership, and audits. |
+| Item                                                 | Status                                                                                                                |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Architecture, entity/version model, and API boundary | Defined.                                                                                                              |
+| MongoDB models and browser-facing API                | Phases 1-2 complete: runtime, Equipment/Project CRUD, scoped access requests, membership, and audits.                 |
 | Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04. |
-| Phase 1-6 delivery                                   | Web Backend Phases 1-2 complete; Phases 3-6 not started.                                              |
+| Phase 1-6 delivery                                   | Web Backend Phases 1-2 complete; Phases 3-6 not started.                                                              |
 
 ## Goal
 
@@ -16,6 +16,10 @@ Provide the secure product API and authoritative relationship graph for P.A.T.C.
 ## Setup-guide maintenance
 
 Before marking any backend phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new Web dependency, environment variable, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
+
+## Dependency selection
+
+Follow the mandatory policy in `../../AGENTS.md` and `../../Agent.md`. Prefer Next.js runtime features and existing direct packages before adding an abstraction. Do not introduce another authentication system, ORM/database client, object-storage client, validation stack, logging stack, job broker, or infrastructure service without an explicit documented architecture decision showing why the existing stack cannot meet the phase requirement. Use `npm`; update `package.json` and `package-lock.json` together; document ownership/configuration and operational impact here and in `Environment.md`/`Setup_Guide.md`; and test the failure and authorization boundary.
 
 ## Scope and boundaries
 

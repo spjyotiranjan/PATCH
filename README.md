@@ -6,6 +6,10 @@ P.A.T.C.H. is a decision-support web application for manufacturing floor technic
 
 It is not an equipment-control system and does not act as an autonomous safety authority.
 
+## Contributor and AI-agent requirements
+
+Before planning, coding, installing packages, or changing documentation, read and strictly follow [AGENTS.md](AGENTS.md) and [Agent.md](Agent.md), then every phase/module document they require. These instructions apply to all AI models and human contributors using AI assistance. Do not proceed from chat history alone, and do not silently resolve conflicts between authoritative documents.
+
 ## The problem
 
 During an equipment failure, technicians often need to search across disconnected manuals, logs, and safety documents. That delays diagnosis and can lead to work being performed without the most relevant approved context.
@@ -49,13 +53,13 @@ Python FastAPI AI Service (ai)
 
 ### Ownership boundaries
 
-| Component | Owns |
-|---|---|
-| `web` | Next.js UI, sessions, role checks, MongoDB records, original-document upload/storage coordination, audit events, and server-side calls to AI. |
-| `ai` | The full ingestion and RAG lifecycle: extraction/OCR, chunking, embeddings, Pinecone indexing, retrieval, reranking, LangGraph flows, evidence assessment, citations, answers, and drafts. |
-| MongoDB | System of record for users, Project membership, Equipment/Project/document links, logical documents and versions, procedures, logs, references, entity-profile provenance, and audit events. |
-| Cloudflare R2 | Private, immutable retained original document files and revisions. Web owns its credentials and issues AI short-lived source URLs. |
-| Pinecone | Derived vector index for approved source chunks and AI-only Equipment/Project retrieval profiles; never the system of record. |
+| Component     | Owns                                                                                                                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web`         | Next.js UI, sessions, role checks, MongoDB records, original-document upload/storage coordination, audit events, and server-side calls to AI.                                                |
+| `ai`          | The full ingestion and RAG lifecycle: extraction/OCR, chunking, embeddings, Pinecone indexing, retrieval, reranking, LangGraph flows, evidence assessment, citations, answers, and drafts.   |
+| MongoDB       | System of record for users, Project membership, Equipment/Project/document links, logical documents and versions, procedures, logs, references, entity-profile provenance, and audit events. |
+| Cloudflare R2 | Private, immutable retained original document files and revisions. Web owns its credentials and issues AI short-lived source URLs.                                                           |
+| Pinecone      | Derived vector index for approved source chunks and AI-only Equipment/Project retrieval profiles; never the system of record.                                                                |
 
 ### Retrieval approach
 
@@ -94,21 +98,21 @@ ai/                             Python FastAPI AI service
 
 ## Documentation map
 
-| Need | Document |
-|---|---|
-| Product requirements | [P.A.T.C.H._PRD.pdf](P.A.T.C.H._PRD.pdf) |
-| Original UX baseline | [P.A.T.C.H._Mock_UX.pdf](P.A.T.C.H._Mock_UX.pdf) |
-| Durable product context | [PRODUCT.md](PRODUCT.md) |
-| Durable visual system | [DESIGN.md](DESIGN.md) |
-| Delivery phases and integration gates | [Development_Plan.md](Development_Plan.md) |
-| Shared repository rules | [Agent.md](Agent.md) |
-| Web UI implementation | [web/docs/UI_Implementation.md](web/docs/UI_Implementation.md) |
-| UI design asset library | [web/docs/UI_Design.md](web/docs/UI_Design.md) |
-| Web backend implementation | [web/docs/Backend_Implementation.md](web/docs/Backend_Implementation.md) |
-| Web-to-AI schema and endpoints | [web/docs/API_Contract.md](web/docs/API_Contract.md) |
-| Environment configuration | [web/docs/Environment.md](web/docs/Environment.md) |
-| AI service implementation | [ai/docs/AI_Implementation.md](ai/docs/AI_Implementation.md) |
-| Retrieval design and safety controls | [ai/docs/RAG_and_Safety.md](ai/docs/RAG_and_Safety.md) |
+| Need                                  | Document                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| Product requirements                  | [P.A.T.C.H._PRD.pdf](P.A.T.C.H._PRD.pdf)                                 |
+| Original UX baseline                  | [P.A.T.C.H._Mock_UX.pdf](P.A.T.C.H._Mock_UX.pdf)                         |
+| Durable product context               | [PRODUCT.md](PRODUCT.md)                                                 |
+| Durable visual system                 | [DESIGN.md](DESIGN.md)                                                   |
+| Delivery phases and integration gates | [Development_Plan.md](Development_Plan.md)                               |
+| Shared repository rules               | [Agent.md](Agent.md)                                                     |
+| Web UI implementation                 | [web/docs/UI_Implementation.md](web/docs/UI_Implementation.md)           |
+| UI design asset library               | [web/docs/UI_Design.md](web/docs/UI_Design.md)                           |
+| Web backend implementation            | [web/docs/Backend_Implementation.md](web/docs/Backend_Implementation.md) |
+| Web-to-AI schema and endpoints        | [web/docs/API_Contract.md](web/docs/API_Contract.md)                     |
+| Environment configuration             | [web/docs/Environment.md](web/docs/Environment.md)                       |
+| AI service implementation             | [ai/docs/AI_Implementation.md](ai/docs/AI_Implementation.md)             |
+| Retrieval design and safety controls  | [ai/docs/RAG_and_Safety.md](ai/docs/RAG_and_Safety.md)                   |
 
 ## Delivery approach
 

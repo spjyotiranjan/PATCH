@@ -8,6 +8,10 @@ The MVP is delivered through six synchronized phases. `web` is one Next.js codeb
 
 [Setup_Guide.md](Setup_Guide.md) is the canonical local setup, verification, and troubleshooting reference. Every phase must reconcile and test that guide before its implementation status is marked complete. The reconciliation must cover new dependencies, environment variables and ownership, migrations, startup/upgrade commands, API-contract generation, verification, operational limitations, and safe recovery instructions.
 
+## AI and contributor compliance gate
+
+Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md), [Agent.md](Agent.md), and the applicable module implementation, contract, environment, design, and safety documents before planning or changing a phase. Phase work must not begin from chat context or one module document alone. If the documents disagree, reconcile them before code changes. Any dependency addition or upgrade must satisfy the dependency-selection policy in `AGENTS.md`, be recorded in the owning implementation document, update its manifest and lockfile together, and pass the affected module and integration gates.
+
 ## Delivery status
 
 - **Phase 1 — Complete (2026-09-04):** UI, Web backend, and AI backend foundations are implemented, contract-synchronized, and reconciled with the setup guide. The integrated gate covers first-party credentials, the protected canonical shell, aggregate Web readiness, and authenticated Web-to-AI readiness.
@@ -82,7 +86,9 @@ The MVP is delivered through six synchronized phases. `web` is one Next.js codeb
 
 ## Cross-module work rhythm
 
-1. Revise `web/docs/API_Contract.md` and Pydantic schemas before implementing a boundary; generate/validate TypeScript types in `web`.
-2. Implement shared fixtures for logical documents, active versions, entity relationships, profiles, and Project log scopes.
-3. Build each route against the phase-mapped visual reference in `web/ui-design/` and the shell contract in `web/docs/UI_Design.md`.
-4. Run the phase integration gate and attach test/evaluation evidence before updating completion status.
+1. Re-read `AGENTS.md`, `Agent.md`, this plan, `Setup_Guide.md`, and every applicable module document from the current working tree; resolve documentation conflicts before implementation.
+2. Revise `web/docs/API_Contract.md` and Pydantic schemas before implementing a boundary; generate/validate TypeScript types in `web`.
+3. Select dependencies only through the documented dependency gate, and commit manifest/lockfile/documentation changes together with the code that uses them.
+4. Implement shared fixtures for logical documents, active versions, entity relationships, profiles, and Project log scopes.
+5. Build each route against the phase-mapped visual reference in `web/ui-design/` and the shell contract in `web/docs/UI_Design.md`.
+6. Run the module quality gates and phase integration gate, reconcile `Setup_Guide.md`, and attach test/evaluation evidence before updating completion status.

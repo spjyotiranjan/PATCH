@@ -1,5 +1,9 @@
 # Retrieval, Entity Routing, Citation, and Safety Design
 
+## Mandatory contributor workflow
+
+Before planning or changing retrieval, models, prompts, providers, parsing, embeddings, vector storage, evaluation, or safety behavior, read and strictly follow `../../AGENTS.md`, `../../Agent.md`, `AI_Implementation.md`, `../../Development_Plan.md`, `../../web/docs/API_Contract.md`, and `../../web/docs/Environment.md`. These constraints apply across every phase and to every AI model contributing code. Package/provider documentation is implementation input, not authority to weaken product boundaries, access control, evidence rules, citations, or the LangChain/LangGraph integration policy.
+
 ## Integration boundary
 
 Implement model calls, embeddings, Pinecone vector-store access, loaders, retrievers, and related AI-provider capabilities through maintained LangChain integrations; compose multi-step control flow in LangGraph. Do not use OpenAI, Pinecone, or comparable provider SDKs directly in application workflow code. If no suitable LangChain/LangGraph capability exists, isolate a documented, tested exception in `adapters/` with a migration path back to the framework abstraction.
@@ -141,13 +145,13 @@ Bound fallback iterations and retrieved context. Never loop until a desired answ
 
 ## Evidence states
 
-| Status | Meaning | Response behavior |
-|---|---|---|
-| `approved` | Sufficient applicable current evidence. | Return concise cited guidance and source access. |
-| `incomplete` | Related evidence exists but cannot support a complete answer. | Show only supported facts and state the gap. |
-| `conflicting` | Applicable current sources disagree. | Expose conflict; do not merge into a procedure. |
-| `outdated` | Only non-current/non-approved evidence appears relevant. | No operational steps; request review/escalation. |
-| `unavailable` | AI/Pinecone/provider cannot safely complete retrieval. | No answer steps; Web document/source navigation remains available. |
+| Status        | Meaning                                                       | Response behavior                                                  |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `approved`    | Sufficient applicable current evidence.                       | Return concise cited guidance and source access.                   |
+| `incomplete`  | Related evidence exists but cannot support a complete answer. | Show only supported facts and state the gap.                       |
+| `conflicting` | Applicable current sources disagree.                          | Expose conflict; do not merge into a procedure.                    |
+| `outdated`    | Only non-current/non-approved evidence appears relevant.      | No operational steps; request review/escalation.                   |
+| `unavailable` | AI/Pinecone/provider cannot safely complete retrieval.        | No answer steps; Web document/source navigation remains available. |
 
 ## Procedure generation and review need
 
@@ -162,12 +166,12 @@ Procedure generation is a separate LangGraph flow from Chat. Web supplies the ma
 
 `reviewNeed` is a review-work classification, not a probability of safety:
 
-| Level | Typical evidence state | Product behavior |
-|---|---|---|
-| `LOW` | Strong current applicable coverage, no material conflict; hardware criticality accounted for. | Human review still required; normal edit/approval workflow. |
-| `MODERATE` | Minor coverage/applicability uncertainty or non-blocking freshness concern. | Highlight affected topics/steps and require confirmation. |
-| `HIGH` | Material coverage gap, low applicability confidence, or high-criticality steps needing stronger verification. | Prominent warning; Owner must resolve/acknowledge every reason before approval. |
-| `SEVERE` | Missing mandatory safety evidence, current-source conflict, outdated governing source, or unsupported critical action. | Return no unsupported action; publication is blocked until findings are resolved and evidence is regenerated/revalidated. |
+| Level      | Typical evidence state                                                                                                 | Product behavior                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `LOW`      | Strong current applicable coverage, no material conflict; hardware criticality accounted for.                          | Human review still required; normal edit/approval workflow.                                                               |
+| `MODERATE` | Minor coverage/applicability uncertainty or non-blocking freshness concern.                                            | Highlight affected topics/steps and require confirmation.                                                                 |
+| `HIGH`     | Material coverage gap, low applicability confidence, or high-criticality steps needing stronger verification.          | Prominent warning; Owner must resolve/acknowledge every reason before approval.                                           |
+| `SEVERE`   | Missing mandatory safety evidence, current-source conflict, outdated governing source, or unsupported critical action. | Return no unsupported action; publication is blocked until findings are resolved and evidence is regenerated/revalidated. |
 
 Never average a severe blocking condition into a lower score. Store structured factor states and reasons rather than relying on one opaque numeric confidence. Manual edits do not become source-grounded automatically: changed steps return to `citationReviewState: NEEDS_REVIEW` until citations are confirmed/replaced or the bounded revalidation flow succeeds.
 

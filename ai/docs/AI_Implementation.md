@@ -2,12 +2,12 @@
 
 ## Delivery status
 
-| Item                                                                         | Status                                                                                                                             |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                           |
+| Item                                                                         | Status                                                                                                                                                                         |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                                                                       |
 | FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs; Phase 1 integration revalidated 2026-09-04. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phase 2 validation/profile contracts complete; provider-backed Phase 3 workflows not started.                                      |
-| Evaluation and production readiness                                          | Not started.                                                                                                                       |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phase 2 validation/profile contracts complete; provider-backed Phase 3 workflows not started.                                                                                  |
+| Evaluation and production readiness                                          | Not started.                                                                                                                                                                   |
 
 ## Goal
 
@@ -16,6 +16,10 @@ Deliver the internal AI service that owns extraction, source indexing, Equipment
 ## Setup-guide maintenance
 
 Before marking any AI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new AI dependency, environment variable, model/vector prerequisite, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
+
+## Dependency selection
+
+Follow the mandatory policy in `../../AGENTS.md` and `../../Agent.md`. Reuse the installed FastAPI, Pydantic, LangChain, LangGraph, extraction, observability, and test stack before adding another package. Use `uv`; update `pyproject.toml` and `uv.lock` together; verify supported Python versions and compatibility across the LangChain package family; and document purpose, provider/runtime ownership, configuration, model/data implications, failure modes, and rollback here plus in `web/docs/Environment.md` and `Setup_Guide.md`. Do not introduce an alternate orchestration framework, vector abstraction, model SDK path, parser/OCR stack, or evaluation framework without a documented gap and migration decision. The AI integration policy below remains binding and stricter for provider capabilities.
 
 ## Boundaries
 

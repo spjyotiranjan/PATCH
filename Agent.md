@@ -9,6 +9,8 @@ P.A.T.C.H. (Precision Assistant for Technical Context & Hardware) helps floor te
 ```text
 P.A.T.C.H._PRD.pdf                  # Product source of truth
 P.A.T.C.H._Mock_UX.pdf              # Original UX baseline; current views live in web/ui-design
+AGENTS.md                            # Mandatory AI entry point and document/dependency workflow
+CLAUDE.md                            # Claude loader for the repository-wide AI instructions
 PRODUCT.md                           # Durable product context and terminology
 DESIGN.md                            # Durable application-shell/component rules
 Development_Plan.md                 # Cross-module six-phase plan
@@ -19,6 +21,7 @@ web/                                 # One Next.js application: UI and API backe
     UI_Design.md
     Backend_Implementation.md
     API_Contract.md
+    Environment.md
     README.md
   ui-design/                         # Phase-mapped, high-fidelity WebP UI references
 ai/                                  # Python FastAPI retrieval and AI service
@@ -35,6 +38,26 @@ ai/                                  # Python FastAPI retrieval and AI service
 - `web` calls `ai` only through a server-side, authenticated API client. Browser code must never call the AI service directly. The connection uses versioned schemas generated from FastAPI's OpenAPI/Pydantic contract and consumed as TypeScript types in `web`.
 - `ai` owns the full ingestion and RAG lifecycle: extraction/OCR, chunking, embedding, Pinecone indexing, retrieval, LangGraph orchestration, evidence grading, citation assembly, answer generation, and draft generation. It does not write directly to product records; it returns structured results to `web`.
 - MongoDB is the system of record for users, project memberships/requests, Equipments, Projects, logical documents, immutable versions, entity-document links, active-version pointers, AI retrieval-profile projections, procedures, project maintenance logs, source references, and audit events. Cloudflare R2 is the private canonical store for original document bytes and revisions. Each document version has one R2 object and one source-chunk vector set. Equipment and Project applicability is represented by MongoDB links to the logical document, not copied files, metadata, chunks, or vectors. Pinecone stores derived source-chunk vectors and separate AI entity-profile vectors; it is never the system of record.
+
+## Mandatory documentation-first workflow
+
+Every AI agent and contributor must begin with the repository-root `AGENTS.md`, then read this file and all documents it identifies for the affected module and phase. This is required before planning, editing, generating code, or selecting a dependency. Re-read the files from the working tree on every task; prior chat context and memory may be stale after another contributor's changes.
+
+- Determine the current phase and affected UI/Web/AI deliverables from `Development_Plan.md` and the applicable implementation documents.
+- Treat documented boundaries, contracts, authorization rules, terminology, environment ownership, safety constraints, and phase exit criteria as requirements, not suggestions.
+- Inspect existing and uncommitted code before changing it. Do not discard or rewrite another contributor's work unless the user explicitly requests it.
+- When documents conflict, do not improvise. Report and reconcile the conflict in all authoritative locations before implementation, or ask the user when the intended product decision cannot be derived.
+- A code change and its affected contracts, implementation guidance, environment templates, setup instructions, tests, and phase status must remain consistent in the same change.
+
+## Dependency and package governance
+
+1. Reuse the platform and existing direct dependencies before introducing another package. A package already present is not automatically approved for a new responsibility; its use must still match the documented architecture.
+2. Add or upgrade a direct dependency only after checking official documentation for maintenance status, stable release suitability, license, security posture, runtime/framework compatibility, and fit with existing dependencies.
+3. Avoid duplicate capability stacks, abandoned or preview-only packages, unnecessary wrappers, undeclared services, and imports from transitive packages. Prefer small, well-supported integrations with clear ownership.
+4. Web package changes use `npm` and must update `web/package.json` and `web/package-lock.json`. AI package changes use `uv` and must update `ai/pyproject.toml` and `ai/uv.lock`. Never hand-edit only one half of a manifest/lockfile pair.
+5. Record the purpose and architectural reason for every new direct dependency in the applicable implementation document. Reconcile new configuration, system prerequisites, commands, migrations, deployment effects, and rollback steps in the environment templates and `Setup_Guide.md`.
+6. Test the integration boundary and run the full affected module gate. A dependency change is incomplete if its lockfile, documentation, configuration ownership, failure behavior, or verification instructions are missing.
+7. The AI integration rule below is stricter than general convenience: maintained LangChain integrations and LangGraph orchestration are the default; provider SDK exceptions require isolation, tests, an architecture decision record, and a migration path.
 
 ## Shared engineering rules
 

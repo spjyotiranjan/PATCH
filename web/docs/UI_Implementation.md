@@ -17,9 +17,13 @@ Deliver a technician-first desktop/tablet UI for Equipments, Projects, versioned
 
 Before marking any UI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new browser route, authentication step, persisted preference, dependency, startup command, verification flow, supported viewport, or troubleshooting procedure introduced by that phase.
 
+## Dependency selection
+
+Follow the mandatory policy in `../../AGENTS.md` and `../../Agent.md`. Prefer React, Next.js, the shared component system, and already-installed focused libraries. Do not add a second styling system, component kit, icon family, form stack, query/cache layer, auth client, or state manager for a capability already owned by the current stack. Use `npm`, update `package.json` and `package-lock.json` together, record the need and UI/runtime cost here, update setup documentation when behavior changes, and verify accessibility, supported viewports, loading/error states, and production build impact.
+
 ## Prerequisites
 
-- Read `../../PRODUCT.md`, `../../Agent.md`, `../../Development_Plan.md`, `Backend_Implementation.md`, `API_Contract.md`, and `UI_Design.md`.
+- Read and strictly follow `../../AGENTS.md`, `../../Agent.md`, `../../PRODUCT.md`, `../../Development_Plan.md`, `../../Setup_Guide.md`, `Backend_Implementation.md`, `API_Contract.md`, `Environment.md`, and `UI_Design.md` before planning or editing.
 - Use `Equipment` / `Equipments` everywhere. Routes use `/equipments`; labels, schemas, components, and visual references follow the same terminology.
 - Derive tokens/components from `../ui-design/foundations/color-palette.webp` and `../ui-design/components/app-shell/canonical-shell.webp`.
 - Build every loading/empty/error/unauthorized/AI-unavailable state and visible keyboard focus.
