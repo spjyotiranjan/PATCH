@@ -1,4 +1,5 @@
 import "server-only";
+import { isIP } from "node:net";
 
 import { z } from "zod";
 
@@ -44,6 +45,27 @@ export const serverConfigSchema = z.object({
       "must not use the example placeholder",
     ),
   MONGODB_DB_NAME: requiredText,
+  MONGODB_ADDRESS_FAMILY: z.coerce
+    .number()
+    .refine(
+      (value) => value === 0 || value === 4 || value === 6,
+      "must be automatic, IPv4 or IPv6",
+    )
+    .default(0),
+  MONGODB_DNS_SERVERS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((server) => server.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (servers) =>
+        servers.length <= 3 && servers.every((server) => isIP(server) !== 0),
+      "must contain at most three DNS server IP addresses",
+    ),
   AI_SERVICE_BASE_URL: z.string().url(),
   AI_SERVICE_SHARED_SECRET: nonPlaceholderSecret,
   AI_SERVICE_TIMEOUT_MS: z.coerce
@@ -51,8 +73,21 @@ export const serverConfigSchema = z.object({
     .int()
     .positive()
     .max(120_000)
-    .default(30_000),
+    .default(120_000),
   AI_SERVICE_RETRY_COUNT: z.coerce.number().int().min(0).max(3).default(1),
+  BACKEND_WORKER_SECRET: z.string().default(""),
+  API_RATE_LIMIT_REQUESTS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(10000)
+    .default(120),
+  API_RATE_LIMIT_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(3600)
+    .default(60),
   R2_ACCOUNT_ID: requiredText,
   R2_ACCESS_KEY_ID: requiredText,
   R2_SECRET_ACCESS_KEY: nonPlaceholderSecret,

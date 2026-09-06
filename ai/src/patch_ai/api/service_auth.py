@@ -132,7 +132,13 @@ class ServiceAuthenticationMiddleware(BaseHTTPMiddleware):
         if abs(current_timestamp - timestamp) > settings.ai_service_request_max_skew_seconds:
             return _error(401, "SERVICE_AUTH_EXPIRED", response_request_id)
 
-        body = await request.body()
+        chunks = bytearray()
+        async for chunk in request.stream():
+            chunks.extend(chunk)
+            if len(chunks) > 2_000_000:
+                return _error(413, "REQUEST_TOO_LARGE", response_request_id)
+        body = bytes(chunks)
+        request._body = body
         expected_signature = sign_request(
             secret=secret,
             request_id=request_id,
@@ -148,7 +154,7 @@ class ServiceAuthenticationMiddleware(BaseHTTPMiddleware):
             return _error(400, "REQUEST_ID_MISMATCH", response_request_id)
 
         if not await self._replay_guard.accept(
-            request_id, settings.ai_service_request_max_skew_seconds
+            request_id, settings.ai_service_request_max_skew_seconds * 2
         ):
             return _error(409, "REQUEST_REPLAYED", response_request_id)
 

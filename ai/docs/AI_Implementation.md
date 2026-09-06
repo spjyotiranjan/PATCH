@@ -6,8 +6,8 @@
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                                                                       |
 | FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs; Phase 1 integration revalidated 2026-09-04. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phase 2 validation/profile contracts complete; provider-backed Phase 3 workflows not started.                                                                                  |
-| Evaluation and production readiness                                          | Not started.                                                                                                                                                                   |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phases 3–5 provider-backed code implemented; isolated graph/safety tests pass. Live-source/SME acceptance pending.                                                             |
+| Evaluation and production readiness                                          | Phase 6 synthetic baseline comparison, failure tests and metadata telemetry implemented; representative evaluation and operational acceptance remain open.                     |
 
 ## Goal
 
@@ -148,7 +148,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 3 - Extraction, source indexing, and profile refresh
 
-**Status:** Not started
+**Status:** Implemented; automated parser/provenance/idempotency tests and live synthetic R2 text extraction, embeddings, Pinecone indexing and profile refresh passed (2026-09-06). Representative PDF/DOCX/OCR and failure acceptance pending.
 
 **Goal:** Produce traceable source vectors and versioned routing profiles idempotently.
 
@@ -160,7 +160,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 4 - Entity-routed grounded answers
 
-**Status:** Not started
+**Status:** Implemented; synthetic scope/citation/fallback tests and one live source-cited socket answer passed (2026-09-06). Profile optimization stays disabled by default until representative baseline comparison passes.
 
 **Goal:** Improve search focus/latency while preserving recall and citations.
 
@@ -172,7 +172,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 5 - Project draft helpers and safety controls
 
-**Status:** Not started
+**Status:** Implemented; automated drafting/revalidation/review-rubric tests and one live synthetic source-cited procedure candidate passed (2026-09-06). Representative-source, edited-draft and SME ground acceptance pending.
 
 **Goal:** Draft useful Project logs and automatically generate source-bounded procedure candidates with transparent review need, without owning product mutations or execution state.
 
@@ -184,7 +184,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 6 - Evaluation, observability, and production readiness
 
-**Status:** Not started
+**Status:** Evaluation harness, synthetic corpus, metadata tracing and failure tests implemented (2026-09-06). Representative groundedness, SLO, telemetry and release acceptance remain open.
 
 **Goal:** Prove routing/retrieval reliability for safety-conscious release.
 
@@ -195,5 +195,71 @@ The routing layer is an optimization. It cannot create access, suppress structur
 **Exit criteria:** Accepted thresholds pass against the direct-manifest baseline; traces identify profile selection, fallback, source filters, reranking, model calls, and citations; Pinecone/OpenAI failures return safe typed states.
 
 ## Completion tracking
+
+### Implemented layout and provider ownership
+
+Production code lives in `src/patch_ai/`, not the illustrative `app/` tree above.
+`services/ingestion.py` owns LangGraph extraction/summary, chunk/index and profile
+workflows. `services/answering.py` owns assignment/profile routing, bounded
+authorized fallback, source retrieval/reranking, evidence grading and independent
+verification. `services/drafting.py` owns procedure candidate/review graphs,
+unchanged-step plus whole-draft revalidation and observation-only log formatting.
+`api/execution.py` bounds concurrent work and preserves occupied capacity after
+request timeout until underlying work finishes. REST and the private question
+socket use the same typed services, replay guard and correlation contract.
+
+`adapters/providers.py` is the only model/vector integration boundary. It uses
+maintained `langchain-openai` and `langchain-pinecone`, with zero SDK retries,
+bounded provider timeouts, 8,192 maximum completion tokens and structured output.
+Models, embeddings, reasoning effort, namespace, retrieval/routing limits and
+download controls are read from validated settings, not literal workflow choices.
+The configured routing model uses low effort, answering uses medium, and answer,
+procedure, whole-draft, individual-step and log verification use the complex model
+with high effort. Defaults are overridable in `ai/.env.local`; process environment
+wins over `.env.local`, which wins over legacy `.env`. Removed OpenAI URL/org/project
+and LangSmith settings are not silently reintroduced. No provider SDK is called
+directly from workflow code.
+
+`langchain-core` is now an explicit direct dependency because application code
+uses `Document`, `BaseLoader`, `RunnableLambda` and typed runnable interfaces;
+relying on a transitive install would violate repository policy. `tzdata` supplies
+IANA zones on Windows. Both use the committed uv manifest/lockfile. Existing
+LangChain/LangGraph, pypdf, python-docx, Pillow, pytesseract, tiktoken and OTel
+dependencies are reused. The [loader ADR](../adapters/README.md) documents why
+archived `langchain-community` was not added and isolates parsing behind the
+maintained BaseLoader interface. No direct OpenAI/Pinecone SDK exception was needed.
+
+Source parsing supports native PDF, bounded embedded-image OCR, UTF-8 text/Markdown
+and simple DOCX paragraphs/tables. Unsupported visual/linked/complex DOCX content,
+encrypted PDFs, unreadable pages, private/redirected download targets, checksum
+mismatch and oversized text/archive/image data fail explicitly. Each source chunk
+records immutable original, version, tenant/environment, approval and exact anchor.
+Deterministic IDs make retries idempotent. Supersession is enforced by Web's current
+manifest; deleting derived vectors is an authenticated, scoped operator action,
+never deletion of originals. Entity profiles are never citable.
+
+### Evaluation and operational limits
+
+**69 AI tests pass**, covering contracts, auth/replay, unsafe sources, DOCX archive
+and XML controls, source filtering, invalid citations, severe conflicts, stable
+revalidation bindings, logs, reasoning configuration, env precedence and executor
+capacity. The Web suite additionally runs real loopback FastAPI REST/WebSocket
+transport. Unit fixtures disable live provider calls and local environment loading.
+
+`uv run python evaluations/runner.py` compares 15 deterministic cases in baseline
+and hierarchical mode. It measures ranking/citation/state/fallback/context/latency
+guards; these synthetic results do not measure actual model groundedness, costs
+or SLOs. [Evaluation instructions](../evaluations/README.md) require explicit
+`--live` and reviewed requests for real provider evaluation. Groundedness remains
+null until separately reviewed; the script never declares SME acceptance.
+`ENTITY_ROUTING_ENABLED=false` is the safe default until optimization is accepted.
+Optional hybrid retrieval and finalized-log evidence are not enabled.
+
+Metadata-only logs/spans cover graph stages, model/query/upsert timings, fallback
+and citation outcomes. Raw LangSmith export is suppressed. Optional OTLP must be
+configured and its receipt tested; existing Sentry placeholders do not activate
+an exporter. Use [Setup_Guide.md](../../Setup_Guide.md) and
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for startup, signed
+Swagger, private sockets, provider prerequisites and remaining acceptance records.
 
 Change phase status only with code, contract tests, evaluation evidence, and the matching `../../Development_Plan.md` integration gate.

@@ -87,6 +87,11 @@ An Equipment profile refresh also invalidates each Project profile that includes
 
 ## Retrieval sequence
 
+The profile router is implemented but opt-in (`ENTITY_ROUTING_ENABLED=false`
+by default). Until the representative evaluation gate accepts it, unassigned
+questions use the current authorized manifest directly. Explicit assignments
+still narrow that manifest. Enabling the optimization never changes authorization.
+
 1. Web authenticates and resolves current allowed active document versions, allowed Equipment/Project profiles, entity relationships, and authorized `@` assignments.
 2. AI validates/deduplicates the manifest and builds pre-retrieval Pinecone filters.
 3. AI interprets the question using bounded current-session history as context only.
@@ -100,7 +105,10 @@ An Equipment profile refresh also invalidates each Project profile that includes
 8. AI reranks for semantic/keyword relevance, applicability, source authority, active revision, extraction quality, and source diversity.
 9. AI assesses sufficiency/conflict/outdated state and generates only from retrieved chunks.
 10. AI validates source IDs for every claim/step and returns routing diagnostics plus response-scoped citations.
-11. Web revalidates citations against its original manifest and opens the exact R2-backed source version/location.
+11. Web validates original text/anchor and a newly resolved authorization manifest
+    before persisting the result; source opening separately reauthorizes the exact
+    immutable version. Access or governing-version changes during generation
+    cannot persist an obsolete answer as current guidance.
 
 ## LangGraph state
 
@@ -177,6 +185,22 @@ Never average a severe blocking condition into a lower score. Store structured f
 
 AI never manages recurrence or execution. Scheduling, new-period run creation, ticks, notes, exceptions, and completion are deterministic Web/MongoDB workflows. A prior run is immutable audit history and must never be fed back as proof that the next run's steps were completed.
 
+Implementation details: candidate generation uses the answering configuration;
+independent answer/procedure/step/log verification and whole-draft assessment use
+the configured complex model with high reasoning effort. This is a review aid,
+not independent human certification. Every Web draft edit resets approval and
+requires whole-draft revalidation, even when reorder preserves step IDs. A
+`supportedStepIds` list without exact `stepCitations` cannot confirm evidence.
+
+Only explicitly selected current included-Equipment sources supplement direct
+Project documents for procedure generation/revalidation. Published procedure
+exports are immutable, separately indexed `SOURCE_CHUNK` records with
+`CONTROLLED_PROCEDURE` authority and `PROJECT_PROCEDURE` inclusion. They enter
+current retrieval only when the published pointer, governing citations and full
+Project/source fingerprint are current. They are not copied logical Documents.
+Log evidence remains disabled; submitted logs are historical product records,
+not implied proof for operational instructions.
+
 ## Authority and ranking policy
 
 Default authority order for safety-critical guidance:
@@ -214,6 +238,17 @@ Compare hierarchical retrieval against a direct authorized-manifest baseline. Me
 - token/context reduction without recall degradation.
 
 Accept entity routing as an optimization only if source recall and safety metrics do not regress. A faster route that misses the governing manual is a failure.
+
+The committed `../evaluations/` runner compares synthetic baseline and hierarchical
+guards, with explicit `--live` for reviewed private requests. Synthetic injection
+tests model invalid output to verify rejection; they do not estimate a model's
+susceptibility. Semantic groundedness and SME acceptance are never inferred from
+valid citation IDs. See its README and the root manual testing guide for metric
+definitions, evidence records and the still-open representative acceptance gate.
+
+Raw source, history, question, model and signed URL content is excluded from
+telemetry. Metadata-only spans describe query/filter counts, graph stage,
+fallback, timings and validation outcome. Raw LangSmith callbacks are disabled.
 
 ## Required test cases
 

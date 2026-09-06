@@ -36,6 +36,31 @@ const validEnvironment: ServerEnvironment = {
 };
 
 describe("server configuration", () => {
+  it("uses configured DNS server IPs and defaults to system DNS", () => {
+    const configured = validateServerConfig({
+      ...validEnvironment,
+      MONGODB_DNS_SERVERS: "1.1.1.1, 8.8.8.8",
+    });
+    expect(configured.success && configured.config.MONGODB_DNS_SERVERS).toEqual(
+      ["1.1.1.1", "8.8.8.8"],
+    );
+    const defaults = validateServerConfig(validEnvironment);
+    expect(defaults.success && defaults.config.MONGODB_DNS_SERVERS).toEqual([]);
+  });
+  it("rejects URLs, hostnames and excess DNS servers", () => {
+    for (const value of [
+      "https://resolver.example",
+      "resolver.example",
+      "1.1.1.1,8.8.8.8,9.9.9.9,8.8.4.4",
+    ]) {
+      expect(
+        validateServerConfig({
+          ...validEnvironment,
+          MONGODB_DNS_SERVERS: value,
+        }).success,
+      ).toBe(false);
+    }
+  });
   it("parses the declared Web environment contract", () => {
     const validation = validateServerConfig(validEnvironment);
 
@@ -50,6 +75,7 @@ describe("server configuration", () => {
   });
 
   it("rejects a local MongoDB connection string", () => {
+    expect(validateServerConfig({ ...validEnvironment, MONGODB_ADDRESS_FAMILY: "5" }).success).toBe(false);
     const result = validateServerConfig({
       ...validEnvironment,
       MONGODB_URI: "mongodb://localhost:27017/patch",

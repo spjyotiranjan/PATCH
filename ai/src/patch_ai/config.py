@@ -1,6 +1,8 @@
 from functools import lru_cache
+from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +15,10 @@ class Settings(BaseSettings):
     """AI runtime settings. Secret values are never returned by status endpoints."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(
+            Path(__file__).resolve().parents[2] / ".env",
+            Path(__file__).resolve().parents[2] / ".env.local",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -27,20 +32,23 @@ class Settings(BaseSettings):
 
     ai_service_shared_secret: SecretStr = SecretStr("")
     ai_service_request_max_skew_seconds: int = Field(default=300, ge=30, le=3600)
-    ai_service_request_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    ai_service_request_timeout_seconds: int = Field(default=90, ge=1, le=120)
 
     source_download_timeout_seconds: int = Field(default=30, ge=1, le=120)
     source_download_max_bytes: int = Field(default=52_428_800, ge=1)
     source_url_allowed_hosts: str = ""
-    supported_document_mime_types: str = "application/pdf,text/plain,text/markdown"
+    supported_document_mime_types: str = (
+        "application/pdf,text/plain,text/markdown,"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
 
     openai_api_key: SecretStr = SecretStr("")
-    openai_base_url: str = ""
-    openai_org_id: str = ""
-    openai_project_id: str = ""
     openai_answer_model: str = "gpt-5.6-terra"
+    openai_answer_reasoning_effort: Literal["low", "medium", "high"] = "medium"
     openai_routing_model: str = "gpt-5.6-luna"
-    openai_complex_reasoning_model: str = "gpt-5.6-sol"
+    openai_routing_reasoning_effort: Literal["low", "medium", "high"] = "low"
+    openai_complex_reasoning_model: str = "gpt-5.6-terra"
+    openai_complex_reasoning_effort: Literal["low", "medium", "high"] = "high"
     openai_embedding_model: str = "text-embedding-3-large"
 
     pinecone_api_key: SecretStr = SecretStr("")
@@ -50,6 +58,7 @@ class Settings(BaseSettings):
     chunk_size_tokens: int = Field(default=700, ge=100, le=4000)
     chunk_overlap_tokens: int = Field(default=120, ge=0, le=1000)
     entity_profile_candidate_count: int = Field(default=8, ge=1, le=100)
+    entity_routing_enabled: bool = False
     entity_routing_max_selected_scopes: int = Field(default=5, ge=1, le=50)
     entity_routing_min_score: float = Field(default=0.45, ge=0, le=1)
     structural_fallback_max_document_versions: int = Field(default=200, ge=1, le=1000)
@@ -58,15 +67,18 @@ class Settings(BaseSettings):
     max_answer_citations: int = Field(default=8, ge=1, le=50)
     maintenance_log_indexing_enabled: bool = False
 
-    langchain_tracing_v2: bool = False
-    langchain_api_key: SecretStr = SecretStr("")
-    langchain_project: str = "patch-ai-development"
-    langchain_endpoint: str = "https://api.smith.langchain.com"
-
     sentry_dsn: SecretStr = SecretStr("")
     sentry_environment: str = "development"
     otel_service_name: str = "patch-ai"
     otel_exporter_otlp_endpoint: str = ""
+
+    @model_validator(mode="after")
+    def validate_limits(self) -> "Settings":
+        if self.chunk_overlap_tokens >= self.chunk_size_tokens:
+            raise ValueError("Chunk overlap must be smaller than chunk size")
+        if self.maintenance_log_indexing_enabled:
+            raise ValueError("Maintenance-log evidence is not enabled by the acceptance policy")
+        return self
 
     @property
     def allowed_source_hosts(self) -> frozenset[str]:
@@ -107,4 +119,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    try:
+        return Settings()
+    except ValidationError:
+        raise RuntimeError("AI configuration is invalid. Consult the setup guide.") from None

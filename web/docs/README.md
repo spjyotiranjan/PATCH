@@ -11,3 +11,8 @@ The implementation sequence follows the same six phases as the root `Development
 1. Follow [Setup_Guide.md](../../Setup_Guide.md) to install dependencies, configure MongoDB/R2, and create `../.env.local`.
 2. From `web/`, run `npm run dev`.
 3. Open `http://localhost:3000`; health is at `/api/health`.
+4. Run `npm run worker` in another terminal for ingestion, profile/procedure jobs
+   and recurrence scheduling. Use the custom server scripts, not `next dev` directly.
+5. Open `/api/docs` for Swagger; `/api/openapi` is the REST catalog. Follow
+   [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for account login,
+   full REST workflows and Postman raw WebSocket testing without application UI.

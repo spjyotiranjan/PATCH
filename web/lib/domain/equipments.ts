@@ -1,4 +1,5 @@
 import "server-only";
+import { invalidateEntity } from "@/lib/backend/context";
 
 import {
   ObjectId,
@@ -431,6 +432,10 @@ export async function createEquipment(
       },
       { session },
     );
+    await invalidateEntity(
+      { db: database, actor, session, requestId: requestIdValue },
+      { type: "EQUIPMENT", id: record._id.toHexString() },
+    );
     return equipmentView(record, actor);
   });
 }
@@ -505,6 +510,10 @@ export async function updateEquipment(
       },
       { session },
     );
+    await invalidateEntity(
+      { db: database, actor, session, requestId: requestIdValue },
+      { type: "EQUIPMENT", id: id.toHexString() },
+    );
     return equipmentView(updated, actor);
   });
 }
@@ -528,6 +537,8 @@ export async function deleteEquipment(
     if (linkedProjects > 0) {
       conflict("EQUIPMENT_IN_USE");
     }
+    if (await database.collection("documents").countDocuments({ tenantId: actor.tenantId, "origin.type": "EQUIPMENT", "origin.id": id.toHexString() }, { session }) ||
+      await database.collection("documentLinks").countDocuments({ tenantId: actor.tenantId, "entity.type": "EQUIPMENT", "entity.id": id.toHexString() }, { session })) conflict("EQUIPMENT_HAS_DOCUMENT_HISTORY");
     await equipments(database).deleteOne(
       { _id: id, tenantId: actor.tenantId },
       { session },

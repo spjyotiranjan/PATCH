@@ -1,0 +1,17 @@
+[
+  {"id":"direct-document", "expectedStatus":"approved", "relevantVersions":["version-1"]},
+  {"id":"equipment-assignment", "expectedStatus":"approved", "relevantVersions":["version-2"]},
+  {"id":"project-composition", "expectedStatus":"approved", "relevantVersions":["version-1","version-2"]},
+  {"id":"fresh-profiles", "expectedStatus":"approved", "relevantVersions":["version-1"]},
+  {"id":"stale-profile", "expectedStatus":"approved", "relevantVersions":["version-1"]},
+  {"id":"missing-profile", "expectedStatus":"approved", "relevantVersions":["version-1"]},
+  {"id":"changed-version", "expectedStatus":"approved", "relevantVersions":["version-3"]},
+  {"id":"empty-manifest", "expectedStatus":"incomplete", "relevantVersions":[]},
+  {"id":"no-evidence", "expectedStatus":"incomplete", "relevantVersions":[]},
+  {"id":"conflict", "expectedStatus":"conflicting", "relevantVersions":["version-1"]},
+  {"id":"question-injection", "expectedStatus":"incomplete", "relevantVersions":["version-1"]},
+  {"id":"source-injection", "expectedStatus":"incomplete", "relevantVersions":["version-1"]},
+  {"id":"profile-only", "expectedStatus":"incomplete", "relevantVersions":[]},
+  {"id":"ineligible-log", "expectedStatus":"incomplete", "relevantVersions":[]},
+  {"id":"wrong-tenant", "expectedStatus":"incomplete", "relevantVersions":[]}
+]

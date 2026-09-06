@@ -1,12 +1,17 @@
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Request
 
+from patch_ai.adapters.providers import Providers
+from patch_ai.api.execution import WorkflowExecutor
 from patch_ai.config import Settings
 from patch_ai.observability import log_event
 from patch_ai.schemas.contracts import (
     ApiErrorResponse,
+    DeleteVectorsRequest,
+    DeleteVectorsResult,
     EntityProfileRequest,
     EntityProfileResult,
     ExtractRequest,
@@ -21,17 +26,23 @@ from patch_ai.schemas.contracts import (
     QuestionRequest,
     QuestionResult,
     ReadinessStatus,
+    RevalidationRequest,
+    RevalidationResult,
 )
-from patch_ai.services.phase_one_stubs import (
-    extract_stub,
-    index_stub,
-    log_draft_stub,
-    procedure_draft_stub,
-    question_stub,
-)
-from patch_ai.services.phase_two_profiles import generate_profile_stub
+from patch_ai.services import answering, drafting, ingestion
 
 router = APIRouter()
+
+
+async def run_workflow[**P, T](
+    http: Request, function: Callable[P, T], *args: P.args, **kwargs: P.kwargs
+) -> T:
+    executor: WorkflowExecutor = http.app.state.executor
+    settings: Settings = http.app.state.settings
+    return await executor.run(
+        function, settings.ai_service_request_timeout_seconds, *args, **kwargs
+    )
+
 
 CONTRACT_ERRORS: dict[int | str, dict[str, Any]] = {
     400: {"model": ApiErrorResponse, "description": "Request correlation mismatch."},
@@ -75,8 +86,10 @@ async def readiness(request: Request) -> ReadinessStatus:
     responses=CONTRACT_ERRORS,
     tags=["ingestion"],
 )
-async def extract_document(request: ExtractRequest) -> ExtractResult:
-    return extract_stub(request)
+async def extract_document(request: ExtractRequest, http: Request) -> ExtractResult:
+    return await run_workflow(
+        http, ingestion.extract, request, http.app.state.settings, http.app.state.providers
+    )
 
 
 @router.post(
@@ -85,8 +98,10 @@ async def extract_document(request: ExtractRequest) -> ExtractResult:
     responses=CONTRACT_ERRORS,
     tags=["ingestion"],
 )
-async def index_document(request: IndexRequest) -> IndexResult:
-    return index_stub(request)
+async def index_document(request: IndexRequest, http: Request) -> IndexResult:
+    return await run_workflow(
+        http, ingestion.index, request, http.app.state.settings, http.app.state.providers
+    )
 
 
 @router.post(
@@ -95,8 +110,12 @@ async def index_document(request: IndexRequest) -> IndexResult:
     responses=CONTRACT_ERRORS,
     tags=["entity-profiles"],
 )
-async def upsert_entity_profile(request: EntityProfileRequest) -> EntityProfileResult:
-    return generate_profile_stub(request)
+async def upsert_entity_profile(
+    request: EntityProfileRequest, http: Request
+) -> EntityProfileResult:
+    return await run_workflow(
+        http, ingestion.profile, request, http.app.state.settings, http.app.state.providers
+    )
 
 
 @router.post(
@@ -105,8 +124,10 @@ async def upsert_entity_profile(request: EntityProfileRequest) -> EntityProfileR
     responses=CONTRACT_ERRORS,
     tags=["questions"],
 )
-async def answer_question(request: QuestionRequest) -> QuestionResult:
-    return question_stub(request)
+async def answer_question(request: QuestionRequest, http: Request) -> QuestionResult:
+    return await run_workflow(
+        http, answering.answer, request, http.app.state.settings, http.app.state.providers
+    )
 
 
 @router.post(
@@ -115,8 +136,8 @@ async def answer_question(request: QuestionRequest) -> QuestionResult:
     responses=CONTRACT_ERRORS,
     tags=["drafts"],
 )
-async def draft_log(request: LogDraftRequest) -> LogDraftResult:
-    return log_draft_stub(request)
+async def draft_log(request: LogDraftRequest, http: Request) -> LogDraftResult:
+    return await run_workflow(http, drafting.draft_log, request, http.app.state.providers)
 
 
 @router.post(
@@ -125,5 +146,40 @@ async def draft_log(request: LogDraftRequest) -> LogDraftResult:
     responses=CONTRACT_ERRORS,
     tags=["drafts"],
 )
-async def draft_procedure(request: ProcedureDraftRequest) -> ProcedureDraftResult:
-    return procedure_draft_stub(request)
+async def draft_procedure(request: ProcedureDraftRequest, http: Request) -> ProcedureDraftResult:
+    return await run_workflow(
+        http, drafting.draft_procedure, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/procedure-drafts/revalidate",
+    response_model=RevalidationResult,
+    responses=CONTRACT_ERRORS,
+    tags=["drafts"],
+)
+async def revalidate_procedure(request: RevalidationRequest, http: Request) -> RevalidationResult:
+    return await run_workflow(
+        http, drafting.revalidate, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/ingestions/delete-vectors",
+    response_model=DeleteVectorsResult,
+    responses=CONTRACT_ERRORS,
+    tags=["ingestion"],
+)
+async def delete_vectors(request: DeleteVectorsRequest, http: Request) -> DeleteVectorsResult:
+    providers: Providers = http.app.state.providers
+    try:
+        await run_workflow(
+            http,
+            providers.delete,
+            answering.filter_sources(
+                request.tenant_id, [request.document_version_id], http.app.state.settings
+            ),
+        )
+        return DeleteVectorsResult(request_id=request.request_id, status="deleted")
+    except Exception:
+        return DeleteVectorsResult(request_id=request.request_id, status="failed")

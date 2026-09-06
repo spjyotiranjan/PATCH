@@ -24,6 +24,7 @@ import { getDatabase, withDatabaseTransaction } from "@/lib/database/mongodb";
 
 import { actorCanManageEquipment, documentsModeSchema } from "./equipments";
 import { conflict, forbidden, notFound } from "./errors";
+import { invalidateEntity } from "@/lib/backend/context";
 
 const projectName = z.string().trim().min(1).max(160);
 const projectDescription = z.string().trim().min(10).max(1_000);
@@ -137,7 +138,7 @@ interface ProcedureGenerationRequestRecord {
   projectId: ObjectId;
   generationRequestId: string;
   inputFingerprint: string;
-  status: "WAITING_FOR_SOURCES";
+  status: "WAITING_FOR_SOURCES" | "QUEUED" | "GENERATING" | "READY" | "FAILED";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,7 +151,7 @@ export interface ProjectView {
   includedEquipmentIds: string[];
   documentsMode: ProjectRecord["documentsMode"];
   role: ProjectRole;
-  procedureGenerationStatus: "WAITING_FOR_SOURCES";
+  procedureGenerationStatus: ProcedureGenerationRequestRecord["status"];
   createdAt: string;
   updatedAt: string;
 }
@@ -342,7 +343,7 @@ async function generationStatus(
   database: Db,
   project: ProjectRecord,
   session?: ClientSession,
-): Promise<"WAITING_FOR_SOURCES"> {
+): Promise<ProcedureGenerationRequestRecord["status"]> {
   const request = await generationRequests(database).findOne(
     { tenantId: project.tenantId, projectId: project._id },
     { session, sort: { createdAt: -1 } },
@@ -510,6 +511,10 @@ export async function createProject(
       },
       { session },
     );
+    await invalidateEntity(
+      { db: database, actor, session, requestId: correlationId },
+      { type: "PROJECT", id: project._id.toHexString() },
+    );
     return projectView(database, project, membership, session);
   });
 }
@@ -598,6 +603,10 @@ export async function updateProject(
       },
       { session },
     );
+    await invalidateEntity(
+      { db: database, actor, session, requestId: correlationId },
+      { type: "PROJECT", id: id.toHexString() },
+    );
     return projectView(database, updated, membership, session);
   });
 }
@@ -612,6 +621,10 @@ export async function deleteProject(
   await ensureDatabaseBootstrap(config);
   await withDatabaseTransaction(config, async (database, session) => {
     await requireOwnerAccess(database, actor, id, session);
+    if (await database.collection("documents").countDocuments({ tenantId: actor.tenantId, "origin.type": "PROJECT", "origin.id": id.toHexString() }, { session }) ||
+      await database.collection("documentLinks").countDocuments({ tenantId: actor.tenantId, "entity.type": "PROJECT", "entity.id": id.toHexString() }, { session }) ||
+      await database.collection("maintenanceLogs").countDocuments({ tenantId: actor.tenantId, projectId: id.toHexString() }, { session }) ||
+      await database.collection("safetyProcedures").countDocuments({ tenantId: actor.tenantId, projectId: id.toHexString() }, { session })) conflict("PROJECT_HAS_RETAINED_HISTORY");
     await projects(database).deleteOne(
       { _id: id, tenantId: actor.tenantId },
       { session },

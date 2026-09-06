@@ -61,6 +61,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/ingestions/delete-vectors": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Delete Vectors */
+    post: operations["delete_vectors_v1_ingestions_delete_vectors_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/ingestions/extract": {
     parameters: {
       query?: never;
@@ -123,6 +140,23 @@ export interface paths {
     put?: never;
     /** Draft Procedure */
     post: operations["draft_procedure_v1_procedure_drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/procedure-drafts/revalidate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Revalidate Procedure */
+    post: operations["revalidate_procedure_v1_procedure_drafts_revalidate_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -194,8 +228,11 @@ export interface components {
     Answer: {
       /** Steps */
       steps?: components["schemas"]["AnswerStep"][];
-      /** Summary */
-      summary?: string | null;
+      /**
+       * Summary
+       * @default null
+       */
+      summary: string | null;
     };
     /** AnswerStep */
     AnswerStep: {
@@ -251,22 +288,47 @@ export interface components {
     };
     /** Citation */
     Citation: {
-      /** Approvalstate */
-      approvalState?: "APPROVED" | null;
-      /** Documenttitle */
-      documentTitle?: string | null;
+      /**
+       * Approvalstate
+       * @default null
+       */
+      approvalState: "APPROVED" | null;
+      /**
+       * Chunkid
+       * @default null
+       */
+      chunkId: string | null;
+      /**
+       * Documentid
+       * @default null
+       */
+      documentId: string | null;
+      /**
+       * Documenttitle
+       * @default null
+       */
+      documentTitle: string | null;
       /** Documentversionid */
       documentVersionId: string;
       /** Excerpt */
       excerpt: string;
       /** Id */
       id: string;
-      /** Page */
-      page?: number | null;
-      /** Revision */
-      revision?: string | null;
-      /** Section */
-      section?: string | null;
+      /**
+       * Page
+       * @default null
+       */
+      page: number | null;
+      /**
+       * Revision
+       * @default null
+       */
+      revision: string | null;
+      /**
+       * Section
+       * @default null
+       */
+      section: string | null;
     };
     /** DeclaredMetadata */
     DeclaredMetadata: {
@@ -274,6 +336,36 @@ export interface components {
       documentType: string;
       /** Title */
       title: string;
+    };
+    /** DeleteVectorsRequest */
+    DeleteVectorsRequest: {
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /** Documentversionid */
+      documentVersionId: string;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /** Tenantid */
+      tenantId: string;
+    };
+    /** DeleteVectorsResult */
+    DeleteVectorsResult: {
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "deleted" | "failed";
     };
     /** DocumentSummary */
     DocumentSummary: {
@@ -303,6 +395,8 @@ export interface components {
       type: "EQUIPMENT" | "PROJECT";
       /** Userdescription */
       userDescription?: string | null;
+      /** Workflowcoverage */
+      workflowCoverage?: string[];
     };
     /** EntityProfileRequest */
     EntityProfileRequest: {
@@ -398,6 +492,8 @@ export interface components {
       extractedMetadata?: components["schemas"]["ExtractedMetadata"] | null;
       /** Extractionquality */
       extractionQuality: number;
+      /** Pages */
+      pages?: components["schemas"]["ExtractedPage"][];
       /**
        * Requestid
        * Format: uuid
@@ -419,6 +515,17 @@ export interface components {
       sections?: string[];
       /** Title */
       title: string;
+    };
+    /** ExtractedPage */
+    ExtractedPage: {
+      /** Page */
+      page: number;
+      /** Quality */
+      quality: number;
+      /** Section */
+      section: string;
+      /** Text */
+      text: string;
     };
     /** HealthStatus */
     HealthStatus: {
@@ -471,6 +578,8 @@ export interface components {
       documentId: string;
       /** Documentversionid */
       documentVersionId: string;
+      /** Originalfileid */
+      originalFileId: string;
       /**
        * Requestid
        * Format: uuid
@@ -478,6 +587,8 @@ export interface components {
       requestId: string;
       reviewedMetadata: components["schemas"]["ReviewedMetadata"];
       sourceFile: components["schemas"]["SourceFile"];
+      /** Tenantid */
+      tenantId: string;
     };
     /** IndexResult */
     IndexResult: {
@@ -606,8 +717,11 @@ export interface components {
        * Format: uuid
        */
       requestId: string;
+      retrievalScopeManifest: components["schemas"]["RetrievalScopeManifest"];
       /** Supplementalequipmentsources */
       supplementalEquipmentSources?: components["schemas"]["SupplementalEquipmentSource"][];
+      /** Tenantid */
+      tenantId: string;
       /** Timezone */
       timezone: string;
     };
@@ -736,6 +850,31 @@ export interface components {
       /** Warnings */
       warnings?: string[];
     };
+    /** QuestionSocketEvent */
+    QuestionSocketEvent: {
+      /**
+       * Code
+       * @default null
+       */
+      code: string | null;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /** @default null */
+      result: components["schemas"]["QuestionResult"] | null;
+      /**
+       * Stage
+       * @default null
+       */
+      stage: ("retrieving" | "verifying") | null;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "question.progress" | "question.result" | "question.error";
+    };
     /** ReadinessStatus */
     ReadinessStatus: {
       /**
@@ -779,8 +918,65 @@ export interface components {
       /** Relationships */
       relationships?: components["schemas"]["ManifestRelationship"][];
     };
+    /** RevalidationRequest */
+    RevalidationRequest: {
+      /** Activesources */
+      activeSources: components["schemas"]["ProcedureSource"][];
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /** Generationrequestid */
+      generationRequestId: string;
+      /** Inputfingerprint */
+      inputFingerprint: string;
+      /** Projectdescription */
+      projectDescription: string;
+      /** Projectid */
+      projectId: string;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      retrievalScopeManifest: components["schemas"]["RetrievalScopeManifest"];
+      /** Steps */
+      steps: components["schemas"]["ProcedureStep"][];
+      /** Supplementalequipmentsources */
+      supplementalEquipmentSources?: components["schemas"]["SupplementalEquipmentSource"][];
+      /** Tenantid */
+      tenantId: string;
+      /** Timezone */
+      timezone: string;
+    };
+    /** RevalidationResult */
+    RevalidationResult: {
+      /** Citations */
+      citations?: components["schemas"]["Citation"][];
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      reviewAnalysis: components["schemas"]["ReviewAnalysis"];
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "validated" | "needs_review" | "unavailable";
+      /** Stepcitations */
+      stepCitations?: components["schemas"]["StepCitationBinding"][];
+      /** Supportedstepids */
+      supportedStepIds?: string[];
+    };
     /** ReviewAnalysis */
     ReviewAnalysis: {
+      /**
+       * Applicability
+       * @default UNKNOWN
+       */
+      applicability: string;
       /** Blockingfindings */
       blockingFindings?: string[];
       /** Conflicts */
@@ -789,8 +985,12 @@ export interface components {
       freshness: string;
       /** Hardwarecriticality */
       hardwareCriticality: string;
+      /** Missingtopics */
+      missingTopics?: string[];
       /** Reasons */
       reasons?: string[];
+      /** Requiredtopics */
+      requiredTopics?: string[];
       /**
        * Reviewneed
        * @enum {string}
@@ -801,6 +1001,11 @@ export interface components {
     };
     /** ReviewedMetadata */
     ReviewedMetadata: {
+      /**
+       * Documenttype
+       * @default MANUAL
+       */
+      documentType: string;
       /** Revision */
       revision: string;
       /** Title */
@@ -852,6 +1057,13 @@ export interface components {
       page?: number | null;
       /** Section */
       section?: string | null;
+    };
+    /** StepCitationBinding */
+    StepCitationBinding: {
+      /** Citationids */
+      citationIds: string[];
+      /** Stepid */
+      stepId: string;
     };
     /** SupplementalEquipmentSource */
     SupplementalEquipmentSource: {
@@ -985,6 +1197,84 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EntityProfileResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_vectors_v1_ingestions_delete_vectors_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeleteVectorsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteVectorsResult"];
         };
       };
       /** @description Request correlation mismatch. */
@@ -1297,6 +1587,84 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ProcedureDraftResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  revalidate_procedure_v1_procedure_drafts_revalidate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RevalidationRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RevalidationResult"];
         };
       };
       /** @description Request correlation mismatch. */

@@ -1,6 +1,7 @@
 import "server-only";
 
 import createClient from "openapi-fetch";
+import { context, propagation } from "@opentelemetry/api";
 
 import type { ServerConfig } from "@/lib/config";
 
@@ -67,7 +68,7 @@ export function createAuthenticatedAiFetch(
 
     for (
       let attempt = 0;
-      attempt <= config.AI_SERVICE_RETRY_COUNT;
+      attempt <= (request.method === "GET" ? config.AI_SERVICE_RETRY_COUNT : 0);
       attempt += 1
     ) {
       const signature = createAiRequestSignature({
@@ -78,6 +79,9 @@ export function createAuthenticatedAiFetch(
         requestId: bodyRequestId,
       });
       const headers = new Headers(request.headers);
+      const carrier: Record<string, string> = {};
+      propagation.inject(context.active(), carrier);
+      for (const [name, value] of Object.entries(carrier)) headers.set(name, value);
 
       headers.set(AI_CONTRACT_VERSION_HEADER, AI_CONTRACT_VERSION);
       headers.set(AI_REQUEST_ID_HEADER, signature.requestId);
