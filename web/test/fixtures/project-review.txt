@@ -1,0 +1,8 @@
+Synthetic test-card review procedure, revision 1
+Scope: reviewing a printed software-test card only. This is not a hardware maintenance procedure.
+Prerequisites: the reviewer has the current approved synthetic test card and a blank software test record.
+Hazards and limits: no equipment is involved; do not infer authorization for any physical operation.
+Step 1: read the revision printed on the current synthetic test card.
+Step 2: read the synthetic label from that same card; do not use a label from an older revision.
+Step 3: record the observed revision and label in the software test record.
+Completion: the reviewer has recorded both observations. This does not indicate any physical work was performed.

@@ -6,6 +6,105 @@ Before modifying this contract or either implementation, read and strictly follo
 
 ## Boundary and schema ownership
 
+### Backend Phases 3–6 execution scope (2026-09-06)
+
+Backend-only implementation and REST/WebSocket acceptance are authorized ahead
+of UI delivery. Global phase sign-off still requires the UI integration gate.
+Chat uses an authenticated Web WebSocket gateway and private Web-to-AI socket;
+REST questions remain an equivalent diagnostic path. No browser calls AI.
+
+### Chat socket contract
+
+Browser/Postman connects to `/ws/chat?sessionId=<id>` on Web with its Auth.js
+session cookie and exact application `Origin`. Send JSON
+`{ "type": "turn.submit", "clientTurnId": "uuid", "question": "...",
+"assignedReferences": [] }`. Receive `turn.accepted`, `turn.processing`, then
+`turn.completed` with the persisted validated turn or `turn.error` with a stable
+code. Only one turn per session may be in flight. Retrying clientTurnId returns
+the saved turn; reuse with changed content is a conflict. Disconnect aborts
+delivery, not committed history. Reconnect uses REST history for recovery.
+
+Web calls AI `/v1/questions/ws` with existing HMAC headers, signing `GET`, that
+path and an empty handshake body. One connection accepts one QuestionRequest
+whose requestId matches the handshake. Events: `question.progress` (stage only),
+`question.result` (QuestionResult), `question.error` (safe code). No raw model
+tokens are forwarded before citation validation. Timestamp/replay checks, frame
+limits, deadlines and close handling apply. AI sockets are private operator
+diagnostics, not a product authentication surface.
+
+### Ingestion/draft additions
+
+Published procedures remain their own Mongo record family. Web exports a deterministic
+UTF-8 snapshot to a private immutable R2 key, then uses the same signed extraction/index
+boundary with `documentType: CONTROLLED_PROCEDURE`, `documentId: procedureId`,
+`documentVersionId/originalFileId: procedureVersionId`. `procedureEvidence` stores only
+the rebuildable extraction/index projection; it is not a Document/DocumentLink. Current
+published, indexed versions enter the manifest with `PROJECT_PROCEDURE` only while
+their governing document citations remain current. Old exports and published definitions
+remain available to authorized history readers. Procedure source access is
+`GET /api/projects/{projectId}/procedures/{procedureId}/versions/{versionId}/source`.
+Project profiles accept bounded `workflowCoverage` (published procedure titles only),
+which remains routing context, never answer evidence. Eligible log indexing is disabled;
+submitted logs remain auditable Project records, never implicit safety guidance.
+
+Index requests require tenantId and originalFileId. Extraction returns anchored
+text for review; indexing re-fetches the checksum-verified immutable source.
+Procedure generation/revalidation carries tenant and a current manifest rather
+than unscoped version IDs. Outputs remain drafts. Superseded vectors are excluded
+immediately by current manifests; deleting derived vectors never deletes originals.
+Revalidation returns `stepCitations: [{stepId, citationIds}]` as exact per-step
+bindings; `supportedStepIds` alone cannot confirm a step. Unknown, duplicate or
+empty bindings are rejected. Every edit resets approval and requires whole-draft
+revalidation, including removed/reordered steps; stable step identities are preserved.
+`POST /api/projects/{projectId}/procedures/{procedureId}/regenerate` accepts an
+optional `supplementalEquipmentDocumentIds` list of currently included Equipment
+logical documents. Only an Owner can select it. Omission preserves the selection;
+`[]` clears it. Current versions resolve at generation time; the selection and
+versions participate in the input fingerprint. No Equipment source is added
+implicitly to a procedure draft. A selected but unavailable source blocks generation.
+
+### Executable API catalog and workflow invariants
+
+The complete Web operation catalog, input schemas and security declarations are
+served by `GET /api/openapi`; the locally served Swagger UI is `/api/docs`.
+`lib/backend/router.ts` registers the Phase 3–6 routes and generates their schemas;
+the Phase 1–2/auth operations are included by `lib/backend/openapi.ts`.
+Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for exact request
+bodies, authentication, expected errors, polling and socket frames. Tables below
+describe concepts; examples containing `uuid`, alternatives or descriptive IDs
+are schematic, not copy-and-send fixtures.
+
+- Document upload uses `POST /api/documents/upload-sessions`, binary PUT to the
+  returned staging URL, then `POST /api/document-versions/{versionId}/complete-upload`.
+  Review/index/activation are separate transitions. Original object keys are not
+  exposed in document responses. Source URLs expire and are returned only after
+  fresh authorization. Archive/unlink never deletes original bytes/history.
+- Owner-only `DELETE /api/equipments/{equipmentId}/manage-access/{userId}` and
+  `DELETE /api/projects/{projectId}/memberships/{userId}` revoke access; an Owner
+  cannot revoke their own ownership. Revocation is effective on subsequent reads
+  and before an in-flight AI result is saved.
+- Equipment deletion is also blocked by retained document/log history; Project
+  deletion is blocked by retained documents, logs or procedures. Remove links or
+  archive documents as appropriate; do not erase immutable history to force deletion.
+- Chat REST is `/api/chat/sessions` and nested `/{sessionId}/turns`. Web resolves
+  scope both before AI and before persistence. The same clientTurnId/content is
+  idempotent across REST and WebSocket retries. Summary is null: all generated
+  factual content lives in citation-bound steps. Conflicting/outdated/unavailable
+  answers contain no operational steps.
+- Every draft edit invalidates overall review, even when stable step IDs survive
+  a reorder. Revalidation binds only citations from the direct/explicitly selected
+  supplemental source set. Approval and publication recheck the current input
+  fingerprint, citation bindings, blockers, Owner identity and expected revision.
+- Recurrence accepts DAILY/WEEKLY/MONTHLY presets, interval 1–12 and IANA timezone.
+  One `tenantId + procedureId + periodStart` unique key prevents a second run when
+  a new definition is published mid-period. Existing runs keep their definition.
+  DST gaps move forward; ambiguous wall times use the earlier occurrence. Monthly
+  dates absent in a month are skipped. Completion requires every required tick;
+  exception notes do not waive required steps.
+- Worker operations are `POST /api/internal/jobs/run` with a separate worker
+  Bearer secret: dispatch, schedule, repair, inspect or explicitly reasoned retry.
+  They are not user/session APIs. Inspection excludes job payloads and source text.
+
 The browser calls only Next.js routes. Next.js authenticates/authorizes, owns MongoDB/R2 and product workflows, resolves current active versions, and calls FastAPI over a private authenticated boundary. FastAPI Pydantic models and exported OpenAPI are the canonical shared schemas; Web consumes generated/validated TypeScript types.
 
 Every service request includes `requestId`, `contractVersion`, service authentication, and sufficient immutable identifiers for idempotency. Contract-breaking changes require a versioned route or compatible optional-field evolution.
@@ -45,7 +144,7 @@ FastAPI rejects missing/invalid signatures, unsupported contract versions, dupli
 | `/projects/:projectId/maintenance-logs`                 | Project-only log workflow; scope is `PROJECT` or an included `EQUIPMENT`.                                                                                                                                                                                     |
 | `/projects/:projectId/procedures`                       | Lists generation state, saved drafts, published definitions, review need, schedules, and runs. Project creation queues generation; missing eligible sources return `WAITING_FOR_SOURCES`.                                                                     |
 | `/projects/:projectId/procedures/:procedureId/versions` | Create/read draft versions, edit/add/remove/reorder steps, request regeneration/diff, review, approve, publish, and inspect immutable history.                                                                                                                |
-| `/projects/:projectId/procedures/:procedureId/runs`     | List/create idempotent recurrence runs and read completion history. The scheduler creates at most one run per procedure/version/period/timezone.                                                                                                              |
+| `/projects/:projectId/procedures/:procedureId/runs`     | List/create idempotent recurrence runs and read completion history. At most one run per procedure and period, retaining the definition selected at creation.                                                                                                  |
 | `/procedure-runs/:runId/steps/:stepId/completion`       | Check/uncheck or annotate one step in the current run with actor/time audit; never mutates the procedure definition or prior run.                                                                                                                             |
 | Chat/session routes                                     | Persist sessions/turns, resolve current scope, mediate AI, validate citations, and provide source access.                                                                                                                                                     |
 | Settings routes                                         | Read/update profile fields and `theme: LIGHT                                                                                                                                                                                                                  | DARK           | SYSTEM`. |
@@ -141,7 +240,13 @@ Web de-duplicates by resolved `documentVersionId` but preserves all inclusion pa
 
 Extraction and indexing may be one internal LangGraph workflow, but the contract keeps review/approval before retrievable source upsert. If implemented as an asynchronous job, the result payloads below become job result schemas without changing their content.
 
-During Phase 1, workflow endpoints are deterministic contract stubs. They return explicit `failed` or `unavailable` states and never fabricate extraction data, chunks, profiles, answers, citations, logs, or procedure steps. Authentication, validation, replay, and internal errors use the OpenAPI-described safe error envelope and never echo request values, configuration names, or secrets.
+Phases 1–2 originally used deterministic contract stubs. Phases 3–6 routes now
+execute provider-backed workflows; test providers are injected only by tests.
+Failures return typed `failed`/`unavailable` results or the safe error envelope,
+never fabricated evidence or request/configuration values. Additional private
+operations are `POST /v1/procedure-drafts/revalidate`, `POST /v1/vectors/delete`,
+and the `/v1/questions/ws` socket. Their schemas are in the committed OpenAPI,
+including the `x-websocket-channels` extension.
 
 ## Ingestion contracts
 
@@ -186,6 +291,14 @@ During Phase 1, workflow endpoints are deterministic contract stubs. They return
     "searchHints": ["pressure instability", "seal leakage"]
   },
   "extractionQuality": 0.96,
+  "pages": [
+    {
+      "page": 1,
+      "section": "Page 1",
+      "text": "Extracted original text",
+      "extractionQuality": 0.96
+    }
+  ],
   "errors": []
 }
 ```
@@ -196,11 +309,17 @@ During Phase 1, workflow endpoints are deterministic contract stubs. They return
 {
   "requestId": "uuid",
   "contractVersion": "v1",
+  "tenantId": "tenant-id",
+  "originalFileId": "document-version-id",
   "documentId": "document-id",
   "documentVersionId": "document-version-id",
   "approvalState": "APPROVED",
   "reviewedMetadata": { "title": "Pump service manual", "revision": "3" },
-  "sourceFile": { "url": "short-lived-r2-url", "sha256": "checksum" }
+  "sourceFile": {
+    "url": "short-lived-r2-url",
+    "contentType": "application/pdf",
+    "sha256": "checksum"
+  }
 }
 ```
 
@@ -228,17 +347,14 @@ After activation, Web records/emits the derived cascade explicitly so retries an
   "documentId": "document-id",
   "activeVersionId": "document-version-3",
   "supersededVersionId": "document-version-2",
-  "affectedEquipmentIds": ["equipment-id"],
-  "affectedProjectIds": ["project-id"],
-  "profileRefreshEventIds": [
-    "refresh-equipment-event",
-    "refresh-project-event"
-  ],
-  "outboxEventId": "outbox-event-id"
+  "affectedEntities": [{ "type": "EQUIPMENT", "id": "equipment-id" }]
 }
 ```
 
-This is a Web/MongoDB product event, not a FastAPI mutation response. AI receives each resulting profile-refresh request idempotently.
+This is the Web activation response, not a FastAPI mutation. `affectedEntities`
+lists direct latest-approved links; invalidation also queues included-Project
+dependents transactionally. Audit/outbox records retain the cascade. Repeated
+activation returns the document/current-version IDs without duplicating events.
 
 ## Entity retrieval-profile contract
 
@@ -382,7 +498,7 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
     "profileVersions": [7]
   },
   "answer": {
-    "summary": "string or null",
+    "summary": null,
     "steps": [
       { "id": "step-1", "text": "string", "citationIds": ["citation-1"] }
     ]
@@ -390,6 +506,8 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
   "citations": [
     {
       "id": "citation-1",
+      "documentId": "document-id",
+      "chunkId": "active-version-id:p84:0",
       "documentVersionId": "active-version-id",
       "documentTitle": "Pump service manual",
       "revision": "3",
@@ -422,10 +540,46 @@ Web calls FastAPI only after the required Project description and at least one a
   "requestId": "uuid",
   "contractVersion": "v1",
   "generationRequestId": "project-id:input-fingerprint",
+  "tenantId": "tenant-id",
   "projectId": "project-id",
   "projectDescription": "Required description of the Project and pipeline.",
   "inputFingerprint": "sha256-of-description-and-active-source-set",
   "timezone": "Asia/Kolkata",
+  "retrievalScopeManifest": {
+    "allowedDocumentVersions": [
+      {
+        "documentId": "project-document-id",
+        "documentVersionId": "active-project-version-id",
+        "inclusionPaths": ["PROJECT_DIRECT"],
+        "sourceEntityIds": ["project-id"]
+      },
+      {
+        "documentId": "equipment-document-id",
+        "documentVersionId": "active-equipment-version-id",
+        "inclusionPaths": ["EQUIPMENT_DERIVED"],
+        "sourceEntityIds": ["equipment-id", "project-id"]
+      }
+    ],
+    "entities": [
+      {
+        "type": "PROJECT",
+        "id": "project-id",
+        "directDocumentVersionIds": ["active-project-version-id"]
+      },
+      {
+        "type": "EQUIPMENT",
+        "id": "equipment-id",
+        "directDocumentVersionIds": ["active-equipment-version-id"]
+      }
+    ],
+    "relationships": [
+      {
+        "projectId": "project-id",
+        "equipmentIds": ["equipment-id"],
+        "directDocumentVersionIds": ["active-project-version-id"]
+      }
+    ]
+  },
   "activeSources": [
     {
       "documentVersionId": "active-project-version-id",
@@ -449,6 +603,7 @@ Web calls FastAPI only after the required Project description and at least one a
   "requestId": "uuid",
   "generationRequestId": "project-id:input-fingerprint",
   "inputFingerprint": "sha256-of-description-and-active-source-set",
+  "status": "generated",
   "title": "Boiler feed pump vibration check",
   "reviewAnalysis": {
     "reviewNeed": "HIGH",
@@ -474,6 +629,11 @@ Web calls FastAPI only after the required Project description and at least one a
     {
       "id": "citation-1",
       "documentVersionId": "active-project-version-id",
+      "documentId": "project-document-id",
+      "chunkId": "active-project-version-id:p12:0",
+      "documentTitle": "Boiler upgrade execution plan",
+      "revision": "2",
+      "approvalState": "APPROVED",
       "page": 12,
       "section": "3.1",
       "excerpt": "string"
@@ -489,9 +649,9 @@ Review need is one of `LOW | MODERATE | HIGH | SEVERE` and is derived from cover
 
 - Web owns persistence. AI never creates/updates a `SafetyProcedure`, `ProcedureVersion`, `ProcedureRun`, or step completion.
 - Step reorder is an ordered stable-step-ID mutation with optimistic concurrency/version checks. Drag-and-drop and Move up/Move down call the same endpoint.
-- Manual instruction/title changes set `citationReviewState: NEEDS_REVIEW` until the user confirms/replaces citations or a source-bounded revalidation succeeds.
+- Manual instruction/title changes set `citationReviewState: NEEDS_REVIEW`. Every edit requires source-bounded whole-procedure revalidation before review/approval; manually supplying citation IDs alone is insufficient.
 - Publishing freezes that `ProcedureVersion`; later edits fork a new draft version.
-- Recurrence uses an RFC 5545-compatible rule or validated preset plus IANA timezone. A unique key on `procedureId + procedureVersionId + periodStart + periodEnd` prevents duplicate runs.
+- Recurrence uses validated RFC 5545 presets plus IANA timezone. A unique key on `tenantId + procedureId + periodStart` prevents duplicate runs across definition changes within the same period.
 - Run completion updates only the current `ProcedureRun`. A fresh period creates a new unchecked run and retains prior ticks/notes/timestamps.
 - Normal completion requires every required step checked. Any allowed exception carries reason, actor, timestamp, and audit event.
 

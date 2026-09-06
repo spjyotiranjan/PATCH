@@ -7,6 +7,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 import { persistAuditEvent } from "@/lib/audit/events";
 import { getServerConfig } from "@/lib/config";
+import { rateLimit } from "@/lib/backend/security";
 
 import { authenticateUser } from "./users";
 
@@ -24,6 +25,8 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials.password) {
           return null;
         }
+        if (credentials.email.length > 320 || credentials.password.length > 1024) return null;
+        await rateLimit(getServerConfig(), `login:${credentials.email.trim().toLowerCase()}`, 10, 300);
         const user = await authenticateUser(
           credentials.email,
           credentials.password,

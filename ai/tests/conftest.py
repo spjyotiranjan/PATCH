@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from patch_ai.adapters.providers import Providers
 from patch_ai.api.service_auth import (
     CONTRACT_VERSION_HEADER,
     REQUEST_ID_HEADER,
@@ -19,6 +20,19 @@ from patch_ai.config import Settings
 from patch_ai.main import create_app
 
 TEST_SECRET = "phase-one-test-service-secret-that-is-long-enough"
+
+
+@pytest.fixture(autouse=True)
+def no_live_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unit tests never incur model cost or mutate a configured live vector store."""
+    monkeypatch.setitem(Settings.model_config, "env_file", None)
+
+    def unavailable(*args: Any, **kwargs: Any) -> Any:
+        raise RuntimeError("TEST_PROVIDER_UNAVAILABLE")
+
+    for method in ("model", "search", "upsert", "delete"):
+        monkeypatch.setattr(Providers, method, unavailable)
+    monkeypatch.setattr("patch_ai.services.ingestion.download_source", unavailable)
 
 
 @pytest.fixture

@@ -81,6 +81,13 @@ class ExtractedMetadata(ApiModel):
     sections: list[str] = Field(default_factory=list)
 
 
+class ExtractedPage(ApiModel):
+    page: int = Field(ge=1)
+    section: str
+    text: str = Field(max_length=200_000)
+    quality: float = Field(ge=0, le=1)
+
+
 class ExtractResult(ApiModel):
     request_id: UUID
     status: Literal["needs_review", "failed"]
@@ -89,14 +96,18 @@ class ExtractResult(ApiModel):
     document_summary: DocumentSummary | None = None
     extraction_quality: float = Field(ge=0, le=1)
     errors: list[ServiceError] = Field(default_factory=list)
+    pages: list[ExtractedPage] = Field(default_factory=list, max_length=500)
 
 
 class ReviewedMetadata(ApiModel):
     title: str = Field(min_length=1, max_length=500)
     revision: str = Field(min_length=1, max_length=100)
+    document_type: str = Field(default="MANUAL", max_length=100)
 
 
 class IndexRequest(ContractRequest):
+    tenant_id: Identifier
+    original_file_id: Identifier
     document_id: Identifier
     document_version_id: Identifier
     approval_state: Literal["APPROVED"]
@@ -147,6 +158,9 @@ class EntityProfileInput(ApiModel):
         default_factory=list, max_length=100
     )
     active_documents: list[ActiveDocument] = Field(default_factory=list, max_length=500)
+    workflow_coverage: list[Annotated[str, StringConstraints(min_length=1, max_length=500)]] = (
+        Field(default_factory=list, max_length=100)
+    )
 
     @model_validator(mode="after")
     def validate_profile_scope(self) -> "EntityProfileInput":
@@ -164,6 +178,8 @@ class EntityProfileInput(ApiModel):
             raise ValueError("userDescription is required for PROJECT profiles")
         if self.type == "EQUIPMENT" and self.included_equipment_profiles:
             raise ValueError("EQUIPMENT profiles cannot include Equipment profiles")
+        if self.type == "EQUIPMENT" and self.workflow_coverage:
+            raise ValueError("workflow coverage belongs to PROJECT profiles")
         return self
 
 
@@ -410,6 +426,8 @@ class Answer(ApiModel):
 
 class Citation(ApiModel):
     id: Identifier
+    document_id: Identifier | None = None
+    chunk_id: Identifier | None = None
     document_version_id: Identifier
     document_title: str | None = None
     revision: str | None = None
@@ -475,13 +493,58 @@ class SupplementalEquipmentSource(ApiModel):
 
 
 class ProcedureDraftRequest(ContractRequest):
+    tenant_id: Identifier
+    retrieval_scope_manifest: RetrievalScopeManifest
     generation_request_id: Identifier
     project_id: Identifier
     project_description: str = Field(min_length=1, max_length=20_000)
     input_fingerprint: Identifier
     timezone: str = Field(min_length=1, max_length=100)
-    active_sources: list[ProcedureSource] = Field(min_length=1)
-    supplemental_equipment_sources: list[SupplementalEquipmentSource] = Field(default_factory=list)
+    active_sources: list[ProcedureSource] = Field(min_length=1, max_length=500)
+    supplemental_equipment_sources: list[SupplementalEquipmentSource] = Field(
+        default_factory=list, max_length=100
+    )
+
+    @model_validator(mode="after")
+    def source_scope(self) -> "ProcedureDraftRequest":
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            ZoneInfo(self.timezone)
+        except (ZoneInfoNotFoundError, ValueError) as error:
+            raise ValueError("valid IANA timezone required") from error
+        direct = {
+            item.document_version_id
+            for item in self.retrieval_scope_manifest.allowed_document_versions
+            if "PROJECT_DIRECT" in item.inclusion_paths
+            and self.project_id in item.source_entity_ids
+        }
+        ids = [item.document_version_id for item in self.active_sources]
+        if len(ids) != len(set(ids)) or not set(ids).issubset(direct):
+            raise ValueError("procedure sources must be unique current direct Project sources")
+        allowed = {
+            item.document_version_id: item
+            for item in self.retrieval_scope_manifest.allowed_document_versions
+        }
+        included = {
+            equipment_id
+            for relation in self.retrieval_scope_manifest.relationships
+            if relation.project_id == self.project_id
+            for equipment_id in relation.equipment_ids
+        }
+        supplemental_ids = [s.document_version_id for s in self.supplemental_equipment_sources]
+        if len(supplemental_ids) != len(set(supplemental_ids)):
+            raise ValueError("supplemental sources must be unique")
+        for source in self.supplemental_equipment_sources:
+            item = allowed.get(source.document_version_id)
+            if (
+                item is None
+                or source.equipment_id not in included
+                or source.equipment_id not in item.source_entity_ids
+                or "EQUIPMENT_DERIVED" not in item.inclusion_paths
+            ):
+                raise ValueError("supplemental source is outside scope")
+        return self
 
 
 class ReviewAnalysis(ApiModel):
@@ -492,6 +555,9 @@ class ReviewAnalysis(ApiModel):
     hardware_criticality: str
     blocking_findings: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
+    applicability: str = "UNKNOWN"
+    required_topics: list[str] = Field(default_factory=list, max_length=100)
+    missing_topics: list[str] = Field(default_factory=list, max_length=100)
 
 
 class ProcedureStep(ApiModel):
@@ -514,3 +580,39 @@ class ProcedureDraftResult(ApiModel):
     steps: list[ProcedureStep] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     requires_human_review: Literal[True] = True
+
+
+class RevalidationRequest(ProcedureDraftRequest):
+    steps: list[ProcedureStep] = Field(min_length=1, max_length=100)
+
+
+class StepCitationBinding(ApiModel):
+    step_id: Identifier
+    citation_ids: list[Identifier] = Field(min_length=1, max_length=8)
+
+
+class RevalidationResult(ApiModel):
+    step_citations: list[StepCitationBinding] = Field(default_factory=list, max_length=100)
+    request_id: UUID
+    status: Literal["validated", "needs_review", "unavailable"]
+    supported_step_ids: list[Identifier] = Field(default_factory=list)
+    citations: list[Citation] = Field(default_factory=list)
+    review_analysis: ReviewAnalysis
+
+
+class DeleteVectorsRequest(ContractRequest):
+    tenant_id: Identifier
+    document_version_id: Identifier
+
+
+class DeleteVectorsResult(ApiModel):
+    request_id: UUID
+    status: Literal["deleted", "failed"]
+
+
+class QuestionSocketEvent(ApiModel):
+    type: Literal["question.progress", "question.result", "question.error"]
+    request_id: UUID
+    stage: Literal["retrieving", "verifying"] | None = None
+    result: QuestionResult | None = None
+    code: str | None = None

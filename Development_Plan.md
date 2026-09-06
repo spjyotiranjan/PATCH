@@ -2,6 +2,11 @@
 
 ## Delivery model
 
+**Backend-only execution, 2026-09-06:** Phases 3–6 Web and AI implementation may
+proceed ahead of UI at the user's request. Verify through Swagger REST and
+Postman WebSockets and record module evidence separately. This does not waive
+UI acceptance, representative-source/SME evaluation, or deployment release gates.
+
 The MVP is delivered through six synchronized phases. `web` is one Next.js codebase containing the technician-facing UI and server-side product API. `ai` is a Python FastAPI microservice reached only from the Next.js backend. `Equipment` / `Equipments` is the canonical terminology in UI copy, routes, schemas, tests, and documentation.
 
 ## Setup-guide reconciliation gate
@@ -16,7 +21,15 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 
 - **Phase 1 — Complete (2026-09-04):** UI, Web backend, and AI backend foundations are implemented, contract-synchronized, and reconciled with the setup guide. The integrated gate covers first-party credentials, the protected canonical shell, aggregate Web readiness, and authenticated Web-to-AI readiness.
 - **Phase 2 — Module work in progress:** Web backend and AI backend Phase 2 are complete; the synchronized product phase remains open until UI Phase 2 and its cross-module gate are complete.
-- **Phases 3-6 — Not started.**
+- **Phases 3–6 — Backend code implemented, acceptance in progress (2026-09-06):**
+  Web/AI workflows, Swagger REST, private/product WebSockets, worker recovery and
+  synthetic evaluation are implemented. Automated suites pass (81 Web, 69 AI),
+  including real loopback cross-service transport. A small hosted synthetic smoke
+  passed sign-in/access, R2 extraction/index/activation, shared-source resolution,
+  cited Web-to-AI Chat, log submission and an unpublished procedure candidate.
+  Full hosted acceptance, representative
+  sources/SME evaluation, recovery/telemetry checks and the matching UI gates remain
+  open. See both implementation inventories and [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
 
 | Phase                                | Shared outcome                                                                                       | Web UI                                                                                                                                                                           | Web backend                                                                                                                                                                        | AI backend                                                                                                                                  | Integration gate                                                                                                                                                                                 |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -59,7 +72,11 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 ### Phase 4 - Hierarchical retrieval and Chat
 
 - Web sends an authorization-checked `RetrievalScopeManifest` containing allowed active document versions, allowed entity profile IDs, and Project-to-Equipment/document relationships.
-- With explicit `@document`, AI retrieves that document directly. With `@equipment` or `@project`, AI expands the assigned entity through the manifest. Without assignments, AI searches authorized Equipment/Project profiles first and selects likely scopes.
+- With explicit `@document`, AI retrieves that document directly. With `@equipment`
+  or `@project`, AI expands the assigned entity through the manifest. Without
+  assignments, the opt-in router searches authorized Equipment/Project profiles;
+  the default remains direct-manifest retrieval until its evaluation gate accepts
+  the optimization.
 - AI then queries source chunks only inside the selected/expanded active-version set, reranks results, checks revision/approval/conflicts, and generates from retrieved passages only.
 - Entity profiles are routing evidence, never answer evidence. They may explain why a scope was selected but never satisfy a citation requirement.
 - If routing confidence is weak, fan out to additional profiles or use the complete authorized active-version manifest within configured bounds. Never return “no evidence” solely because a profile is stale.

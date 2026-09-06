@@ -139,6 +139,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Summary"
           }
         },
@@ -304,7 +305,36 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Approvalstate"
+          },
+          "chunkId": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chunkid"
+          },
+          "documentId": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Documentid"
           },
           "documentTitle": {
             "anyOf": [
@@ -315,6 +345,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Documenttitle"
           },
           "documentVersionId": {
@@ -336,13 +367,14 @@
           "page": {
             "anyOf": [
               {
-                "minimum": 1.0,
+                "minimum": 1,
                 "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Page"
           },
           "revision": {
@@ -354,6 +386,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Revision"
           },
           "section": {
@@ -365,6 +398,7 @@
                 "type": "null"
               }
             ],
+            "default": null,
             "title": "Section"
           }
         },
@@ -397,6 +431,65 @@
           "documentType"
         ],
         "title": "DeclaredMetadata",
+        "type": "object"
+      },
+      "DeleteVectorsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "documentVersionId"
+        ],
+        "title": "DeleteVectorsRequest",
+        "type": "object"
+      },
+      "DeleteVectorsResult": {
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "deleted",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "status"
+        ],
+        "title": "DeleteVectorsResult",
         "type": "object"
       },
       "DocumentSummary": {
@@ -483,6 +576,16 @@
               }
             ],
             "title": "Userdescription"
+          },
+          "workflowCoverage": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Workflowcoverage",
+            "type": "array"
           }
         },
         "required": [
@@ -767,6 +870,14 @@
             "title": "Extractionquality",
             "type": "number"
           },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractedPage"
+            },
+            "maxItems": 500,
+            "title": "Pages",
+            "type": "array"
+          },
           "requestId": {
             "format": "uuid",
             "title": "Requestid",
@@ -832,6 +943,39 @@
           "title"
         ],
         "title": "ExtractedMetadata",
+        "type": "object"
+      },
+      "ExtractedPage": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "quality": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Quality",
+            "type": "number"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 200000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "section",
+          "text",
+          "quality"
+        ],
+        "title": "ExtractedPage",
         "type": "object"
       },
       "HealthStatus": {
@@ -937,6 +1081,12 @@
             "title": "Documentversionid",
             "type": "string"
           },
+          "originalFileId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Originalfileid",
+            "type": "string"
+          },
           "requestId": {
             "format": "uuid",
             "title": "Requestid",
@@ -947,11 +1097,19 @@
           },
           "sourceFile": {
             "$ref": "#/components/schemas/SourceFile"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
           }
         },
         "required": [
           "requestId",
           "contractVersion",
+          "tenantId",
+          "originalFileId",
           "documentId",
           "documentVersionId",
           "approvalState",
@@ -1274,6 +1432,7 @@
             "items": {
               "$ref": "#/components/schemas/ProcedureSource"
             },
+            "maxItems": 500,
             "minItems": 1,
             "title": "Activesources",
             "type": "array"
@@ -1312,12 +1471,22 @@
             "title": "Requestid",
             "type": "string"
           },
+          "retrievalScopeManifest": {
+            "$ref": "#/components/schemas/RetrievalScopeManifest"
+          },
           "supplementalEquipmentSources": {
             "items": {
               "$ref": "#/components/schemas/SupplementalEquipmentSource"
             },
+            "maxItems": 100,
             "title": "Supplementalequipmentsources",
             "type": "array"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
           },
           "timezone": {
             "maxLength": 100,
@@ -1329,6 +1498,8 @@
         "required": [
           "requestId",
           "contractVersion",
+          "tenantId",
+          "retrievalScopeManifest",
           "generationRequestId",
           "projectId",
           "projectDescription",
@@ -1679,6 +1850,70 @@
         "title": "QuestionResult",
         "type": "object"
       },
+      "QuestionSocketEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuestionResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "enum": [
+                  "retrieving",
+                  "verifying"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Stage"
+          },
+          "type": {
+            "enum": [
+              "question.progress",
+              "question.result",
+              "question.error"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "requestId"
+        ],
+        "title": "QuestionSocketEvent",
+        "type": "object"
+      },
       "ReadinessStatus": {
         "additionalProperties": false,
         "properties": {
@@ -1758,9 +1993,162 @@
         "title": "RetrievalScopeManifest",
         "type": "object"
       },
+      "RevalidationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "activeSources": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureSource"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Activesources",
+            "type": "array"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "generationRequestId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Generationrequestid",
+            "type": "string"
+          },
+          "inputFingerprint": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Inputfingerprint",
+            "type": "string"
+          },
+          "projectDescription": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Projectdescription",
+            "type": "string"
+          },
+          "projectId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Projectid",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "retrievalScopeManifest": {
+            "$ref": "#/components/schemas/RetrievalScopeManifest"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/ProcedureStep"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "supplementalEquipmentSources": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementalEquipmentSource"
+            },
+            "maxItems": 100,
+            "title": "Supplementalequipmentsources",
+            "type": "array"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "timezone": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "retrievalScopeManifest",
+          "generationRequestId",
+          "projectId",
+          "projectDescription",
+          "inputFingerprint",
+          "timezone",
+          "activeSources",
+          "steps"
+        ],
+        "title": "RevalidationRequest",
+        "type": "object"
+      },
+      "RevalidationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "reviewAnalysis": {
+            "$ref": "#/components/schemas/ReviewAnalysis"
+          },
+          "status": {
+            "enum": [
+              "validated",
+              "needs_review",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stepCitations": {
+            "items": {
+              "$ref": "#/components/schemas/StepCitationBinding"
+            },
+            "maxItems": 100,
+            "title": "Stepcitations",
+            "type": "array"
+          },
+          "supportedStepIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "title": "Supportedstepids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requestId",
+          "status",
+          "reviewAnalysis"
+        ],
+        "title": "RevalidationResult",
+        "type": "object"
+      },
       "ReviewAnalysis": {
         "additionalProperties": false,
         "properties": {
+          "applicability": {
+            "default": "UNKNOWN",
+            "title": "Applicability",
+            "type": "string"
+          },
           "blockingFindings": {
             "items": {
               "type": "string"
@@ -1780,11 +2168,27 @@
             "title": "Hardwarecriticality",
             "type": "string"
           },
+          "missingTopics": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Missingtopics",
+            "type": "array"
+          },
           "reasons": {
             "items": {
               "type": "string"
             },
             "title": "Reasons",
+            "type": "array"
+          },
+          "requiredTopics": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Requiredtopics",
             "type": "array"
           },
           "reviewNeed": {
@@ -1815,6 +2219,12 @@
       "ReviewedMetadata": {
         "additionalProperties": false,
         "properties": {
+          "documentType": {
+            "default": "MANUAL",
+            "maxLength": 100,
+            "title": "Documenttype",
+            "type": "string"
+          },
           "revision": {
             "maxLength": 100,
             "minLength": 1,
@@ -1969,6 +2379,34 @@
         "title": "SourceLocation",
         "type": "object"
       },
+      "StepCitationBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "citationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Citationids",
+            "type": "array"
+          },
+          "stepId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Stepid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stepId",
+          "citationIds"
+        ],
+        "title": "StepCitationBinding",
+        "type": "object"
+      },
       "SupplementalEquipmentSource": {
         "additionalProperties": false,
         "properties": {
@@ -1997,6 +2435,32 @@
         ],
         "title": "SupplementalEquipmentSource",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "ServiceContract": {
+        "description": "Exact single-use HMAC header; see Backend_Manual_Testing.md",
+        "in": "header",
+        "name": "x-patch-contract-version",
+        "type": "apiKey"
+      },
+      "ServiceRequest": {
+        "description": "Exact single-use HMAC header; see Backend_Manual_Testing.md",
+        "in": "header",
+        "name": "x-patch-request-id",
+        "type": "apiKey"
+      },
+      "ServiceSignature": {
+        "description": "Exact single-use HMAC header; see Backend_Manual_Testing.md",
+        "in": "header",
+        "name": "x-patch-signature",
+        "type": "apiKey"
+      },
+      "ServiceTimestamp": {
+        "description": "Exact single-use HMAC header; see Backend_Manual_Testing.md",
+        "in": "header",
+        "name": "x-patch-timestamp",
+        "type": "apiKey"
       }
     }
   },
@@ -2105,6 +2569,14 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Readiness",
         "tags": [
           "system"
@@ -2196,9 +2668,116 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Upsert Entity Profile",
         "tags": [
           "entity-profiles"
+        ]
+      }
+    },
+    "/v1/ingestions/delete-vectors": {
+      "post": {
+        "operationId": "delete_vectors_v1_ingestions_delete_vectors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteVectorsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteVectorsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Delete Vectors",
+        "tags": [
+          "ingestion"
         ]
       }
     },
@@ -2287,6 +2866,14 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Extract Document",
         "tags": [
           "ingestion"
@@ -2378,6 +2965,14 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Index Document",
         "tags": [
           "ingestion"
@@ -2469,6 +3064,14 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Draft Log",
         "tags": [
           "drafts"
@@ -2560,7 +3163,114 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Draft Procedure",
+        "tags": [
+          "drafts"
+        ]
+      }
+    },
+    "/v1/procedure-drafts/revalidate": {
+      "post": {
+        "operationId": "revalidate_procedure_v1_procedure_drafts_revalidate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevalidationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevalidationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Revalidate Procedure",
         "tags": [
           "drafts"
         ]
@@ -2651,10 +3361,29 @@
             "description": "Service authentication unavailable."
           }
         },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
         "summary": "Answer Question",
         "tags": [
           "questions"
         ]
+      }
+    }
+  },
+  "x-websocket-channels": {
+    "/v1/questions/ws": {
+      "authentication": "HMAC GET with empty handshake body; requestId binds first frame",
+      "event": {
+        "$ref": "#/components/schemas/QuestionSocketEvent"
+      },
+      "request": {
+        "$ref": "#/components/schemas/QuestionRequest"
       }
     }
   }

@@ -1,0 +1,4 @@
+Synthetic test card, revision 2
+This document is only for software testing. It does not describe real equipment.
+The synthetic display label is BLUE. Revision 2 replaces the AMBER label in revision 1.
+No physical operation, maintenance, electrical work or equipment control is authorized by this card.

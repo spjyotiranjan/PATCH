@@ -5,6 +5,7 @@ import type { Db } from "mongodb";
 import type { ServerConfig } from "@/lib/config";
 
 import { getDatabase } from "./mongodb";
+import { applyBackendMigrations } from "@/lib/backend/migrations";
 
 const PHASE_ONE_MIGRATION = "0001_phase_one_foundation";
 const PHASE_TWO_MIGRATION = "0002_equipment_project_access";
@@ -128,6 +129,7 @@ export function ensureDatabaseBootstrap(
     const database = getDatabase(config);
     await applyPhaseOneDatabaseMigration(database);
     await applyPhaseTwoDatabaseMigration(database);
+    await applyBackendMigrations(database);
   })().catch((error) => {
     bootstrapPromises.delete(key);
     throw error;

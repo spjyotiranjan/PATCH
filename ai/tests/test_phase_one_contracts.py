@@ -46,18 +46,18 @@ def test_extraction_stub_is_deterministic_and_non_fabricating(client: TestClient
         "extractionQuality": 0.0,
         "errors": [
             {
-                "code": "PHASE_1_STUB",
-                "message": (
-                    "The workflow contract is available; provider execution starts in its "
-                    "delivery phase."
-                ),
+                "code": "WORKFLOW_UNAVAILABLE",
+                "message": "Source processing unavailable; retry or request review.",
             }
         ],
+        "pages": [],
     }
 
 
 def test_index_and_profile_stubs_return_contract_valid_failures(client: TestClient) -> None:
     index_payload = contract_request(
+        tenantId="tenant-1",
+        originalFileId="file-1",
         documentId="doc-1",
         documentVersionId="doc-version-1",
         approvalState="APPROVED",
@@ -82,7 +82,7 @@ def test_index_and_profile_stubs_return_contract_valid_failures(client: TestClie
     assert index_response.json()["status"] == "failed"
     assert index_response.json()["chunkCount"] == 0
     assert profile_response.status_code == 200
-    assert profile_response.json()["status"] == "upserted"
+    assert profile_response.json()["status"] == "failed"
     assert profile_response.json()["profileFingerprint"] == "b" * 64
     assert profile_response.json()["provenance"]["tenantId"] == "tenant-1"
 
@@ -109,7 +109,7 @@ def test_question_stub_returns_no_unsupported_answer_or_citations(client: TestCl
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "unavailable"
+    assert body["status"] == "incomplete"
     assert body["answer"] == {"summary": None, "steps": []}
     assert body["citations"] == []
 
@@ -122,6 +122,26 @@ def test_log_and_procedure_stubs_require_human_work(client: TestClient) -> None:
         citationIds=[],
     )
     procedure_payload = contract_request(
+        tenantId="tenant-1",
+        retrievalScopeManifest={
+            "allowedDocumentVersions": [
+                {
+                    "documentId": "doc-1",
+                    "documentVersionId": "doc-version-1",
+                    "inclusionPaths": ["PROJECT_DIRECT"],
+                    "sourceEntityIds": ["project-1"],
+                }
+            ],
+            "entities": [
+                {
+                    "type": "PROJECT",
+                    "id": "project-1",
+                    "profileState": "MISSING",
+                    "directDocumentVersionIds": ["doc-version-1"],
+                }
+            ],
+            "relationships": [],
+        },
         generationRequestId="generation-1",
         projectId="project-1",
         projectDescription="Compressor maintenance",

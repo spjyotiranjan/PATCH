@@ -2,12 +2,12 @@
 
 ## Delivery status
 
-| Item                                                 | Status                                                                                                                |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Architecture, entity/version model, and API boundary | Defined.                                                                                                              |
-| MongoDB models and browser-facing API                | Phases 1-2 complete: runtime, Equipment/Project CRUD, scoped access requests, membership, and audits.                 |
-| Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04. |
-| Phase 1-6 delivery                                   | Web Backend Phases 1-2 complete; Phases 3-6 not started.                                                              |
+| Item                                                 | Status                                                                                                                                        |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture, entity/version model, and API boundary | Defined.                                                                                                                                      |
+| MongoDB models and browser-facing API                | Phases 1–6 backend code implemented; Phase 3–6 state/authorization tests use isolated Mongo test doubles. Hosted acceptance remains required. |
+| Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04.                         |
+| Phase 1-6 delivery                                   | Phases 1–2 complete. Phases 3–6 implemented with automated verification; live workflow/recovery and global UI gates remain open.              |
 
 ## Goal
 
@@ -145,7 +145,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 3 - Document lifecycle, activation, and profile coordination
 
-**Status:** Not started
+**Status:** Implemented; automated verification and small hosted upload/review/index/activation/shared-source smoke passed (2026-09-06). Full version-replacement/failure propagation acceptance pending.
 
 **Goal:** Support dedicated entity document management and automatic safe propagation of active versions.
 
@@ -157,7 +157,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 4 - Chat gateway and evidence integrity
 
-**Status:** Not started
+**Status:** Implemented; automated transport/scope/citation tests and one live cited Web-to-AI WebSocket turn with persisted history/idempotent replay passed (2026-09-06). Representative-source acceptance and UI integration pending.
 
 **Goal:** Supply FastAPI the current authorized entity graph and validate every cited answer.
 
@@ -169,7 +169,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 5 - Project logs and controlled procedures
 
-**Status:** Not started
+**Status:** Implemented; automated ownership/history/draft/recurrence tests and hosted synthetic log submission plus an unpublished source-cited candidate passed (2026-09-06). Owner publication, recurring-run and SME ground acceptance pending.
 
 **Goal:** Keep maintenance outcomes and controlled content within Project ownership.
 
@@ -181,7 +181,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 6 - Security, reliability, and release
 
-**Status:** Not started
+**Status:** Backend hardening and operator/evaluation tooling implemented (2026-09-06). Live recovery, telemetry/backup drill and release acceptance pending; not a completed product phase.
 
 **Goal:** Make propagation, authorization, and AI mediation observable and recoverable.
 
@@ -192,5 +192,85 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 **Exit criteria:** Tests cover failed upload/index/activation, duplicate events, stale profiles, version races, link changes, access revocation, Project Equipment removal, and AI/Pinecone outages. Traces connect user request, Mongo resolution, AI graph, Pinecone query, and returned citations.
 
 ## Completion tracking
+
+### Backend implementation inventory, 2026-09-06
+
+- `lib/backend/documents.ts`, `scope.ts`, `jobs.ts`, `context.ts`: immutable
+  staged-upload finalization, exact MIME/size/hash checks, human review, leased
+  extraction/indexing, transactional compare-and-swap activation, logical links,
+  historical pins, archive, composed reads and audited expiring source URLs.
+  Profile refresh cascades Equipment changes to included Projects. Failed indexing
+  leaves the previous version active; stale profiles never decide authorization.
+- `chat.ts`, `lib/ai/socket.ts`, `scripts/chat-gateway.mjs`, `server.mjs`:
+  user-owned sessions, UUID/content deduplication, one in-flight turn, cookie/Origin
+  gateway, HMAC private socket, reconnect/history and cancellation semantics,
+  current manifests before request and commit, exact original-text citations and
+  safe unavailable answers. No unverified raw token stream reaches clients.
+- `logs.ts`, `procedures.ts`, `procedure-evidence.ts`, `recurrence.ts`: Project
+  Owner mutation policy, scoped editable/submitted logs, automatic fingerprinted
+  generation, explicitly selected supplemental Equipment sources, stable draft
+  steps, full revalidation after edits, reviewer acknowledgement, blocked severe
+  publication, immutable published versions, current controlled-procedure export
+  indexing as a separate record family, deterministic timezone-aware runs and
+  run-scoped ticks. Required steps cannot be waived with an exception note.
+- `security.ts`, `access.ts`, `operations.ts`, `repair.ts`, `scan.ts`:
+  exact-origin checks, bounded JSON/files/socket frames, Mongo rate buckets,
+  Owner-only revocation, expiring/fenced outbox leases, five attempts then
+  dead-letter, reasoned retry, fair cursor-based repair, scheduled current runs,
+  metadata-only inspection/logs and optional OTLP. Product deletion refuses to
+  orphan retained document/log/procedure history. No destructive retention job.
+- `router.ts`/`openapi.ts` and `/api/docs`: local Swagger assets and a generated
+  Web REST operation catalog, including credentials authentication and protected
+  worker operations. FastAPI OpenAPI regenerates the committed Web AI types.
+
+### Dependencies and operational decisions
+
+MongoDB supports an opt-in, validated DNS-resolver list from configuration for
+environments whose system resolver refuses hosted SRV/TXT records. It uses the
+Node platform, introduces no package, preserves TLS/SRV topology discovery and
+requires a restart when changed. Roll back by clearing the override and restarting
+after system DNS is restored; no database migration or machine DNS change occurs.
+
+`ws` (MIT) and its development types supply the Node WebSocket server/client;
+Next route handlers do not own HTTP upgrade sockets. The custom Next server
+retains hot reload and backs both `npm run dev` and `npm start`. No second HTTP
+framework or broker was added. `swagger-ui-dist` (Apache-2.0) serves local API
+tooling assets; it is not application UI and does not load a remote CDN. Both
+manifest and npm lockfile were updated. Existing MongoDB transactions/outbox,
+AWS R2 adapter, Zod, rrule and OpenTelemetry packages are reused.
+
+Official references checked: [ws](https://github.com/websockets/ws),
+[Next custom server](https://nextjs.org/docs/app/guides/custom-server), and
+[Swagger UI](https://github.com/swagger-api/swagger-ui). Do not replace these
+with Socket.IO, a separate backend stack or an undeclared queue service.
+
+Migration `0003_backend_workflows` is additive and creates workflow uniqueness,
+dispatch/list and rate-expiry indexes before database access. Published versions,
+run completions and canonical original bytes are retained. See the setup guide
+for coordinated upgrade, backup, restore and rollback; never remove migration
+markers or wipe records to repair an index conflict.
+
+### Verification and honest completion boundary
+
+The suite currently has **81 passing tests**, including a real loopback FastAPI
+HTTP/HMAC/WebSocket process with external providers prohibited, a real Web socket
+gateway with fixture REST, and isolated transactional Mongo state tests. Cases
+cover version races, revocation, Equipment removal, exact citations, duplicate
+turns, dead letters, immutable logs, required run ticks and timezone/DST changes.
+These tests do not establish actual hosted transaction durability or live AI quality.
+
+A separate bounded hosted smoke used two tagged synthetic accounts, one Equipment,
+one Project and one immutable test-card source. It verified real persistence/access
+denials, R2 bytes, extraction/review/index/activation, shared current-version links,
+profile refresh, a cited Web-to-AI socket turn, replay/history, log submission and
+one unpublished procedure candidate. This is not publication/recurrence or SME
+acceptance. The exact-host R2 path-style fix has a regression test; it requires no
+stored-object migration because canonical object keys are unchanged.
+
+Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) to record hosted
+ingestion → activation → propagation → socket answer → log → review/publish →
+recurrence acceptance. Complete representative/SME evaluation, backup/restore and
+configured telemetry checks before signing off their gates. UI phases were not
+implemented or marked complete by this backend change.
 
 Change phase status only in a pull request containing code, migrations, tests, contract evidence, and the matching `../../Development_Plan.md` integration-gate result.
