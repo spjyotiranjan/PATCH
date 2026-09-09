@@ -1,5 +1,59 @@
 # Web-to-AI API Contract
 
+### Phase 7 visual understanding extension (in progress)
+
+Private `POST /v1/visual-assets/describe` accepts the usual signed correlation
+fields, `tenantId`, `approvalState: APPROVED`, immutable `asset`
+(`VisualSourceAsset`) and checksum-bound PNG `sourceFile`. Returns `requestId`,
+`status: described | failed`, `assetId`, `sha256`, nullable `description`, and
+`errors`. Description has bounded `summary`, `labels`, `relationships`,
+`uncertainties`, and `descriptionVersion: vision-description-v1`. Failed results
+never contain a partial description. A configured vision model inspects validated
+pixels; a separate complex-reasoning vision call must verify its description.
+Descriptions remain untrusted search aids, not approved evidence or OCR transcripts.
+
+Web `POST /api/visual-assets/{assetId}/describe` accepts `{}` and queues an
+idempotent `VISUAL_DESCRIBE` job for a ready, authorized current PDF asset.
+Only its document owner/approved manager may request it. Asset projections add
+`descriptionState: NOT_REQUESTED | QUEUED | READY | FAILED` and nullable
+`description`. Derivatives remain accessible if description fails. Worker commits
+are lease-fenced and revalidate parent approval/currentness and checksum.
+Explicit requests incur up to two model calls per attempt; rendering alone does
+not invoke vision. Existing dead-letter retry applies. Search vectors and Chat
+visual evidence integration remain pending.
+
+### Phase 7 planned discovery, visual retrieval, and answer extension
+
+Before implementation, add signed `VisualDiscoverRequest` and `VisualIndexRequest`/
+result schemas, regenerate this artifact and Web types. Discovery receives only a
+current approved parent version/page, checksum-bound preview source, pipeline
+version and declared limits. It returns bounded proposed normalized regions, class,
+confidence and uncertainty; proposals are not citations and cannot authorize render.
+Indexing receives a ready verified asset and canonical verified description; no
+pixels, base64 or URLs enter Pinecone.
+
+Namespace selection is never supplied by an API payload. AI reads the existing
+text/profile namespace from `PINECONE_NAMESPACE` and, when implemented, will read
+the visual-description namespace from `PINECONE_VISUAL_NAMESPACE`. Deployment maps
+them to `{environment}` and `visual-{environment}` respectively. Local values are
+therefore `development` and future `visual-development`.
+
+`QuestionRequest` will add a bounded `visualScopeManifest`, a subset of the current
+authorized document-version manifest, plus transient AI-only source descriptors
+only for a shortlist. Reject duplicate asset IDs, parent/version/SHA mismatch,
+out-of-manifest assets, non-ready/non-indexed assets and empty/unfiltered visual
+queries. Web alone creates source URLs; browsers and persisted Chat turns never
+receive them.
+
+`QuestionResult` will add `visualEvidenceState: TEXT_ONLY | AVAILABLE |
+UNAVAILABLE` and separate bounded `visualCitations`. Each citation has stable asset
+ID, parent document/version, page, normalized bounds, derivative SHA, class and
+`relevanceRole: REQUIRED | HELPFUL`; never storage keys, URLs, image bytes, raw
+descriptions, rationales or model output. A visual citation is valid only if Web
+freshly validates it against the manifest and the exact asset was inspected in turn.
+An approved result may be `TEXT_ONLY`; unavailable required visuals produce an
+explicit evidence-limited result.
+
 ## Mandatory contributor workflow
 
 Before modifying this contract or either implementation, read and strictly follow `../../AGENTS.md`, `../../Agent.md`, `../../Development_Plan.md`, both module implementation documents, `Environment.md`, and `../../ai/docs/RAG_and_Safety.md`. Contract changes are contract-first: update Pydantic schemas and this document, export the committed OpenAPI artifact, regenerate Web types, update both consumers, and pass the cross-module tests in one coordinated change. Dependency or provider examples never override repository ownership, safety, or package-selection rules.
@@ -69,7 +123,9 @@ The complete Web operation catalog, input schemas and security declarations are
 served by `GET /api/openapi`; the locally served Swagger UI is `/api/docs`.
 `lib/backend/router.ts` registers the Phase 3–6 routes and generates their schemas;
 the Phase 1–2/auth operations are included by `lib/backend/openapi.ts`.
-Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for exact request
+Use
+[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+for exact request
 bodies, authentication, expected errors, polling and socket frames. Tables below
 describe concepts; examples containing `uuid`, alternatives or descriptive IDs
 are schematic, not copy-and-send fixtures.
@@ -240,6 +296,12 @@ Web de-duplicates by resolved `documentVersionId` but preserves all inclusion pa
 
 Extraction and indexing may be one internal LangGraph workflow, but the contract keeps review/approval before retrievable source upsert. If implemented as an asynchronous job, the result payloads below become job result schemas without changing their content.
 
+OCR repair (2026-09-08) preserves these payloads. Aggregate AI readiness now also
+checks the local OCR executable/language data. OCR-derived text retains physical
+page anchors and lower extraction quality; no image regions or visual claims are
+added to citations. Parser changes require a newly reviewed immutable version for
+already-active sources, not an in-place change to retained citation text.
+
 Phases 1–2 originally used deterministic contract stubs. Phases 3–6 routes now
 execute provider-backed workflows; test providers are injected only by tests.
 Failures return typed `failed`/`unavailable` results or the safe error envelope,
@@ -249,6 +311,44 @@ and the `/v1/questions/ws` socket. Their schemas are in the committed OpenAPI,
 including the `x-websocket-channels` extension.
 
 ## Ingestion contracts
+
+### Phase 7 visual asset foundation
+
+`POST /v1/visual-assets/render` is HMAC-authenticated and renders one explicitly
+selected region of an approved immutable PDF. `VisualRenderRequest` includes the
+standard correlation fields, tenant/asset/document/version IDs, `sourceFile`,
+`approvalState: APPROVED`, one-based `page`, `renderDpi` (72–200),
+`rendererVersion: pdfium-png-v1`, and `bounds` (left/top/right/bottom in [0,1],
+top-left origin after page rotation; omitted bounds select the full page).
+Crossed/empty/non-finite bounds are rejected. Download checks, checksum validation,
+500-page PDF limit, pixel limits and workflow deadlines apply before rendering.
+
+The result is `rendered` with `VisualSourceAsset` provenance and `pngBase64`, or
+`failed` with a safe code and no partial bytes. PNG output is capped at 2 MB,
+4096 pixels per side and four million pixels. Bytes travel only through the private
+service response; Web verifies the correlation, complete provenance, dimensions,
+size and checksum and stores the derivative under a private content-addressed key.
+Neither MongoDB nor public JSON responses retain base64. No AI R2 credential or
+new upload permission is introduced.
+
+Web operations (session-authenticated; available in `/api/docs`):
+
+- `POST /api/document-versions/{versionId}/visual-assets` accepts `page` and
+  optional `bounds`, requires document mutation access and a current approved
+  indexed PDF, and atomically creates a deduplicated asset plus `VISUAL_RENDER`
+  outbox job. A version supports at most 100 explicitly requested assets.
+- `GET /api/document-versions/{versionId}/visual-assets` lists safe asset metadata
+  and processing state after fresh current-manifest authorization.
+- `GET /api/visual-assets/{assetId}/source` reauthorizes the parent against the
+  current manifest and issues an expiring derivative URL only for a ready asset.
+
+Rendering records no claim of OCR accuracy, model understanding or vector
+indexing. These assets do not yet enter Chat manifests/citations. Automatic region
+detection, image embeddings and verified visual answers remain subsequent Phase 7
+work. Revocation, archive, supersession and removal of a current inclusion path
+block subsequent visual reads even if a retained derivative still exists. Already
+issued signed URLs remain valid until their bounded expiry, as with original URLs.
+Original text ingestion and activation are unaffected by visual job failure.
 
 ### Extract request
 

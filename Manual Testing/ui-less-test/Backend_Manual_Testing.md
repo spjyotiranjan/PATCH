@@ -1,9 +1,13 @@
 # Backend manual testing: Web and AI Phases 1–6
 
-Use this guide together with [Setup_Guide.md](Setup_Guide.md),
-[API_Contract.md](web/docs/API_Contract.md), and the generated schemas. It tests
+Use this guide together with [Setup_Guide.md](../../Setup_Guide.md),
+[API_Contract.md](../../web/docs/API_Contract.md), and the generated schemas. It tests
 the backends without application UI. Swagger pages are API tooling, not feature UI.
 Keep this guide reconciled after each backend phase or contract change.
+
+For a complete, realistic cooling-water booster scenario with multimodal PDF
+fixtures, expected evidence, and scenario-specific REST/WebSocket cases, use the
+[`ui-less-test`](README.md) scenario pack.
 
 ## 1. What each test surface proves
 
@@ -747,9 +751,16 @@ modules first. Its provider methods are blocked, so it cannot charge accounts or
 alter live vectors. Web state tests use a transactional test double; only the hosted
 manual scenarios prove Mongo's real unique-index/write-conflict behavior. The synthetic
 evaluation does not certify SME safety or live semantic groundedness. Read
-[AI evaluation instructions](ai/evaluations/README.md) before any explicit paid run.
+[AI evaluation instructions](../../ai/evaluations/README.md) before any explicit paid run.
 
 ## 12. Acceptance record template
+
+The executed [7–8 September live backend report](06_Live_Backend_Acceptance.md)
+contains real-service results, failed factual-answer expectations, recovery and
+publication/run evidence, and the conditional UI-integration verdict. Use that
+record alongside the older bounded smoke below; neither implies full UI/SME sign-off.
+The [8 September repair record](07_Backend_Repair_Acceptance.md) closes the three
+specific OCR/factual-answer/criticality findings with separate live regressions.
 
 Record for each run: commit/diff identifier, date, tester, actor roles, synthetic or
 reviewed dataset, API contract version, test IDs, expected/actual result, safe request
@@ -799,8 +810,8 @@ work, not grounds to weaken a safety rule.
   after verification; start the three processes in section 2 for ground testing.
 - Small model/embedding calls and derived vector upserts were made for this fixture.
   Originals, audit history and synthetic records were retained, not deleted. Test
-  login credentials and entity IDs are only in Git-ignored
-  `.local/backend-smoke-<runId>.json`; never attach that file to a PR or issue.
+  login credentials and entity IDs were held only in a private external temporary
+  file and were not retained in the isolated repository.
 - Full version-replacement/race/revocation scenarios, representative PDF/DOCX/OCR,
   edited-draft revalidation, Owner publication, recurrence acceptance, outage/restore
   drills, collector receipt and SME evaluation are **not run** by this small smoke.
@@ -815,12 +826,14 @@ worker, use an otherwise idle test environment, and obtain approval before runni
 `setup` refuses an existing unfinished queue; later `dispatch` executes exactly one
 global queued job, so do not use it while unrelated work is being submitted.
 
-Create a Git-ignored `.local/backend-smoke-<runId>.json` containing a unique `runId`
-and `owner`/`outsider` objects with `name`, unique synthetic `email`, and cryptographically
-random `password`. Do not use production accounts or commit credentials. From `web/`:
+Create a private JSON file outside the repository under `$env:TEMP`, containing a
+unique `runId` and `owner`/`outsider` objects with `name`, unique synthetic `email`,
+and cryptographically random `password`. Do not use production accounts or retain
+the file after the approved smoke run. From `web/`:
 
 ```powershell
-node --env-file=.env.local scripts/smoke-small.mjs ../.local/backend-smoke-<runId>.json setup
+$smokeFile = Join-Path $env:TEMP 'patch-backend-smoke-<runId>.json'
+node --env-file=.env.local scripts/smoke-small.mjs $smokeFile setup
 ```
 
 Copy only the returned `ids` object into that same private JSON. Do not repeat setup.

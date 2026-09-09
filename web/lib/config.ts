@@ -76,6 +76,7 @@ export const serverConfigSchema = z.object({
     .default(120_000),
   AI_SERVICE_RETRY_COUNT: z.coerce.number().int().min(0).max(3).default(1),
   BACKEND_WORKER_SECRET: z.string().default(""),
+  VISUAL_RENDER_DPI: z.coerce.number().int().min(72).max(200).default(144),
   API_RATE_LIMIT_REQUESTS: z.coerce
     .number()
     .int()

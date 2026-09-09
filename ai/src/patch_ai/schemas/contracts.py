@@ -54,6 +54,110 @@ class SourceFile(ApiModel):
     sha256: Sha256
 
 
+class VisualBounds(ApiModel):
+    """Top-left origin, normalized to the displayed (rotation-applied) PDF page."""
+
+    left: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    top: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    right: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+    bottom: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_area(self) -> "VisualBounds":
+        if self.left >= self.right or self.top >= self.bottom:
+            raise ValueError("visual bounds must have positive area")
+        return self
+
+
+class VisualRenderRequest(ContractRequest):
+    tenant_id: Identifier
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    approval_state: Literal["APPROVED"]
+    source_file: SourceFile
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds = Field(default_factory=VisualBounds)
+    render_dpi: int = Field(ge=72, le=200)
+    renderer_version: Literal["pdfium-png-v1"] = "pdfium-png-v1"
+
+
+class VisualSourceAsset(ApiModel):
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds
+    original_sha256: Sha256
+    sha256: Sha256
+    content_type: Literal["image/png"] = "image/png"
+    byte_count: int = Field(ge=1, le=2_000_000)
+    width: int = Field(ge=1, le=4096)
+    height: int = Field(ge=1, le=4096)
+    render_dpi: int = Field(ge=72, le=200)
+    renderer_version: Literal["pdfium-png-v1"] = "pdfium-png-v1"
+
+
+class VisualRenderResult(ApiModel):
+    request_id: UUID
+    status: Literal["rendered", "failed"]
+    asset: VisualSourceAsset | None = None
+    png_base64: str | None = Field(default=None, max_length=2_666_668)
+    errors: list[ServiceError] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "VisualRenderResult":
+        if self.status == "rendered":
+            if self.asset is None or not self.png_base64 or self.errors:
+                raise ValueError("rendered result requires a complete asset")
+        elif self.asset is not None or self.png_base64 is not None:
+            raise ValueError("failed render cannot expose partial content")
+        return self
+
+
+class VisualDescription(ApiModel):
+    description_version: Literal["vision-description-v1"] = "vision-description-v1"
+    summary: str = Field(min_length=1, max_length=4000)
+    labels: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(max_length=50)
+    relationships: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(max_length=30)
+    uncertainties: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(max_length=20)
+
+
+class VisualDescribeRequest(ContractRequest):
+    tenant_id: Identifier
+    approval_state: Literal["APPROVED"]
+    asset: VisualSourceAsset
+    source_file: SourceFile
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "VisualDescribeRequest":
+        if (
+            self.source_file.content_type != "image/png"
+            or self.source_file.sha256.lower() != self.asset.sha256.lower()
+            or self.asset.width * self.asset.height > 4_000_000
+        ):
+            raise ValueError("visual source provenance mismatch")
+        return self
+
+
+class VisualDescribeResult(ApiModel):
+    request_id: UUID
+    asset_id: Identifier
+    sha256: Sha256
+    status: Literal["described", "failed"]
+    description: VisualDescription | None = None
+    errors: list[ServiceError] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_description(self) -> "VisualDescribeResult":
+        if self.status == "described":
+            if self.description is None or self.errors:
+                raise ValueError("described result requires a complete description")
+        elif self.description is not None:
+            raise ValueError("failed description cannot expose partial content")
+        return self
+
+
 class DeclaredMetadata(ApiModel):
     title: str = Field(min_length=1, max_length=500)
     document_type: str = Field(min_length=1, max_length=100)

@@ -1,6 +1,8 @@
+import base64
 from typing import Any, TypeVar
 
 from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pydantic import BaseModel
@@ -26,6 +28,7 @@ class Providers:
         *,
         routing: bool = False,
         complex_reasoning: bool = False,
+        images: tuple[bytes, ...] = (),
     ) -> Model:
         settings = self.settings
         if complex_reasoning:
@@ -45,9 +48,22 @@ class Providers:
             timeout=remaining_seconds(min(settings.ai_service_request_timeout_seconds, 30)),
             max_retries=0,
         )
+        if len(images) > 4 or any(not image or len(image) > 2_000_000 for image in images):
+            raise ValueError("VISUAL_MODEL_INPUT_LIMIT")
+        content: list[str | dict[str, Any]] = [{"type": "text", "text": data}]
+        for image in images:
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/png;base64," + base64.b64encode(image).decode("ascii"),
+                        "detail": "high",
+                    },
+                }
+            )
         with stage("model", outputSchema=schema.__name__, routing=routing):
             result = llm.with_structured_output(schema, method="json_schema").invoke(
-                [("system", system), ("human", data)],
+                [SystemMessage(content=system), HumanMessage(content=content if images else data)],
                 config={"callbacks": [], "metadata": {"workflow": "bounded-generation"}},
             )
         return schema.model_validate(result)

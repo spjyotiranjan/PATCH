@@ -20,7 +20,8 @@ Hosted MongoDB, private Cloudflare R2, OpenAI and Pinecone are needed for the fu
 backend workflow. Phases 3–6 call real providers for ingestion, profiles, answers
 and drafts; there is no silent mock mode in the running app. Automated tests
 inject isolated synthetic providers and never use real maintenance instructions.
-For no-UI acceptance, follow [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+For no-UI acceptance, follow
+[Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
 
 ## 2. Clone and install dependencies
 
@@ -150,12 +151,18 @@ Configure these values before expecting AI readiness to be `ready`:
 | `HOST` / `PORT`                                                      | `0.0.0.0` and `8000` (defaults are suitable).                                                                         |
 | `AI_SERVICE_SHARED_SECRET`                                           | The exact same Web value.                                                                                             |
 | `SOURCE_URL_ALLOWED_HOSTS`                                           | Your R2 endpoint host only, for example `<account-id>.r2.cloudflarestorage.com`. Do not include `https://` or a path. |
-| `OPENAI_*`                                                           | Development OpenAI configuration and credentials.                                                                     |
-| `PINECONE_*`                                                         | Development Pinecone API key, index name, and namespace.                                                              |
+| `OPENAI_*`                                                           | Development OpenAI configuration and credentials, including model names for answering, routing, complex reasoning, and embeddings. |
+| `PINECONE_*`                                                         | Development Pinecone API key, index name, and `PINECONE_NAMESPACE=development`.                                      |
 | `ENTITY_ROUTING_ENABLED`                                             | Leave `false` until representative evaluation accepts profile routing. Current-manifest retrieval still works.        |
 | `OPENAI_ROUTING_REASONING_EFFORT`                                    | `low`, used with the configured routing model.                                                                        |
 | `OPENAI_ANSWER_REASONING_EFFORT`                                     | `medium`, used with the configured answering model.                                                                   |
-| `OPENAI_COMPLEX_REASONING_MODEL` / `OPENAI_COMPLEX_REASONING_EFFORT` | `gpt-5.6-terra` / `high`, used for answer, procedure, whole-draft, step and log verification.                         |
+| `OPENAI_COMPLEX_REASONING_MODEL` / `OPENAI_COMPLEX_REASONING_EFFORT` | Configure the model name and effort (`high`) in the environment; used for answer, procedure, whole-draft, step and log verification. |
+
+OpenAI model settings accept lowercase API model IDs containing letters, numbers,
+dots, underscores, colons, and hyphens (for example aliases, dated snapshots, and
+fine-tuned IDs). Whitespace, uppercase letters, and path separators are rejected at
+startup. Use model IDs shown in the official OpenAI model catalog; validation checks
+identifier shape, not account entitlement or endpoint compatibility.
 
 AI never receives R2 account credentials, access keys, bucket credentials, MongoDB credentials, browser authentication secrets, or any `NEXT_PUBLIC_` value. It receives only Web-issued, short-lived source URLs when an ingestion workflow runs.
 
@@ -182,13 +189,15 @@ For the complete variable ownership and security rules, read [web/docs/Environme
 3. Create a Pinecone **dense bring-your-own-vector** index with cosine similarity,
    not an integrated-embedding index. The default `text-embedding-3-large`
    produces 3,072-dimensional vectors; provision that dimension. Both source
-   chunks and profiles use this model and a namespace specific to the environment.
+   chunks and profiles use this model and the explicitly configured
+   `PINECONE_NAMESPACE` (`development` locally). Keep it aligned with `APP_ENV`
+   by deployment convention; AI does not infer or override it.
    See [OpenAI embeddings](https://developers.openai.com/api/docs/guides/embeddings)
    and [Pinecone index creation](https://docs.pinecone.io/guides/index-data/create-an-index).
 4. Set an OpenAI API key with access to the configured answer/routing models and
    embeddings. An unavailable model returns a safe workflow failure; readiness
-   validates configuration, not model entitlements, vector dimensions, OCR
-   installation or retrieval quality. Verify these by completing ingestion.
+   validates provider configuration and the local OCR runtime, not model entitlements,
+   vector dimensions or retrieval quality. Verify these by completing ingestion.
 5. Keep `MAINTENANCE_LOG_INDEXING_ENABLED=false`. The optional log-evidence
    pipeline is not enabled; setting it true is rejected to avoid implying support.
    Submitted logs are still fully persisted and auditable.
@@ -205,13 +214,45 @@ templates' MIME lists and byte limits aligned (default 50 MiB). Markdown is
 treated as text; no HTML is executed. Text/DOCX citations identify numbered text
 blocks, not printed pages. PDF citations identify one-based source pages.
 
-- Text-native PDFs use pypdf. Image-only pages use embedded-image OCR and require
-  the **Tesseract executable** plus appropriate language data on PATH. Check
-  `tesseract --version` in the terminal starting AI. The Python wrapper does not
-  install that executable. OCR calls are bounded and are always marked lower quality.
-- Complex scans without extractable embedded images fail for review; there is
-  no licensed full-page PDF renderer configured. Do not accept missing text or
-  infer instructions from an unreadable page. Compare all OCR against originals.
+- Text-native PDFs use pypdf. Low-text pages are rendered with the locked
+  `pypdfium2` renderer before Tesseract OCR, preserving physical page orientation
+  and composition. Mixed pages retain native text and OCR embedded raster labels.
+  OCR remains text recognition, not diagram/colour interpretation or image embeddings.
+- Install the **Tesseract executable** and required language data separately;
+  `uv sync` installs the wrapper and renderer, not Tesseract. For Windows, use the
+  installer linked from [Tesseract's installation guide](https://tesseract-ocr.github.io/tessdoc/Installation.html)
+  and [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). Install into a
+  dedicated Tesseract-OCR directory, never the repo or a shared directory. Verify
+  the publisher/release checksum. Linux: `sudo apt install tesseract-ocr tesseract-ocr-eng`;
+  macOS: `brew install tesseract`.
+- AI discovers Tesseract on PATH, then standard Windows per-user
+  `%LOCALAPPDATA%\Programs\Tesseract-OCR` and system `%PROGRAMFILES%\Tesseract-OCR`
+  locations. For another location set `OCR_TESSERACT_CMD` in `ai/.env.local` to
+  its full executable path. An explicit invalid path fails; it does not silently
+  select a different installation. No machine-wide PATH change is needed.
+- `OCR_LANGUAGES=eng` selects installed trained data; multiple languages use `+`,
+  for example `eng+deu`. Run the executable with `--list-langs` to check the
+  installed data. `OCR_RENDER_DPI=200`, `OCR_MAX_IMAGE_PIXELS=30000000`, and
+  `OCR_TIMEOUT_SECONDS=15` bound rendering and each image's OCR work. A colour
+  contrast pass appends additional recognized lines without replacing original
+  readings; ambiguous readings remain for human review. OCR quality is `0.6`,
+  not a measured confidence/probability. Never approve unreadable or incorrect text.
+- Restart AI after changing OCR settings. From `ai`, verify discovery/data with:
+
+  ```powershell
+  uv run python -c "from patch_ai.adapters.ocr import available; from patch_ai.config import Settings; print('OCR ready:', available(Settings()))"
+  uv run python '../Manual Testing/ui-less-test/tools/validate_with_ai_loader.py'
+  ```
+
+  Then upload a scan through Web, compare every field and warning against its
+  original, approve, dispatch indexing and activation, and ask a cited question.
+  A ready OCR runtime does not prove every scan is legible. Readiness returns only
+  aggregate status; a missing executable/language is logged as safe service `ocr`.
+- Parser pipeline 2 applies to newly processed sources. For already-reviewed or
+  active sources, upload a new immutable version and review it again; do not rewrite
+  retained extraction/citations in place. Failed never-approved OCR jobs can use
+  the reasoned operator retry after fixing the prerequisite. Old active versions
+  and originals remain intact. See [the parser decision](ai/adapters/README.md).
 - DOCX paragraphs and flat tables preserve body order. Images, embedded objects,
   external relationships, tracked changes, fields, text boxes, nested tables and
   unsupported footnote/math content fail explicitly. Export a reviewed PDF or
@@ -299,8 +340,9 @@ Expected responses contain only service identity and aggregate status, for examp
 
 Then open <http://localhost:3000/api/readiness>. A `200` response with `status: ready`
 confirms MongoDB/R2 checks and authenticated AI readiness. AI readiness checks
-required provider configuration; it is **not** proof of a successful paid model
-call, indexing, OCR, or a safety evaluation. A `503` means dependencies are not
+required provider configuration and the OCR executable/language data; it is **not**
+proof of a successful paid model call, indexing, OCR accuracy, or a safety evaluation.
+A `503` means dependencies are not
 ready. Details appear only in server logs as safe service names, never environment
 variable names, credentials, signed URLs or connection strings.
 
@@ -341,6 +383,42 @@ Each successful list returns `{ "items": [...] }`. Equipment creation requires `
 Owners approve or reject access through the nested request-decision routes documented in [web/docs/API_Contract.md](web/docs/API_Contract.md). An approved Equipment manager can mutate only that Equipment and cannot decide Equipment requests or gain Project membership. Project `MEMBER` users can read Project content; only `OWNER` users can mutate the Project or decide membership requests.
 
 ## 7. Testing and quality commands
+
+### Phase 7 visual asset foundation (in progress)
+
+Update both services from the same working tree, export AI OpenAPI, regenerate Web
+types using the commands below, and restart Web, AI and the worker. Existing packages
+are sufficient. Web automatically applies additive migration `0004_visual_assets`;
+do not remove its marker or indexes to retry setup. No new credentials or AI model
+calls are needed for this initial milestone.
+
+Web `VISUAL_RENDER_DPI` defaults to 144 (72–200). New asset requests retain that DPI
+even if configuration later changes. AI limits full-page rendering to four million
+pixels before cropping, output dimensions to 4096 per side, and PNG bytes to 2 MB.
+An oversized original page can therefore fail even for a small requested crop;
+requesting a lower DPI creates a distinct asset selection. Crops use top-left
+normalized bounds on the rotated display page, rounded outward to pixel boundaries.
+The immutable PDF remains available for full resolution source inspection.
+
+Use an already approved, indexed, current PDF in Web Swagger. POST a page/crop to
+`/api/document-versions/{versionId}/visual-assets`, poll GET on the same path, then
+open `/api/visual-assets/{assetId}/source` after state becomes `READY`. The worker
+stores private derivative bytes in R2; the source endpoint returns an authorized
+URL expiring after at most 300 seconds. A URL already issued cannot be revoked
+before expiry; later source requests recheck all current permissions/version links.
+Failures retry five times before dead-letter; an audited operator retry resets the
+asset to `QUEUED`. Rendering failure does not change original approval/activation.
+Follow [Phase 7 visual testing](Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
+for exact bodies, failure tests and acceptance limits. Automatic figure selection,
+visual understanding/vector indexing and image citations in Chat are not yet enabled.
+
+Upgrade/rollback: stop worker dispatch before switching service versions and keep
+OpenAPI/types aligned. Retain `visualSourceAssets`, original versions and derivative
+objects when rolling back; prior code ignores the new collection. Do not dispatch
+`VISUAL_RENDER` jobs through an older worker. Storage uses content-addressed keys:
+interrupted/stale workers can leave an unreferenced derivative; retain these until
+a verified inventory supports cleanup. No destructive cleanup runs automatically.
+No retained text extraction or citations are rewritten by this milestone.
 
 Run these before handing off a phase implementation:
 
@@ -402,7 +480,8 @@ The AI Phase 2 change is a contract change, not a data migration. Keep `ai/opena
 
 ### Phase 3–6 operations, recovery and retention
 
-Follow the worker-operation examples in [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+Follow the worker-operation examples in
+[Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
 Jobs have 300-second leases, fencing tokens, five attempts, bounded backoff and
 dead-letter status. A stale worker cannot overwrite a newer result. An explicit
 operator retry requires a reason and is audited. Repair uses persisted scan
@@ -458,6 +537,42 @@ This reconciliation is part of the phase definition of done. A phase may not be 
 
 ### Reconciliation record
 
+- **Phase 7 namespace convention (9 September 2026, in progress):** Existing
+  text/profile vectors continue using environment-controlled
+  `PINECONE_NAMESPACE=development`, so local data requires no migration. The future
+  visual store will use the separately configured
+  `PINECONE_VISUAL_NAMESPACE=visual-development`. Visual namespace code and template
+  configuration remain pending until visual indexing is implemented.
+
+- **Phase 7 asset foundation (8 September 2026, in progress):** Added the signed
+  visual render contract, generated types, additive visual-asset migration, DPI
+  configuration, worker/retry behavior, source access and the manual test guide.
+  Verification: 97 Web and 89 AI tests, including real loopback signed PNG rendering;
+  lint/type checks, production Web build and synthetic evaluation passed. npm audit
+  reported zero vulnerabilities. Hosted R2 visual acceptance has not been executed;
+  automatic visual retrieval/understanding and Chat citations remain pending.
+
+- **Acceptance repairs (8 September 2026):** Installed/verified Tesseract 5.5.3;
+  locked pypdfium2 full-page rendering, added configurable OCR discovery/languages
+  and aggregate runtime checks, and reconciled parser migration/rollback. All
+  prepared PDFs parsed; live OCR upload/review/index/activation/Chat passed.
+  Original pressure/signal questions now return qualified source facts. Real
+  document-only revalidation remains LOW; unsupported physical maintenance stays
+  HIGH criticality/SEVERE with approval blocked. AI 80 tests and Web 81 tests,
+  type/lint/build/contracts and synthetic evaluation gates pass. See
+  [repair acceptance](Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md).
+  UI/SME/global phase acceptance is not implied.
+
+- **Live backend acceptance (7–8 September 2026):** Verified real REST/WebSocket,
+  hosted document lifecycle, scoped access, logs, synthetic procedure publication
+  and daily runs, AI outage isolation and reasoned worker retry. Indexing and
+  activation require separate queued dispatches. Native parsing worked; scanned
+  sources remain blocked by the missing Tesseract executable. Factual-answer
+  failures remain open. See the
+  [acceptance report](Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
+  for exact scope and UI-integration limits. No configuration or product code was
+  changed during these tests.
+
 - **Phase 1 (2026-09-04):** Reconciled UI, Web backend, AI backend, environment ownership, startup commands, credentials-only authentication, aggregate readiness, and the signed Web-to-AI contract. Verified Web contract generation, lint, TypeScript, 39 automated tests, and the production build; verified AI lint/format/type gates and 26 tests; ran the live signed readiness/profile-contract integration; and visually reviewed the public credentials screens with no browser errors. Hosted MongoDB and R2 connectivity remains a per-environment check through `/api/readiness` because credentials are intentionally not stored in the repository.
 - **Backend Phases 3–6 (2026-09-06):** Startup/worker, additive migration,
   Swagger/WebSocket contracts, provider/parser prerequisites, recovery and
@@ -469,3 +584,56 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   See the dated manual-test record for deliberately unrun ground-test scenarios.
   Global phase status remains open for UI integration and representative/SME
   acceptance; synthetic fixtures do not certify real maintenance guidance.
+# Phase 7 visual-description addendum
+
+Automated verification for this milestone: 99 AI tests and 101 Web tests passed,
+including the real loopback service suite. Web production build, lint/typecheck,
+AI Ruff, mypy and Pyright passed. No paid/hosted vision acceptance was run.
+
+### Phase 7 future discovery and retrieval gate
+
+Automatic figure discovery, visual-description indexing and Chat visual retrieval
+are deliberately not enabled. Do not set speculative environment variables or
+bulk-process historical documents. Before enabling the next milestone, reconcile
+both implementation documents, the API contract, environment templates and this
+guide; create the separate visual namespace; run migrations; verify embedding
+dimension compatibility; and begin with a small reviewed representative fixture set.
+
+When visual indexing is implemented, configure both values explicitly:
+
+```dotenv
+PINECONE_NAMESPACE=development
+PINECONE_VISUAL_NAMESPACE=visual-development
+```
+
+Use the mapping `{environment}` for text/profile and `visual-{environment}` for
+visual descriptions. `APP_ENV=development` identifies the service environment but
+does not synthesize either Pinecone setting. The current text namespace remains
+`development`, so this configuration reconciliation requires no vector migration.
+
+Record candidate-page/region counts, false positives, indexed descriptions, visual
+relevance decisions, pixel-grounded citations, authorization/revocation behavior,
+latency and actual provider cost. Compare every result with the existing text-only
+baseline. A visual failure may leave a text-supported answer usable, but a
+diagram-dependent answer must return an explicit incomplete/unavailable evidence
+state. Never store raw pixels/URLs in Pinecone or Chat history, call descriptor
+vectors raw-image embeddings, or start historical bulk enrichment before reviewed
+quality and cost thresholds are accepted.
+
+After restarting Web, its worker, and AI with the updated code, use the existing
+login and worker setup to render a visual asset first. Wait until its `state` is
+`READY`. In Web Swagger send `POST /api/visual-assets/{assetId}/describe` with `{}`
+as the document owner or approved manager. Poll the document-version visual-assets
+list: `descriptionState` moves from `QUEUED` to `READY`, with a bounded `description`.
+This is an explicit paid operation: normally two vision calls per attempt, with
+the existing maximum five job attempts. Model/effort configuration is reused from
+AI's answer and complex-verification settings; both models must accept images.
+No new dependency, environment setting, database migration or UI is required.
+
+If the job dead-letters, the description becomes `FAILED` but the PNG remains
+`READY`. Diagnose service/provider configuration and use the existing documented
+operator retry with a reason; do not repeatedly submit new assets. Old assets
+default to `NOT_REQUESTED`. Rollback can stop description jobs and leave the
+additive fields intact; do not delete originals or derivatives. Descriptions are
+not yet indexed or used in Chat. See the Phase 7 manual-test document for visual
+inspection and authorization cases. Live model accuracy is not yet accepted.

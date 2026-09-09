@@ -37,7 +37,7 @@ ai/                                  # Python FastAPI retrieval and AI service
 - `web` owns the Next.js user interface, authentication/session handling, project Owner/Member authorization, MongoDB access, personal-document library/original-document workflow, and the public application API. It mediates between UI, MongoDB/original-file storage, and `ai`; it does not perform ingestion, retrieval, Pinecone access, reranking, or LLM prompting.
 - `web` calls `ai` only through a server-side, authenticated API client. Browser code must never call the AI service directly. The connection uses versioned schemas generated from FastAPI's OpenAPI/Pydantic contract and consumed as TypeScript types in `web`.
 - `ai` owns the full ingestion and RAG lifecycle: extraction/OCR, chunking, embedding, Pinecone indexing, retrieval, LangGraph orchestration, evidence grading, citation assembly, answer generation, and draft generation. It does not write directly to product records; it returns structured results to `web`.
-- MongoDB is the system of record for users, project memberships/requests, Equipments, Projects, logical documents, immutable versions, entity-document links, active-version pointers, AI retrieval-profile projections, procedures, project maintenance logs, source references, and audit events. Cloudflare R2 is the private canonical store for original document bytes and revisions. Each document version has one R2 object and one source-chunk vector set. Equipment and Project applicability is represented by MongoDB links to the logical document, not copied files, metadata, chunks, or vectors. Pinecone stores derived source-chunk vectors and separate AI entity-profile vectors; it is never the system of record.
+- MongoDB is the system of record for users, project memberships/requests, Equipments, Projects, logical documents, immutable versions, entity-document links, active-version pointers, AI retrieval-profile projections, procedures, project maintenance logs, source references, and audit events. Cloudflare R2 is the private canonical store for original document bytes and revisions. Each document version has one original R2 object and one source-chunk vector set; Phase 7 may add private version-bound visual derivatives with MongoDB provenance. Equipment and Project applicability is represented by MongoDB links to the logical document, not copied files, metadata, chunks, or vectors. Pinecone stores derived source-chunk vectors and separate AI entity-profile vectors; it is never the system of record.
 
 ## Mandatory documentation-first workflow
 
@@ -79,7 +79,7 @@ Every AI agent and contributor must begin with the repository-root `AGENTS.md`, 
 15. For OpenAI, Pinecone, embeddings, retrievers, loaders, rerankers, and similar external AI capabilities, `ai` implementation must prefer maintained LangChain integrations and LangGraph orchestration. Do not use a provider SDK directly in workflow code unless no suitable framework capability exists; isolate and document any such exception in `ai/adapters/` with tests and a migration path.
 16. [Setup_Guide.md](Setup_Guide.md) is the canonical setup and operational verification guide. At the end of every phase, reconcile and test it against the implemented services, environment templates, migrations, contracts, and commands before marking that phase complete.
 
-## Six-phase synchronization rule
+## Six-phase synchronization rule and backend-only extension
 
 For the backend-only Phases 3–6 delivery requested on 2026-09-06, Web and AI may
 be implemented and verified together ahead of UI. Record backend verification
@@ -87,6 +87,12 @@ separately; global completion still requires the UI integration gate. Swagger
 REST and Postman WebSocket tests are the interim backend acceptance surface.
 Chat transport is Web gateway to private AI socket with the same scoped
 contracts and authorization as REST.
+
+**Backend-only Phase 7:** The multimodal visual-source retrieval extension is
+tracked in the Web and AI backend implementation documents. It may be designed,
+implemented, and verified as a paired backend capability, but it does not add a
+seventh synchronized product phase, waive a future Chat UI integration gate, or
+change the completion status of the six product phases.
 
 `web` UI, `web` backend, and `ai` move through the same numbered phase together. A phase is complete only when its cross-module integration gate in `Development_Plan.md` passes. Do not build later-phase UI against invented contracts; update `web/docs/API_Contract.md` first when a contract changes.
 

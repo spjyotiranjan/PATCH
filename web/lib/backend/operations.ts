@@ -45,6 +45,26 @@ export async function retryJob(ctx: Context, jobId: string, reason: string) {
       { returnDocument: "after", session },
     );
     if (!job) fail("DEAD_LETTER_JOB_REQUIRED", 409);
+    if (["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind)) {
+      await db.collection("visualSourceAssets").updateOne(
+        {
+          _id: oid(job.payload.assetId),
+          tenantId: job.tenantId,
+          ...(job.kind === "VISUAL_RENDER"
+            ? { state: "FAILED" }
+            : { descriptionState: "FAILED" }),
+        },
+        {
+          $set: {
+            ...(job.kind === "VISUAL_RENDER"
+              ? { state: "QUEUED" }
+              : { descriptionState: "QUEUED" }),
+            updatedAt: new Date(),
+          },
+        },
+        { session },
+      );
+    }
     await audit(
       {
         ...ctx,

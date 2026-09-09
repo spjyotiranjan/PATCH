@@ -9,6 +9,23 @@ UI acceptance, representative-source/SME evaluation, or deployment release gates
 
 The MVP is delivered through six synchronized phases. `web` is one Next.js codebase containing the technician-facing UI and server-side product API. `ai` is a Python FastAPI microservice reached only from the Next.js backend. `Equipment` / `Equipments` is the canonical terminology in UI copy, routes, schemas, tests, and documentation.
 
+**Backend-only Phase 7 extension:** Multimodal visual-source preservation,
+grounded visual retrieval, and exact visual citations are a paired Web/AI backend
+extension, specified in the two backend implementation documents. It does not
+change the six synchronized product phases, their current status, or the future
+UI integration gate.
+
+Its remaining implementation is staged: bounded local candidate-page triage,
+low-cost proposed-region detection, immutable derivative rendering and verified
+descriptions, isolated visual-description indexing, authorized rank-fused text and
+visual retrieval, relevance gating, same-turn pixel grounding, and validated exact
+visual citations. The detailed Web/AI contracts, limits, safety rules, costs and
+acceptance criteria are authoritative in the two Phase 7 implementation sections;
+this plan does not enable the capability or add a seventh synchronized product phase.
+Existing text/profile vectors use configured `PINECONE_NAMESPACE`; the future
+visual-description store uses separate `PINECONE_VISUAL_NAMESPACE`. Deployments map
+the values to `{environment}` and `visual-{environment}` respectively.
+
 ## Setup-guide reconciliation gate
 
 [Setup_Guide.md](Setup_Guide.md) is the canonical local setup, verification, and troubleshooting reference. Every phase must reconcile and test that guide before its implementation status is marked complete. The reconciliation must cover new dependencies, environment variables and ownership, migrations, startup/upgrade commands, API-contract generation, verification, operational limitations, and safe recovery instructions.
@@ -29,7 +46,8 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
   cited Web-to-AI Chat, log submission and an unpublished procedure candidate.
   Full hosted acceptance, representative
   sources/SME evaluation, recovery/telemetry checks and the matching UI gates remain
-  open. See both implementation inventories and [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+  open. See both implementation inventories and
+  [Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
 
 | Phase                                | Shared outcome                                                                                       | Web UI                                                                                                                                                                           | Web backend                                                                                                                                                                        | AI backend                                                                                                                                  | Integration gate                                                                                                                                                                                 |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -41,6 +59,14 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 | 6. Harden, evaluate, deploy          | Complete product is reliable, accessible, observable, and demonstrable.                              | Settings profile/theme completion, tablet/accessibility pass, edge states, visual regression against canonical shell, E2E coverage.                                              | Rate limits, validation, profile-refresh reliability, backups, observability, deployment and security tests.                                                                       | Routing/retrieval evaluation, prompt-injection defenses, latency/quality metrics, deployment and failure-mode tests.                        | End-to-end demo passes: create entity > optional upload/skip > add/update document > activate > propagate > route > retrieve > cite > Project log > review/publish.                              |
 
 ## Phase-level acceptance criteria
+
+The [7–8 September live backend acceptance report](Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
+adds real-service evidence for the backend gates. The subsequent
+[8 September repair acceptance](Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md)
+verifies fixes for OCR, the failed factual-answer cases and review-criticality
+calibration, including live scanned-source Chat and blocked unsupported procedure
+approval. Core API integration may proceed. Representative/SME, UI and the other
+unverified product gates remain open; synchronized phase status is unchanged.
 
 ### Phase 1 - Foundation
 

@@ -12,6 +12,24 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import type { ServerConfig } from "@/lib/config";
 
+export async function storeVisualDerivative(
+  config: ServerConfig,
+  key: string,
+  png: Buffer,
+) {
+  // The key includes the SHA-256 verified by Web; retries write identical bytes.
+  await createR2Client(config).send(
+    new PutObjectCommand({
+      Bucket: config.R2_BUCKET_NAME,
+      Key: key,
+      Body: png,
+      ContentType: "image/png",
+      ContentLength: png.length,
+      CacheControl: "private, no-store",
+    }),
+  );
+}
+
 export async function storeProcedureExport(
   config: ServerConfig,
   key: string,

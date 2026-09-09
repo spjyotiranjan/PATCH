@@ -22,6 +22,14 @@ This hierarchy improves focus only when measured. The system always retains a st
 
 ## Source chunk record
 
+Phase 7's initial visual asset foundation preserves explicit PDF pages/regions as
+private version-bound PNGs. Rendering does not establish visual understanding,
+model evidence, OCR correctness or vector-index readiness. These assets are not
+currently supplied to the answering graph and cannot support Chat claims. The
+future visual retrieval branch must extend scope/citation validation and receive
+independent image-understanding evaluation before use as evidence. Current
+`SOURCE_CHUNK` and `ENTITY_PROFILE` filters/citation rules remain in force.
+
 ```text
 recordType = SOURCE_CHUNK
 chunkId
@@ -153,6 +161,24 @@ Bound fallback iterations and retrieved context. Never loop until a desired answ
 
 ## Evidence states
 
+Factual document lookup and operational instruction requests require different
+coverage checks. A cited value, label or historical observation does not imply
+permission to operate equipment. The answer generator and independent verifier
+both receive the question and authoritative active/approved source metadata.
+Missing safety prerequisites block operational instructions, not unrelated
+document facts. Source text cannot override approval/access metadata. A fixture
+disclaimer or old publication date alone does not make an active source outdated;
+an explicit applicable expiry/supersession statement can. Never upgrade a model's
+negative evidence state merely because retrieval returned a chunk.
+
+Generation and revalidation use the same criticality rubric, assessed from the
+Project purpose and actual unchanged instructions. Do not hard-code HIGH for
+every edited draft. Generation verification, individual-step revalidation and
+whole-draft assessment retain any high-criticality finding; an off-purpose action
+does not become low criticality because its Project is document-only.
+High-criticality actions retain HIGH and severe evidence gaps
+remain blocking regardless of the user's requested label or prior badge.
+
 | Status        | Meaning                                                       | Response behavior                                                  |
 | ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `approved`    | Sufficient applicable current evidence.                       | Return concise cited guidance and source access.                   |
@@ -268,3 +294,39 @@ fallback, timings and validation outcome. Raw LangSmith callbacks are disabled.
 - Reordering a draft preserves stable step IDs/citations; changing step meaning sets citation review to `NEEDS_REVIEW`.
 - A recurring procedure's September run checks do not appear in the October run; September history remains unchanged.
 - AI cannot tick a procedure step or mark a run complete under any request payload.
+# Phase 7 description safety boundary
+
+Verified visual descriptions are untrusted retrieval aids, not new approved facts.
+The describe workflow checks actual derivative pixels twice using separate model
+calls, rejects unsupported descriptions, and retains uncertainty about illegible
+labels and ambiguous connections. This cannot guarantee perfect image perception.
+No generated description enters ordinary source chunks, procedures or Chat evidence
+in the current milestone. Future visual answers must inspect retrieved pixels and
+validate exact asset/version/checksum authorization; a description alone cannot
+justify a pixel-only claim. Source text embedded in images cannot grant authority.
+
+## Phase 7 planned visual relevance and evidence controls
+
+- Text and visual-description vector scores are not comparable across namespaces.
+  Future retrieval filters each namespace independently and uses bounded rank-based
+  fusion rather than raw-score arithmetic, with deterministic ties for auditability.
+  Text/profile vectors use configured `PINECONE_NAMESPACE`; future visual-description
+  vectors use configured `PINECONE_VISUAL_NAMESPACE`. Deployment maps them to
+  `{environment}` and `visual-{environment}`. Namespace names never come from
+  request or model content.
+- A visual-description match is only a candidate. The relevance gate may label a
+  fused authorized candidate `REQUIRED`, `HELPFUL`, or `NOT_RELEVANT`; it cannot
+  introduce an asset, widen scope, or create an answer claim. Generic/duplicate,
+  low-confidence, and high-uncertainty visuals are penalized before this gate.
+- `REQUIRED`/`HELPFUL` are not permission to cite an image. The workflow must
+  re-download the exact checksum-bound derivative and inspect pixels in the same
+  turn. A visual claim maps to the asset inspected. If that fails, evidence is
+  `UNAVAILABLE`; an image-dependent answer is incomplete.
+- A visual may clarify a text-grounded answer automatically even if a user does not
+  ask for an image. It is not attached merely because it was retrieved: positive
+  relevance and verified material support are required.
+- For physical action, operating values, safety isolation, or procedure claims, a
+  diagram does not replace applicable approved source chunks or the existing safety
+  rubric. Distinguish visible labels/connections from inferred operation.
+- Visual failures never expose a raw error, signed URL or pixels, widen filters, or
+  discard a separately grounded text answer solely because optional visual work failed.

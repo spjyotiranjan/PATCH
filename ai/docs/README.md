@@ -10,7 +10,9 @@ The implementation sequence follows the same six phases as the root `Development
 2. From `ai/`, run `uv sync --all-groups` and then `uv run patch-ai`.
 3. Open `http://localhost:8000/docs`; public liveness is at `/health`. Aggregate `/readiness` requires the Web-to-AI HMAC headers.
 
-See [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for signed Swagger
+See
+[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+for signed Swagger
 and Postman WebSocket testing, and [evaluations/README.md](../evaluations/README.md)
 for the synthetic and representative evaluation gates.
 

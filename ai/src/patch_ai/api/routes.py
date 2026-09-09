@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Request
 
+from patch_ai.adapters import ocr
 from patch_ai.adapters.providers import Providers
 from patch_ai.api.execution import WorkflowExecutor
 from patch_ai.config import Settings
@@ -28,8 +30,12 @@ from patch_ai.schemas.contracts import (
     ReadinessStatus,
     RevalidationRequest,
     RevalidationResult,
+    VisualDescribeRequest,
+    VisualDescribeResult,
+    VisualRenderRequest,
+    VisualRenderResult,
 )
-from patch_ai.services import answering, drafting, ingestion
+from patch_ai.services import answering, drafting, ingestion, visual_assets, visual_understanding
 
 router = APIRouter()
 
@@ -70,6 +76,8 @@ async def readiness(request: Request) -> ReadinessStatus:
     """Aggregate runtime readiness without exposing configuration names or values."""
     settings: Settings = request.app.state.settings
     unavailable_services = settings.unavailable_services()
+    if not await asyncio.to_thread(ocr.available, settings):
+        unavailable_services.append("ocr")
     if unavailable_services:
         log_event(
             logging.ERROR,
@@ -102,6 +110,34 @@ async def index_document(request: IndexRequest, http: Request) -> IndexResult:
     return await run_workflow(
         http, ingestion.index, request, http.app.state.settings, http.app.state.providers
     )
+
+
+@router.post(
+    "/v1/visual-assets/describe",
+    response_model=VisualDescribeResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def describe_visual_asset(
+    request: VisualDescribeRequest, http: Request
+) -> VisualDescribeResult:
+    return await run_workflow(
+        http,
+        visual_understanding.describe,
+        request,
+        http.app.state.settings,
+        http.app.state.providers,
+    )
+
+
+@router.post(
+    "/v1/visual-assets/render",
+    response_model=VisualRenderResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def render_visual_asset(request: VisualRenderRequest, http: Request) -> VisualRenderResult:
+    return await run_workflow(http, visual_assets.render, request, http.app.state.settings)
 
 
 @router.post(

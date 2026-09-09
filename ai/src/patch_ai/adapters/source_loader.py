@@ -14,6 +14,7 @@ from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from pypdf import PdfReader
 
+from patch_ai.adapters import ocr
 from patch_ai.api.budget import remaining_seconds
 from patch_ai.config import Settings
 from patch_ai.schemas.contracts import SourceFile
@@ -70,9 +71,10 @@ def download_source(source: SourceFile, settings: Settings) -> bytes:
 class VerifiedSourceLoader(BaseLoader):
     """Local parser exception documented in ai/adapters/README.md."""
 
-    def __init__(self, data: bytes, content_type: str) -> None:
+    def __init__(self, data: bytes, content_type: str, settings: Settings | None = None) -> None:
         self.data = data
         self.content_type = content_type
+        self.settings = settings if settings is not None else Settings.model_construct()
 
     def lazy_load(self) -> Iterator[Document]:
         if (
@@ -106,23 +108,22 @@ class VerifiedSourceLoader(BaseLoader):
             text = (page.extract_text() or "").strip()
             quality = 1.0
             if len(text) < 30:
-                import pytesseract  # type: ignore[import-untyped]
-
-                texts: list[str] = []
+                with ocr.render_page(self.data, index - 1, self.settings) as rendered:
+                    text = ocr.image_text(rendered, self.settings)
+                quality = 0.6  # OCR is explicitly reviewable, never equivalent to native text.
+            elif len(page.images):
+                # Native headings must not suppress text inside raster diagrams.
+                if len(page.images) > 100:
+                    raise SourceRejected("SOURCE_IMAGE_LIMIT_EXCEEDED")
+                texts = [text]
                 for embedded in page.images:
                     if embedded.image is None:
                         raise SourceRejected("SOURCE_IMAGE_UNREADABLE")
-                    if embedded.image.width * embedded.image.height > 30_000_000:
-                        raise SourceRejected("SOURCE_IMAGE_TOO_LARGE")
-                    texts.append(
-                        str(
-                            pytesseract.image_to_string(
-                                embedded.image, timeout=max(1, int(remaining_seconds(15)))
-                            )
-                        )
-                    )
-                text = "\n".join(texts).strip()
-                quality = 0.6  # OCR is explicitly reviewable, never equivalent to native text.
+                    raster_text = ocr.image_text(embedded.image, self.settings)
+                    if raster_text and raster_text not in text:
+                        texts.append(raster_text)
+                text = "\n\n".join(texts)
+                quality = 0.6
             total += len(text)
             if not text or len(text) > 200_000 or total > 2_000_000:
                 raise SourceRejected("SOURCE_PAGE_UNREADABLE")

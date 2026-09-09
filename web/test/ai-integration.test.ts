@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAiServiceClient, getAiReadiness } from "../lib/ai/client";
@@ -109,6 +109,74 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
     expect((await client.POST("/v1/questions", { body })).response.status).toBe(
       409,
     );
+  });
+  it("renders a PDF region over the generated signed contract with exact PNG provenance", async () => {
+    const requestId = randomUUID();
+    const response = await createAiServiceClient(config).POST(
+      "/v1/visual-assets/render",
+      {
+        body: {
+          requestId,
+          contractVersion: "v1",
+          tenantId: "fixture",
+          assetId: "asset-1",
+          documentId: "doc-1",
+          documentVersionId: "version-1",
+          approvalState: "APPROVED",
+          sourceFile: {
+            url: "https://fixture.invalid/visual.pdf",
+            contentType: "application/pdf",
+            sha256: "a".repeat(64),
+          },
+          page: 1,
+          bounds: { left: 0, top: 0, right: 0.5, bottom: 1 },
+          renderDpi: 72,
+          rendererVersion: "pdfium-png-v1",
+        },
+      },
+    );
+    expect(response.response.status).toBe(200);
+    expect(response.data).toMatchObject({
+      requestId,
+      status: "rendered",
+      asset: {
+        assetId: "asset-1",
+        documentVersionId: "version-1",
+        width: 72,
+        height: 72,
+      },
+    });
+    const bytes = Buffer.from(response.data!.pngBase64!, "base64");
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+      response.data!.asset!.sha256,
+    );
+    expect(bytes.length).toBe(response.data!.asset!.byteCount);
+    const descriptionId = randomUUID();
+    const description = await createAiServiceClient(config).POST(
+      "/v1/visual-assets/describe",
+      {
+        body: {
+          requestId: descriptionId,
+          contractVersion: "v1",
+          tenantId: "fixture",
+          approvalState: "APPROVED",
+          asset: response.data!.asset!,
+          sourceFile: {
+            url: "https://fixture.invalid/visual.png",
+            contentType: "image/png",
+            sha256: response.data!.asset!.sha256,
+          },
+        },
+      },
+    );
+    // No external hosts/providers are enabled: validate the real signed failure contract.
+    expect(description.response.status).toBe(200);
+    expect(description.data).toMatchObject({
+      requestId: descriptionId,
+      assetId: "asset-1",
+      status: "failed",
+      description: null,
+    });
   });
   it("completes a signed Web-to-AI WebSocket turn", async () => {
     const body = question();

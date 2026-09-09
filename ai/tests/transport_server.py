@@ -1,12 +1,16 @@
 """Loopback-only contract fixture. No credentials, dotenv files or provider I/O."""
 
+import io
 import socket
 
 import uvicorn
 from pydantic import SecretStr
+from pypdf import PdfWriter
 
 from patch_ai.config import Settings
 from patch_ai.main import create_app
+from patch_ai.schemas.contracts import SourceFile
+from patch_ai.services import visual_assets
 
 settings = Settings(
     _env_file=None,  # pyright: ignore[reportCallIssue]
@@ -26,6 +30,20 @@ def forbidden(*args: object, **kwargs: object) -> None:
 
 for name in ("model", "upsert", "search", "delete"):
     setattr(app.state.providers, name, forbidden)
+
+
+def fixture_visual_source(source: SourceFile, settings: Settings) -> bytes:
+    # Replace external download only. The signed route and actual PDF renderer run.
+    if str(source.url) != "https://fixture.invalid/visual.pdf" or source.sha256 != "a" * 64:
+        raise ValueError("UNEXPECTED_TRANSPORT_FIXTURE")
+    writer = PdfWriter()
+    writer.add_blank_page(width=144, height=72)
+    buffer = io.BytesIO()
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
+visual_assets.download_source = fixture_visual_source
 
 if __name__ == "__main__":
     sock = socket.socket()

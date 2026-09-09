@@ -16,6 +16,7 @@ export interface DocumentRecord {
   updatedAt: Date;
 }
 export interface VersionRecord {
+  visualAllocationRevision?: number;
   _id: ObjectId;
   tenantId: string;
   documentId: string;

@@ -5,9 +5,10 @@
 | Item                                                 | Status                                                                                                                                        |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Architecture, entity/version model, and API boundary | Defined.                                                                                                                                      |
-| MongoDB models and browser-facing API                | Phases 1–6 backend code implemented; Phase 3–6 state/authorization tests use isolated Mongo test doubles. Hosted acceptance remains required. |
+| MongoDB models and browser-facing API                | **Backend complete through Phase 6 (2026-09-08).** Phase 3–6 state/authorization tests, hosted workflow checks, and the dated repair acceptance cover the implemented backend scope. |
 | Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04.                         |
-| Phase 1-6 delivery                                   | Phases 1–2 complete. Phases 3–6 implemented with automated verification; live workflow/recovery and global UI gates remain open.              |
+| Phase 1–6 delivery                                   | **Complete for the Web backend only (2026-09-08).** This is not a synchronized product/UI completion claim; the separate global UI, representative-source/SME, and operational gates remain governed by `Development_Plan.md`. |
+| Phase 7 delivery                                     | In progress: visual assets, private R2 storage, authorized routes, durable render/description jobs and verified image descriptions implemented. Visual indexing/retrieval and Chat citations remain pending. |
 
 ## Goal
 
@@ -145,7 +146,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 3 - Document lifecycle, activation, and profile coordination
 
-**Status:** Implemented; automated verification and small hosted upload/review/index/activation/shared-source smoke passed (2026-09-06). Full version-replacement/failure propagation acceptance pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and hosted lifecycle/propagation acceptance, including the subsequent repair acceptance, passed. Product/UI and representative-source gates remain separately tracked.
 
 **Goal:** Support dedicated entity document management and automatic safe propagation of active versions.
 
@@ -157,7 +158,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 4 - Chat gateway and evidence integrity
 
-**Status:** Implemented; automated transport/scope/citation tests and one live cited Web-to-AI WebSocket turn with persisted history/idempotent replay passed (2026-09-06). Representative-source acceptance and UI integration pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and live scoped WebSocket/REST mediation, citation validation, history, replay, and repair acceptance passed. UI and product-wide representative acceptance remain separately tracked.
 
 **Goal:** Supply FastAPI the current authorized entity graph and validate every cited answer.
 
@@ -169,7 +170,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 5 - Project logs and controlled procedures
 
-**Status:** Implemented; automated ownership/history/draft/recurrence tests and hosted synthetic log submission plus an unpublished source-cited candidate passed (2026-09-06). Owner publication, recurring-run and SME ground acceptance pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and hosted ownership, history, draft, publication, recurrence, and repair acceptance checks cover the backend scope. UI and SME product acceptance remain separately tracked.
 
 **Goal:** Keep maintenance outcomes and controlled content within Project ownership.
 
@@ -181,7 +182,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 6 - Security, reliability, and release
 
-**Status:** Backend hardening and operator/evaluation tooling implemented (2026-09-06). Live recovery, telemetry/backup drill and release acceptance pending; not a completed product phase.
+**Status:** Complete for the Web backend (2026-09-08). Backend security, recovery, operator, evaluation, and repair checks are implemented and verified. This does not mark the synchronized product phase or its UI/release gates complete.
 
 **Goal:** Make propagation, authorization, and AI mediation observable and recoverable.
 
@@ -191,7 +192,155 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 **Exit criteria:** Tests cover failed upload/index/activation, duplicate events, stale profiles, version races, link changes, access revocation, Project Equipment removal, and AI/Pinecone outages. Traces connect user request, Mongo resolution, AI graph, Pinecone query, and returned citations.
 
+### Phase 7 - Multimodal visual-source retrieval and asset mediation (backend-only)
+
+**Status:** In progress — visual asset foundation implemented. This is a Web/AI backend phase only. It deliberately creates no
+browser UI, renderer, or global synchronized-phase completion claim.
+
+**Current milestone:** `/api/document-versions/{versionId}/visual-assets` supports
+POST of an explicit page/crop and GET of authorized current assets;
+`/api/visual-assets/{assetId}/source` resolves a ready asset after fresh manifest
+authorization. `VISUAL_RENDER` uses the existing fenced outbox/worker and signed AI
+client; Web validates provenance, size, PNG dimensions and checksum before storing
+private content-addressed R2 derivatives. Migration `0004_visual_assets` adds a
+tenant/version/selection unique index; per-version transactional allocation limits
+explicit assets to 100. Operator retry resets a failed visual asset to queued.
+This milestone uses existing packages and adds only Web `VISUAL_RENDER_DPI`.
+No asset enters the Chat evidence manifest yet. Automatic region identification,
+visual indexing/retrieval, verified visual Chat results and their evaluation are
+still required before Phase 7 completion. See the
+[Phase 7 manual test](../../Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md).
+
+**Description milestone:** `POST /api/visual-assets/{assetId}/describe` queues
+`VISUAL_DESCRIBE` only after current-source mutation authorization. The worker
+validates correlation and exact derivative checksum, then lease-fences persistence
+of the bounded verified description. Description state is separate from rendering;
+failure/dead-letter/retry never removes the original or derivative. No new package,
+environment setting or migration is needed; fields are additive and old assets
+report `NOT_REQUESTED`. This endpoint is explicit because each attempt can make
+two paid vision calls. Descriptions do not enter Chat or ordinary source chunks.
+
+**Remaining implementation plan — automatic discovery, retrieval, and Chat
+mediation:** The following is planned Phase 7 work, not a claim that automatic
+detection, visual vectors, or visual Chat citations already exist.
+
+1. **Discover candidates cheaply before model use.** After a version is active,
+approved, indexed, PDF-backed, and still reachable through its current logical
+document link, a fenced `VISUAL_DISCOVER` outbox job performs deterministic local
+page triage. It may use only bounded parser/render facts—page count, native-text
+density, image/XObject presence when available, drawing density, and nearby
+caption signals such as `Figure`, `Diagram`, `Schematic`, `Flow`, or `Wiring`.
+These signals only select pages; they are never visual evidence or user-visible
+claims. Pages without a qualifying signal do not incur a model call. Reaching a
+candidate cap must produce an explicit partial state, never a false claim of full
+document coverage.
+2. **Detect regions only on shortlisted previews.** AI receives a checksum-bound,
+low-resolution page preview through the existing signed boundary. The configured
+low-effort routing model returns structured candidate regions: normalized bounds,
+visual class (`SCHEMATIC`, `DIAGRAM`, `CHART`, `TABLE`, `PHOTO`, `SCREENSHOT`, or
+`OTHER`), confidence, and uncertainty. Its output is a proposal, never evidence.
+Web validates positive finite bounds/provenance/caps, deterministically deduplicates
+overlaps, and queues immutable high-resolution renders using the existing asset
+fingerprint. It rejects model-proposed instructions, malformed coordinates, stale
+parents, private URLs and raw bytes.
+3. **Bound cost and lifecycle.** Before code is written, configuration and the
+contract must declare safe caps for candidate pages/version, regions/page,
+automatic assets/version, preview DPI/pixels, detector calls, and queue attempts.
+Detection is idempotent by parent checksum plus discovery-pipeline version.
+Activation, archive, revocation, supersession, unlinking and retention fence both
+enqueue and commit. Manual visual assets remain available independently.
+4. **Index descriptions, never image bytes.** A ready verified description is
+queued through `VISUAL_INDEX`. Web records its fingerprint/state and sends only
+immutable metadata plus verified description text. `IMAGE_REGION` is a rebuildable
+vector projection in `PINECONE_VISUAL_NAMESPACE`—mapped by deployment to
+`visual-{environment}`—not an approved source claim,
+Mongo authority, copied document, or public URL. Its metadata includes tenant/
+environment, parent document/version, page/bounds, SHA, asset/pipeline/model and
+embedding versions. Lifecycle changes trigger scoped delete/rebuild while originals
+and derivatives follow retention policy.
+5. **Build visual scope from current authorization.** Turn preparation resolves
+ready/indexed visual assets only from the same active approved versions already in
+the text manifest. Web sends stable metadata and expiring AI-only source URLs only
+for a bounded shortlist. Browser responses, persisted turns, audits and logs never
+retain URLs or pixels. `@` references may narrow/prioritize scope but cannot add
+assets outside the user's document set.
+6. **Validate visual citations at both edges.** Before persistence Web re-resolves
+scope and verifies asset ID, tenant, parent document/version, page/bounds, SHA,
+`READY` state, index state, approval and current access. A stale, altered,
+out-of-scope, unauthorized or uninspected returned asset fails safely. Chat stores
+a stable citation only; a source route freshly authorizes any later browser URL.
+
+**Planned visual Chat contract:** `QuestionRequest` gains a bounded visual-scope
+manifest and private response-scoped source descriptors. `QuestionResult` gains
+separate `visualCitations` and `visualEvidenceState: TEXT_ONLY | AVAILABLE |
+UNAVAILABLE`. A citation contains stable asset ID, parent document/version, page,
+normalized bounds, derivative SHA, class and relevance role (`REQUIRED` or
+`HELPFUL`); never a R2 key, URL, bytes or raw model output. An approved answer may
+be text-only; it may claim visual evidence only after inspecting that exact asset.
+
+**Goal:** Preserve diagrams, photographs, screenshots, schematics, and page visual
+context as immutable source assets; retrieve the exact authorized visual when it
+materially supports a question; and return a validated visual citation that a later
+Chat UI can render without giving the browser direct R2 or AI access.
+
+**Prerequisites:** A contract-first `VisualSourceAsset`/visual-citation schema in
+the FastAPI OpenAPI artifact; a reviewed AI visual-extraction and embedding
+strategy; bounded R2 derivative policy; document-version authorization; and the
+Phase 6 audit, retry, deletion, and safety controls. Model/vector selection must
+follow the repository dependency policy before a package, provider, or index change.
+
+**Deliverables:**
+
+- Persist version-bound visual-asset records for a full rendered page and detected
+  meaningful regions. Each record carries immutable `documentId`,
+  `documentVersionId`, page, normalized bounding box, derivative R2 key/checksum,
+  extraction/index state, source anchor, and provenance; it is never a copied
+  logical document or a public object URL.
+- Extend the staged document outbox with idempotent visual extraction/index work,
+  bounded retries and dead-letter/recovery states. A visual-processing failure is
+  explicit and auditable; it must not silently claim that a document's figures are
+  searchable or corrupt the already-valid text-source lifecycle.
+- Reauthorize the exact parent version and current inclusion path before issuing a
+  short-lived derivative URL. Revocation, archival, supersession, approval changes,
+  and retention deletion cascade to visual assets and prevent stale visual citations
+  from being persisted or opened.
+- Add Web-to-AI manifest entries for only the currently authorized visual assets and
+  validate every returned visual citation against that manifest, parent version,
+  page/region anchor, and derived-object checksum before it reaches chat history.
+  A visual reference can narrow evidence; it can never broaden retrieval scope.
+- Mediate visual result metadata through the existing authenticated REST/WebSocket
+  Chat path. The later UI receives a stable citation/asset descriptor, not an R2
+  credential, signed source URL, raw model output, or browser-to-AI endpoint.
+- Add authorization, lifecycle, idempotency, version-propagation, expired-URL,
+  citation-tampering, and Web/AI contract tests. Manual acceptance must prove that
+  an authorized answer can cite and open the exact diagram while an unauthorized or
+  superseded asset cannot be retrieved.
+- Add discovery, rank-fusion, relevance-gate and pixel-grounding tests: no-figure
+  documents, decorative images, duplicate diagrams, image-only scans, mixed pages,
+  ambiguous labels, embedded injections, text-relevant/image-irrelevant questions,
+  image-required questions, expired sources, partial discovery, deletion/rebuild
+  and visual-provider outage without ordinary Chat regression.
+
+**Exit criteria:** An answer may include a visual citation only when Web can resolve
+the exact current approved parent version, page/region and authorized derivative.
+The same logical document linked to multiple entities retains one visual asset set;
+new version activation changes the resolved visual set without copying assets. Text
+Chat remains safe and usable when visual extraction, indexing, or a visual provider
+is unavailable.
+
 ## Completion tracking
+
+### Live API acceptance, 7–8 September 2026
+
+[Acceptance report](../../Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
+records real hosted account/access, PDF/text lifecycle, version propagation,
+WebSocket/replay, scoped logs, synthetic publication/runs, actual daily rollover,
+outage and audited retry checks. Core product APIs can be integrated with UI;
+the subsequent [repair acceptance](../../Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md)
+verifies OCR setup/ingestion/Chat, the failed factual-answer cases and review
+criticality through the existing Web contracts. Complete acceptance remains open
+for the explicitly unverified UI/SME/operational cases. This testing change does not
+mark any synchronized phase complete or substitute for UI acceptance.
 
 ### Backend implementation inventory, 2026-09-06
 
@@ -267,10 +416,15 @@ one unpublished procedure candidate. This is not publication/recurrence or SME
 acceptance. The exact-host R2 path-style fix has a regression test; it requires no
 stored-object migration because canonical object keys are unchanged.
 
-Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) to record hosted
+Use
+[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+to record hosted
 ingestion → activation → propagation → socket answer → log → review/publish →
 recurrence acceptance. Complete representative/SME evaluation, backup/restore and
 configured telemetry checks before signing off their gates. UI phases were not
 implemented or marked complete by this backend change.
 
-Change phase status only in a pull request containing code, migrations, tests, contract evidence, and the matching `../../Development_Plan.md` integration-gate result.
+Mark a **Web-backend module** phase complete only with its code, migrations,
+tests, contract evidence, and setup-guide reconciliation. A **synchronized product
+phase** additionally requires the matching `../../Development_Plan.md` integration
+gate; module completion never substitutes for that gate.

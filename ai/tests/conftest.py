@@ -33,6 +33,9 @@ def no_live_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     for method in ("model", "search", "upsert", "delete"):
         monkeypatch.setattr(Providers, method, unavailable)
     monkeypatch.setattr("patch_ai.services.ingestion.download_source", unavailable)
+    monkeypatch.setattr("patch_ai.services.visual_assets.download_source", unavailable)
+    monkeypatch.setattr("patch_ai.adapters.visual_source.download_source", unavailable)
+    monkeypatch.setattr("patch_ai.adapters.ocr.available", lambda settings: True)
 
 
 @pytest.fixture

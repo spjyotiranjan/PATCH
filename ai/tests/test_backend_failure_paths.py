@@ -89,6 +89,9 @@ def test_docx_rejects_omitted_visuals_external_xml_and_archive_bombs(
 
 
 class ReviewProviders(FixtureProviders):
+    critical = False
+    assessment_critical = False
+
     def model(
         self,
         schema: type[Model],
@@ -97,6 +100,7 @@ class ReviewProviders(FixtureProviders):
         *,
         routing: bool = False,
         complex_reasoning: bool = False,
+        images: tuple[bytes, ...] = (),
     ) -> Model:
         assert "untrusted" in system
         payload: dict[str, Any]
@@ -104,6 +108,7 @@ class ReviewProviders(FixtureProviders):
             sources = json.loads(data)["sources"]
             payload = {
                 "supported": True,
+                "highCriticality": self.critical,
                 "conflict": self.conflict,
                 "missingMandatorySafetyEvidence": False,
                 "chunkIds": ["unknown" if self.unsupported else sources[0]["chunk_id"]],
@@ -113,6 +118,7 @@ class ReviewProviders(FixtureProviders):
                 "coverageComplete": True,
                 "conflict": self.conflict,
                 "applicable": True,
+                "highCriticality": self.assessment_critical,
                 "missingMandatorySafetyEvidence": False,
                 "requiredTopics": ["label"],
                 "missingTopics": [],
@@ -124,9 +130,17 @@ class ReviewProviders(FixtureProviders):
         return schema.model_validate(payload)
 
 
-def test_revalidation_binds_each_unchanged_step_and_rejects_unknown_chunks() -> None:
+@pytest.mark.parametrize(
+    "critical,assessment_critical", [(False, False), (True, False), (False, True)]
+)
+def test_revalidation_binds_each_unchanged_step_and_rejects_unknown_chunks(
+    critical: bool,
+    assessment_critical: bool,
+) -> None:
     settings, fixture, question = fixtures()
     providers = ReviewProviders(settings)
+    providers.critical = critical
+    providers.assessment_critical = assessment_critical
     providers.records = fixture.records
     request = RevalidationRequest.model_validate(
         {
@@ -163,6 +177,12 @@ def test_revalidation_binds_each_unchanged_step_and_rejects_unknown_chunks() -> 
     before = request.model_dump()
     result = revalidate(request, settings, providers)
     assert result.status == "validated", result
+    assert result.review_analysis.review_need == (
+        "HIGH" if critical or assessment_critical else "LOW"
+    )
+    assert result.review_analysis.hardware_criticality == (
+        "HIGH" if critical or assessment_critical else "NORMAL"
+    )
     assert result.supported_step_ids == ["stable-step"]
     assert result.step_citations[0].citation_ids == [result.citations[0].id]
     assert request.model_dump() == before

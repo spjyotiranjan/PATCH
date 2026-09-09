@@ -180,6 +180,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/visual-assets/describe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Describe Visual Asset */
+    post: operations["describe_visual_asset_v1_visual_assets_describe_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/visual-assets/render": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Render Visual Asset */
+    post: operations["render_visual_asset_v1_visual_assets_render_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1074,6 +1108,183 @@ export interface components {
       /** Equipmentid */
       equipmentId: string;
     };
+    /**
+     * VisualBounds
+     * @description Top-left origin, normalized to the displayed (rotation-applied) PDF page.
+     */
+    VisualBounds: {
+      /**
+       * Bottom
+       * @default 1
+       */
+      bottom: number;
+      /**
+       * Left
+       * @default 0
+       */
+      left: number;
+      /**
+       * Right
+       * @default 1
+       */
+      right: number;
+      /**
+       * Top
+       * @default 0
+       */
+      top: number;
+    };
+    /** VisualDescribeRequest */
+    VisualDescribeRequest: {
+      /**
+       * Approvalstate
+       * @constant
+       */
+      approvalState: "APPROVED";
+      asset: components["schemas"]["VisualSourceAsset"];
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      sourceFile: components["schemas"]["SourceFile"];
+      /** Tenantid */
+      tenantId: string;
+    };
+    /** VisualDescribeResult */
+    VisualDescribeResult: {
+      /** Assetid */
+      assetId: string;
+      description?: components["schemas"]["VisualDescription"] | null;
+      /** Errors */
+      errors?: components["schemas"]["ServiceError"][];
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /** Sha256 */
+      sha256: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "described" | "failed";
+    };
+    /** VisualDescription */
+    VisualDescription: {
+      /**
+       * Descriptionversion
+       * @default vision-description-v1
+       * @constant
+       */
+      descriptionVersion: "vision-description-v1";
+      /** Labels */
+      labels: string[];
+      /** Relationships */
+      relationships: string[];
+      /** Summary */
+      summary: string;
+      /** Uncertainties */
+      uncertainties: string[];
+    };
+    /** VisualRenderRequest */
+    VisualRenderRequest: {
+      /**
+       * Approvalstate
+       * @constant
+       */
+      approvalState: "APPROVED";
+      /** Assetid */
+      assetId: string;
+      bounds?: components["schemas"]["VisualBounds"];
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /** Documentid */
+      documentId: string;
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Page */
+      page: number;
+      /** Renderdpi */
+      renderDpi: number;
+      /**
+       * Rendererversion
+       * @default pdfium-png-v1
+       * @constant
+       */
+      rendererVersion: "pdfium-png-v1";
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      sourceFile: components["schemas"]["SourceFile"];
+      /** Tenantid */
+      tenantId: string;
+    };
+    /** VisualRenderResult */
+    VisualRenderResult: {
+      asset?: components["schemas"]["VisualSourceAsset"] | null;
+      /** Errors */
+      errors?: components["schemas"]["ServiceError"][];
+      /** Pngbase64 */
+      pngBase64?: string | null;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "rendered" | "failed";
+    };
+    /** VisualSourceAsset */
+    VisualSourceAsset: {
+      /** Assetid */
+      assetId: string;
+      bounds: components["schemas"]["VisualBounds"];
+      /** Bytecount */
+      byteCount: number;
+      /**
+       * Contenttype
+       * @default image/png
+       * @constant
+       */
+      contentType: "image/png";
+      /** Documentid */
+      documentId: string;
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Height */
+      height: number;
+      /** Originalsha256 */
+      originalSha256: string;
+      /** Page */
+      page: number;
+      /** Renderdpi */
+      renderDpi: number;
+      /**
+       * Rendererversion
+       * @default pdfium-png-v1
+       * @constant
+       */
+      rendererVersion: "pdfium-png-v1";
+      /** Sha256 */
+      sha256: string;
+      /** Width */
+      width: number;
+    };
   };
   responses: never;
   parameters: never;
@@ -1743,6 +1954,162 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["QuestionResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  describe_visual_asset_v1_visual_assets_describe_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VisualDescribeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualDescribeResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  render_visual_asset_v1_visual_assets_render_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VisualRenderRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualRenderResult"];
         };
       };
       /** @description Request correlation mismatch. */

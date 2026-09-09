@@ -30,7 +30,7 @@ from patch_ai.schemas.contracts import (
 )
 from patch_ai.services import answering, drafting, ingestion
 from patch_ai.services.answering import EvidenceVerification, GroundedDraft
-from patch_ai.services.drafting import ProcedureCandidate
+from patch_ai.services.drafting import ProcedureCandidate, ProcedureEvidenceVerification
 from patch_ai.services.ingestion import ProfileDescription
 
 TEXT = "Synthetic test card only. The test display label is amber. This is not equipment guidance."
@@ -43,6 +43,7 @@ class FixtureProviders(Providers):
         self.queries: list[dict[str, Any]] = []
         self.conflict = False
         self.unsupported = False
+        self.verified_criticality = False
 
     def upsert(self, documents: list[Document], ids: list[str]) -> None:
         self.records.update(zip(ids, documents, strict=True))
@@ -71,6 +72,7 @@ class FixtureProviders(Providers):
         *,
         routing: bool = False,
         complex_reasoning: bool = False,
+        images: tuple[bytes, ...] = (),
     ) -> Model:
         assert "untrusted" in system
         payload: dict[str, Any]
@@ -87,12 +89,14 @@ class FixtureProviders(Providers):
                 ],
                 "gaps": [],
             }
-        elif schema is EvidenceVerification:
+        elif schema in {EvidenceVerification, ProcedureEvidenceVerification}:
             payload = {
                 "supported": not self.unsupported,
                 "conflict": self.conflict,
                 "missingMandatorySafetyEvidence": False,
             }
+            if schema is ProcedureEvidenceVerification:
+                payload["highCriticality"] = self.verified_criticality
         elif schema is ProfileDescription:
             payload = {
                 "generatedDescription": "Synthetic routing profile",
@@ -358,6 +362,10 @@ def test_severe_procedure_candidate_omits_conflicting_steps() -> None:
     )
     result = drafting.draft_procedure(request, settings, providers)
     assert result.status == "generated" and result.steps and result.requires_human_review
+    providers.verified_criticality = True
+    assert (
+        drafting.draft_procedure(request, settings, providers).review_analysis.review_need == "HIGH"
+    )
     providers.conflict = True
     result = drafting.draft_procedure(request, settings, providers)
     assert result.review_analysis.review_need == "SEVERE"

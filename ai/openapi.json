@@ -2435,6 +2435,423 @@
         ],
         "title": "SupplementalEquipmentSource",
         "type": "object"
+      },
+      "VisualBounds": {
+        "additionalProperties": false,
+        "description": "Top-left origin, normalized to the displayed (rotation-applied) PDF page.",
+        "properties": {
+          "bottom": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Bottom",
+            "type": "number"
+          },
+          "left": {
+            "default": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Left",
+            "type": "number"
+          },
+          "right": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Right",
+            "type": "number"
+          },
+          "top": {
+            "default": 0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Top",
+            "type": "number"
+          }
+        },
+        "title": "VisualBounds",
+        "type": "object"
+      },
+      "VisualDescribeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/VisualSourceAsset"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "approvalState",
+          "asset",
+          "sourceFile"
+        ],
+        "title": "VisualDescribeRequest",
+        "type": "object"
+      },
+      "VisualDescribeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualDescription"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceError"
+            },
+            "maxItems": 10,
+            "title": "Errors",
+            "type": "array"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "described",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "assetId",
+          "sha256",
+          "status"
+        ],
+        "title": "VisualDescribeResult",
+        "type": "object"
+      },
+      "VisualDescription": {
+        "additionalProperties": false,
+        "properties": {
+          "descriptionVersion": {
+            "const": "vision-description-v1",
+            "default": "vision-description-v1",
+            "title": "Descriptionversion",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Labels",
+            "type": "array"
+          },
+          "relationships": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Relationships",
+            "type": "array"
+          },
+          "summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "uncertainties": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Uncertainties",
+            "type": "array"
+          }
+        },
+        "required": [
+          "summary",
+          "labels",
+          "relationships",
+          "uncertainties"
+        ],
+        "title": "VisualDescription",
+        "type": "object"
+      },
+      "VisualRenderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/VisualBounds"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "page": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "renderDpi": {
+            "maximum": 200.0,
+            "minimum": 72.0,
+            "title": "Renderdpi",
+            "type": "integer"
+          },
+          "rendererVersion": {
+            "const": "pdfium-png-v1",
+            "default": "pdfium-png-v1",
+            "title": "Rendererversion",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "assetId",
+          "documentId",
+          "documentVersionId",
+          "approvalState",
+          "sourceFile",
+          "page",
+          "renderDpi"
+        ],
+        "title": "VisualRenderRequest",
+        "type": "object"
+      },
+      "VisualRenderResult": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualSourceAsset"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceError"
+            },
+            "maxItems": 10,
+            "title": "Errors",
+            "type": "array"
+          },
+          "pngBase64": {
+            "anyOf": [
+              {
+                "maxLength": 2666668,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pngbase64"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "rendered",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "status"
+        ],
+        "title": "VisualRenderResult",
+        "type": "object"
+      },
+      "VisualSourceAsset": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/VisualBounds"
+          },
+          "byteCount": {
+            "maximum": 2000000.0,
+            "minimum": 1.0,
+            "title": "Bytecount",
+            "type": "integer"
+          },
+          "contentType": {
+            "const": "image/png",
+            "default": "image/png",
+            "title": "Contenttype",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "height": {
+            "maximum": 4096.0,
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "originalSha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Originalsha256",
+            "type": "string"
+          },
+          "page": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "renderDpi": {
+            "maximum": 200.0,
+            "minimum": 72.0,
+            "title": "Renderdpi",
+            "type": "integer"
+          },
+          "rendererVersion": {
+            "const": "pdfium-png-v1",
+            "default": "pdfium-png-v1",
+            "title": "Rendererversion",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "width": {
+            "maximum": 4096.0,
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assetId",
+          "documentId",
+          "documentVersionId",
+          "page",
+          "bounds",
+          "originalSha256",
+          "sha256",
+          "byteCount",
+          "width",
+          "height",
+          "renderDpi"
+        ],
+        "title": "VisualSourceAsset",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -3372,6 +3789,204 @@
         "summary": "Answer Question",
         "tags": [
           "questions"
+        ]
+      }
+    },
+    "/v1/visual-assets/describe": {
+      "post": {
+        "operationId": "describe_visual_asset_v1_visual_assets_describe_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualDescribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualDescribeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Describe Visual Asset",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
+    "/v1/visual-assets/render": {
+      "post": {
+        "operationId": "render_visual_asset_v1_visual_assets_render_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualRenderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualRenderResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Render Visual Asset",
+        "tags": [
+          "visual-assets"
         ]
       }
     }

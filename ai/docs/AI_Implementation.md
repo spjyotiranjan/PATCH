@@ -6,8 +6,10 @@
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                                                                       |
 | FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs; Phase 1 integration revalidated 2026-09-04. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phases 3–5 provider-backed code implemented; isolated graph/safety tests pass. Live-source/SME acceptance pending.                                                             |
-| Evaluation and production readiness                                          | Phase 6 synthetic baseline comparison, failure tests and metadata telemetry implemented; representative evaluation and operational acceptance remain open.                     |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | **Backend complete through Phase 5 (2026-09-08).** Provider-backed workflows, graph/safety tests, hosted workflows, and the dated repair acceptance cover the implemented AI backend scope. |
+| Evaluation and production readiness                                          | **Phase 6 backend complete (2026-09-08).** Evaluation tooling, failure handling, metadata telemetry, and repair checks are implemented and verified. Product release/SME gates remain separate. |
+| Phase 1–6 delivery                                                           | **Complete for the AI backend only (2026-09-08).** This does not mark the synchronized product/UI phase complete; `Development_Plan.md` continues to govern its separate UI, representative-source/SME, and operational gates. |
+| Phase 7 delivery                                                             | In progress: signed visual rendering, bounded PNG derivatives and independently verified image descriptions implemented. Embeddings, visual retrieval, Chat citations and live visual acceptance remain pending. |
 
 ## Goal
 
@@ -148,7 +150,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 3 - Extraction, source indexing, and profile refresh
 
-**Status:** Implemented; automated parser/provenance/idempotency tests and live synthetic R2 text extraction, embeddings, Pinecone indexing and profile refresh passed (2026-09-06). Representative PDF/DOCX/OCR and failure acceptance pending.
+**Status:** Complete for the AI backend (2026-09-08). Parser/provenance/idempotency tests and hosted extraction, embeddings, Pinecone indexing, profile refresh, OCR, and repair acceptance passed. Product-wide representative/SME gates remain separately tracked.
 
 **Goal:** Produce traceable source vectors and versioned routing profiles idempotently.
 
@@ -160,7 +162,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 4 - Entity-routed grounded answers
 
-**Status:** Implemented; synthetic scope/citation/fallback tests and one live source-cited socket answer passed (2026-09-06). Profile optimization stays disabled by default until representative baseline comparison passes.
+**Status:** Complete for the AI backend (2026-09-08). Scoped routing, citation/fallback tests, live source-cited socket answers, and repair acceptance passed. Profile optimization remains disabled by default until its separately governed representative baseline comparison passes.
 
 **Goal:** Improve search focus/latency while preserving recall and citations.
 
@@ -172,7 +174,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 5 - Project draft helpers and safety controls
 
-**Status:** Implemented; automated drafting/revalidation/review-rubric tests and one live synthetic source-cited procedure candidate passed (2026-09-06). Representative-source, edited-draft and SME ground acceptance pending.
+**Status:** Complete for the AI backend (2026-09-08). Drafting/revalidation/review-rubric tests and hosted source-cited candidate/repair acceptance cover the backend scope. Representative-source and SME product acceptance remain separately tracked.
 
 **Goal:** Draft useful Project logs and automatically generate source-bounded procedure candidates with transparent review need, without owning product mutations or execution state.
 
@@ -184,7 +186,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 6 - Evaluation, observability, and production readiness
 
-**Status:** Evaluation harness, synthetic corpus, metadata tracing and failure tests implemented (2026-09-06). Representative groundedness, SLO, telemetry and release acceptance remain open.
+**Status:** Complete for the AI backend (2026-09-08). Evaluation harness, synthetic corpus, metadata tracing, failure handling, and repair verification are implemented and verified. Representative groundedness, SLO, telemetry, and release acceptance remain product-wide gates.
 
 **Goal:** Prove routing/retrieval reliability for safety-conscious release.
 
@@ -194,7 +196,176 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 **Exit criteria:** Accepted thresholds pass against the direct-manifest baseline; traces identify profile selection, fallback, source filters, reranking, model calls, and citations; Pinecone/OpenAI failures return safe typed states.
 
+### Phase 7 - Multimodal visual understanding and retrieval (backend-only)
+
+**Description milestone:** `/v1/visual-assets/describe` runs a bounded LangGraph
+load/describe/verify workflow. `adapters/visual_source.py` validates SHA, byte count,
+dimensions, single-frame PNG structure and existing download host restrictions.
+The existing LangChain provider sends actual pixels (base64, high detail) to the
+configured answer model and independently to the configured complex verifier.
+Existing model/effort settings apply; no hardcoded model, new provider or package.
+Unsupported descriptions, injection detected by verification, malformed sources
+and provider failures return no partial description. Search descriptors are not
+OCR transcripts or approved evidence, and model verification is not a guarantee
+of complete visual understanding. Query-time pixel grounding remains pending.
+
+Implementation follows the official [image input documentation](https://developers.openai.com/api/docs/guides/images-vision).
+The configured [text embedding model](https://developers.openai.com/api/docs/models/text-embedding-3-large)
+does not directly embed images. No image vector is written by this milestone;
+the later retrieval implementation must distinguish descriptor embeddings from
+pixel evidence and preserve original asset retrieval.
+
+**Status:** In progress — visual asset foundation implemented. This is an AI/Web backend phase only. It does not implement a
+Chat UI or mark a synchronized product phase complete.
+
+**Current milestone:** `POST /v1/visual-assets/render` accepts one approved immutable
+PDF source and an explicit page/normalized crop. It reuses the verified source
+downloader, pypdf inspection, mutex-protected PDFium renderer and Pillow PNG encoder;
+no new dependency/model/embedding provider is selected. Output is bounded to four
+million rendered pixels, 4096 per output side and 2 MB PNG; unsupported/encrypted/
+oversized PDFs or invalid pages fail without partial bytes or private error text.
+The private result includes source/derivative hashes, dimensions and render
+provenance; Web alone persists the image in R2. This is a deterministic derivative
+operation inside the existing workflow executor and does not call an LLM or OCR.
+Automatic figure detection, descriptor embeddings, question-time vision,
+LangGraph visual retrieval, exact Chat image citations and representative evaluation
+remain pending. The OpenAPI contract and generated Web types are synchronized.
+
+**Remaining implementation plan — staged, cost-aware multimodal retrieval:**
+
+1. **Candidate-page triage is local and deterministic.** AI must not run vision
+over every PDF page. Web provides only current, approved, authorized shortlisted
+pages selected from bounded local signals. A future `VisualDiscoverRequest` carries
+parent/version/checksum, page, pipeline version, checksum-bound preview source and
+limits; it never accepts a browser URL, arbitrary asset ID or model-controlled
+scope. Discovery can return no regions, and a failure never breaks text indexing.
+2. **Low-cost detection proposes; it does not prove.** A LangGraph discovery
+workflow uses the configured routing model at low reasoning effort on a small page
+preview. Its strictly structured output has bounded proposed regions, class,
+confidence and uncertainty. Pixels and labels are untrusted content: embedded
+instructions cannot alter limits, filters, tools or schema. It creates no factual
+or operational evidence; Web owns coordinate/dedup/quota/lifecycle validation.
+3. **High-quality understanding remains separate.** Existing describe/verify
+inspects a selected immutable PNG with configured answer/complex models and creates
+an uncertain semantic descriptor, not an OCR replacement. A planned
+`VisualIndexRequest` embeds only canonical bounded descriptor text after fresh
+parent/asset revalidation. Raw pixels, base64, URLs, OCR blobs and traces never
+enter Pinecone.
+4. **Use descriptor embeddings, not falsely named image embeddings.**
+`text-embedding-3-large` receives description text only, so its result is a
+*visual-description embedding*, useful for semantic search but not native pixel
+similarity. Store it as `recordType: IMAGE_REGION` in the configured
+`PINECONE_VISUAL_NAMESPACE`, never mixed with `SOURCE_CHUNK`/profiles. Existing
+text/profile vectors use `PINECONE_NAMESPACE`. Deployment maps the two values to
+`{environment}` and `visual-{environment}` respectively. Filter every query by tenant,
+environment, allowed asset IDs and parent versions, current approval, and record
+type. Metadata includes asset ID, page/bounds, SHA, class and pipeline/description/
+embedding versions. Check vector dimensions before enablement.
+5. **Retrieve text and visuals in parallel, but fuse ranks safely.** Answering
+first resolves existing authorized text scope. It queries visuals only for a
+non-empty authorized visual manifest. It never compares raw scores across Pinecone
+namespaces; it applies bounded rank-based fusion (for example RRF), deterministic
+tie breaking, parent-page/caption agreement boost, and generic/duplicate/
+low-confidence/high-uncertainty penalties. Keep only a small configured visual
+shortlist; no candidate means no image-model call and normal text answering.
+6. **Gate relevance before pixel cost.** A low-effort structured gate sees the
+question, authorized metadata and verified descriptor—not pixels—and labels each
+shortlisted candidate `REQUIRED`, `HELPFUL`, or `NOT_RELEVANT`. It cannot introduce
+new candidates or widen scope. Only `REQUIRED`/`HELPFUL` assets are checksum
+re-downloaded and inspected as pixels. For operational/safety claims, visuals
+supplement rather than replace approved source-chunk evidence. Unloadable or
+unverified pixels are `UNAVAILABLE`, never claimed as inspected.
+7. **Generate and independently verify multimodal claims.** Final answers cite
+text chunks and visual assets separately. A complex visual verifier checks visual
+claims against exact supplied pixels and maps citations to the asset inspected in
+that turn. It removes unsupported claims, detects conflicts/injection, preserves
+ordinary evidence states, and cannot convert a diagram into physical-action or
+safety authority. Only metadata counts/timings reach telemetry.
+8. **Fail closed without degrading text.** Empty visual scope yields `TEXT_ONLY`;
+visual provider/index/source failure yields `UNAVAILABLE` while separately grounded
+text remains usable. An image-dependent question with unavailable visual evidence is
+`incomplete`. All stages are deadline/byte/pixel/asset bounded and use deterministic
+IDs and idempotent index/delete behavior.
+
+**Cost policy:** no AI call for locally rejected pages; one low-effort call only for
+shortlisted previews; render/describe only accepted deduplicated regions; embed once
+per immutable description fingerprint; inspect pixels only for final small
+`REQUIRED`/`HELPFUL` candidates. Record per-stage candidate/call/byte/token-cost
+estimate/latency metadata without source content. Preserve a feature-disabled
+text-only baseline and do not bulk-enrich historic documents before reviewed
+quality and cost acceptance.
+
+**Goal:** Give the service both grounded understanding of meaningful document
+visuals and a safe way to return the exact supporting diagram/image as a cited,
+authorized asset. OCR remains text extraction; it is not visual understanding and
+does not make the original image retrievable as evidence by itself.
+
+**Prerequisites:** Contract-first visual-asset and visual-citation schemas;
+version-bound R2 derivative metadata supplied by Web; a reviewed maintained
+LangChain-compatible visual embedding/vision capability (or an isolated, tested
+adapter exception with ADR and migration path); separate vector compatibility
+evaluation; and explicit image-safety/evaluation cases. No provider, model,
+embedding dimension, or namespace may be chosen from workflow code literals.
+`PINECONE_NAMESPACE` owns text/profile vectors; the future
+`PINECONE_VISUAL_NAMESPACE` owns `IMAGE_REGION` vectors. Deployment values follow
+`{environment}` and `visual-{environment}`.
+
+**Deliverables:**
+
+- Extend ingestion to render bounded document pages, identify useful visual regions
+  and retain their page/normalized-bounds/provenance links. Preserve native text,
+  OCR text, and visual regions as complementary evidence rather than replacing one
+  with another. Image bytes remain private in R2 and are never put in Pinecone.
+- Create a distinct `IMAGE_REGION` vector record family (or documented equivalent
+  isolated namespace) with its own model/version/dimension compatibility checks,
+  deterministic region IDs, parent document/version/page/anchor metadata and
+  lifecycle state. It must never enter an unfiltered `SOURCE_CHUNK` query or become
+  a relational authority.
+- Add a bounded visual-retrieval branch to the answering LangGraph after scope
+  validation. Query only visual records named in the current authorized manifest;
+  combine visual candidates with applicable source chunks; and use a bounded vision
+  verification step only for shortlisted assets. A model description is supporting
+  evidence, not permission to invent facts or operational instructions.
+- Return an exact visual citation only after validating the parent active/approved
+  version, page/region anchor, extraction provenance and source-manifest membership.
+  Responses must distinguish `visualEvidenceAvailable`, `visualEvidenceUnavailable`,
+  and ordinary text-only evidence; never pretend a diagram was inspected when the
+  visual branch failed or was not authorized.
+- Treat all pixels, embedded labels, OCR output, captions, and diagrams as untrusted
+  content. Visual prompt injection cannot modify filters, tools, evidence status,
+  citation rules, or procedure controls. Do not infer unsafe operation from an image
+  without applicable approved source support and the existing safety rubric.
+- Evaluate text-only baseline versus multimodal retrieval for exact-region recall,
+  parent-version/citation validity, diagram-answer groundedness, unauthorized asset
+  rejection, visual-provider failure behavior, latency/cost, and regression of
+  existing text recall. Add synthetic and reviewed real-source cases for diagrams,
+  photos, screenshots, scans, mixed text/image pages, inaccessible assets, changed
+  versions, misleading embedded instructions, and missing visual derivatives.
+- Add candidate-page recall/false-positive, region precision/recall and overlap
+  deduplication, descriptor-search recall, fused-rank versus text-only quality,
+  relevance-gate precision, visual-citation validity, pixel-grounded claim accuracy,
+  per-document/query cost, and ordinary text-retrieval regression metrics.
+
+**Exit criteria:** Given an authorized current document, the service can return a
+grounded answer with a page/region-specific visual citation when a diagram is
+materially relevant, while text-only retrieval remains available if visual work is
+unavailable. It cannot retrieve, describe, cite, or expose an unauthorized,
+superseded, unapproved, tampered, or out-of-manifest visual asset.
+
 ## Completion tracking
+
+### Live provider acceptance, 7–8 September 2026
+
+[Acceptance report](../../Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
+records native PDF/text indexing, 122-page DOE extraction, Markdown/DOCX extraction,
+real cited answers/drafts/revalidation and unavailable-state recovery. Tesseract
+is missing in the tested environment. Two expected factual answers failed; one
+pressure fact succeeded after explicit synthetic-document wording, while the
+signal-range question remained incomplete. Review-need calibration also warrants
+follow-up. These historical findings were subsequently investigated and fixed:
+see [8 September repair acceptance](../../Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md).
+The original test did not alter code to claim a pass. The repair has separate
+live evidence; representative/SME and global phase gates remain open.
 
 ### Implemented layout and provider ownership
 
@@ -211,11 +382,13 @@ socket use the same typed services, replay guard and correlation contract.
 `adapters/providers.py` is the only model/vector integration boundary. It uses
 maintained `langchain-openai` and `langchain-pinecone`, with zero SDK retries,
 bounded provider timeouts, 8,192 maximum completion tokens and structured output.
-Models, embeddings, reasoning effort, namespace, retrieval/routing limits and
+Models, embeddings, reasoning effort, namespaces, retrieval/routing limits and
 download controls are read from validated settings, not literal workflow choices.
+The current text/profile store uses `PINECONE_NAMESPACE`; `APP_ENV` remains service
+environment identity rather than an implicit vector-store setting.
 The configured routing model uses low effort, answering uses medium, and answer,
 procedure, whole-draft, individual-step and log verification use the complex model
-with high effort. Defaults are overridable in `ai/.env.local`; process environment
+with high effort. Model values are configured in `ai/.env.local`; process environment
 wins over `.env.local`, which wins over legacy `.env`. Removed OpenAI URL/org/project
 and LangSmith settings are not silently reintroduced. No provider SDK is called
 directly from workflow code.
@@ -229,7 +402,7 @@ dependencies are reused. The [loader ADR](../adapters/README.md) documents why
 archived `langchain-community` was not added and isolates parsing behind the
 maintained BaseLoader interface. No direct OpenAI/Pinecone SDK exception was needed.
 
-Source parsing supports native PDF, bounded embedded-image OCR, UTF-8 text/Markdown
+Source parsing supports native PDF, bounded full-page and mixed-image OCR, UTF-8 text/Markdown
 and simple DOCX paragraphs/tables. Unsupported visual/linked/complex DOCX content,
 encrypted PDFs, unreadable pages, private/redirected download targets, checksum
 mismatch and oversized text/archive/image data fail explicitly. Each source chunk
@@ -237,6 +410,37 @@ records immutable original, version, tenant/environment, approval and exact anch
 Deterministic IDs make retries idempotent. Supersession is enforced by Web's current
 manifest; deleting derived vectors is an authenticated, scoped operator action,
 never deletion of originals. Entity profiles are never citable.
+
+### Acceptance repairs, 2026-09-08
+
+The parser ADR adds locked `pypdfium2` 5.x for the missing full-page rendering
+capability. Existing pypdf/Pillow/pytesseract and LangChain BaseLoader remain the
+parsing boundary; no model/vector SDK or orchestration change. Tesseract is an
+external executable installed separately. The OCR adapter discovers/configures
+the runtime, checks language data for aggregate readiness, bounds pixels/time,
+serializes PDFium calls and OCR executable selection, and closes native buffers.
+Native text survives mixed-page OCR; low-text pages use whole-page rendering.
+A bounded colour-contrast pass preserves additional warning text for review.
+Parser pipeline 2 requires new reviewed versions for previously active sources;
+the setup guide covers migration and rollback without rewriting old citations.
+
+Live diagnostic retrieval found the pressure and signal passages: failures came
+from treating test-only source disclaimers as lack of approval for factual lookup.
+Generation and verification now share question-aware evidence rules and receive
+current/approved provenance. Qualified document facts do not imply operating
+authority. Negative evidence states are never force-upgraded by code. Unknown
+citations, unsupported claims, conflicts and safety gaps still fail closed.
+Procedure revalidation now assesses actual high criticality with the same rubric
+as generation instead of assigning HIGH to all edits. Independent generation,
+per-step and whole-draft findings retain any HIGH criticality, so a document-only
+Project description cannot downgrade an unsupported physical-action step. See the dated repair
+acceptance report for executed tests and remaining product-wide acceptance limits.
+
+Repair verification: 80 AI tests, lint/format, mypy/Pyright, unchanged OpenAPI,
+synthetic evaluation and dependency compatibility pass. Web's 81-test suite and
+real REST/WebSocket repair regressions pass. Parser-only checks cover all seven
+PDFs, including the 122-page DOE and 45-page OSHA references. Real OCR-grounded
+Chat and both LOW and blocked SEVERE procedure revalidation have live evidence.
 
 ### Evaluation and operational limits
 
@@ -259,7 +463,11 @@ Metadata-only logs/spans cover graph stages, model/query/upsert timings, fallbac
 and citation outcomes. Raw LangSmith export is suppressed. Optional OTLP must be
 configured and its receipt tested; existing Sentry placeholders do not activate
 an exporter. Use [Setup_Guide.md](../../Setup_Guide.md) and
-[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for startup, signed
+[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+for startup, signed
 Swagger, private sockets, provider prerequisites and remaining acceptance records.
 
-Change phase status only with code, contract tests, evaluation evidence, and the matching `../../Development_Plan.md` integration gate.
+Mark an **AI-backend module** phase complete only with code, contract tests,
+evaluation evidence, and setup-guide reconciliation. A **synchronized product
+phase** additionally requires the matching `../../Development_Plan.md` integration
+gate; module completion never substitutes for that gate.

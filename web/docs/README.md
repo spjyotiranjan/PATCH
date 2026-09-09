@@ -14,5 +14,6 @@ The implementation sequence follows the same six phases as the root `Development
 4. Run `npm run worker` in another terminal for ingestion, profile/procedure jobs
    and recurrence scheduling. Use the custom server scripts, not `next dev` directly.
 5. Open `/api/docs` for Swagger; `/api/openapi` is the REST catalog. Follow
-   [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for account login,
+[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+for account login,
    full REST workflows and Postman raw WebSocket testing without application UI.

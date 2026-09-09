@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_OPENAI_MODEL_ID_PATTERN = r"^[a-z0-9](?:[a-z0-9._:-]{0,253}[a-z0-9])?$"
+
 
 def _is_configured(value: str) -> bool:
     normalized = value.strip()
@@ -24,7 +26,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    app_env: str = "development"
+    app_env: str = Field(default="development", pattern=r"^[a-z0-9][a-z0-9_-]{0,62}$")
     host: str = "0.0.0.0"
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "INFO"
@@ -42,18 +44,30 @@ class Settings(BaseSettings):
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     )
 
+    ocr_tesseract_cmd: str = ""
+    ocr_languages: str = Field(default="eng", pattern=r"^[A-Za-z0-9_]+(?:\+[A-Za-z0-9_]+)*$")
+    ocr_render_dpi: int = Field(default=200, ge=72, le=400)
+    ocr_max_image_pixels: int = Field(default=30_000_000, ge=1_000_000, le=50_000_000)
+    ocr_timeout_seconds: int = Field(default=15, ge=1, le=30)
+
     openai_api_key: SecretStr = SecretStr("")
-    openai_answer_model: str = "gpt-5.6-terra"
+    openai_answer_model: str = Field(default="gpt-5.6-terra", pattern=_OPENAI_MODEL_ID_PATTERN)
     openai_answer_reasoning_effort: Literal["low", "medium", "high"] = "medium"
-    openai_routing_model: str = "gpt-5.6-luna"
+    openai_routing_model: str = Field(default="gpt-5.6-luna", pattern=_OPENAI_MODEL_ID_PATTERN)
     openai_routing_reasoning_effort: Literal["low", "medium", "high"] = "low"
-    openai_complex_reasoning_model: str = "gpt-5.6-terra"
+    openai_complex_reasoning_model: str = Field(
+        default="gpt-5.6-terra", pattern=_OPENAI_MODEL_ID_PATTERN
+    )
     openai_complex_reasoning_effort: Literal["low", "medium", "high"] = "high"
-    openai_embedding_model: str = "text-embedding-3-large"
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-large", pattern=_OPENAI_MODEL_ID_PATTERN
+    )
 
     pinecone_api_key: SecretStr = SecretStr("")
     pinecone_index_name: str = ""
-    pinecone_namespace: str = "development"
+    pinecone_namespace: str = Field(
+        default="development", pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+    )
 
     chunk_size_tokens: int = Field(default=700, ge=100, le=4000)
     chunk_overlap_tokens: int = Field(default=120, ge=0, le=1000)

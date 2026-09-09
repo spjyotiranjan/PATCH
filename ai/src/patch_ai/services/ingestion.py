@@ -50,7 +50,9 @@ def safe_error() -> ServiceError:
 def extract(request: ExtractRequest, settings: Settings, providers: Providers) -> ExtractResult:
     def load(_: IngestionState) -> IngestionState:
         body = download_source(request.source_file, settings)
-        return {"pages": VerifiedSourceLoader(body, request.source_file.content_type).load()}
+        return {
+            "pages": VerifiedSourceLoader(body, request.source_file.content_type, settings).load()
+        }
 
     def summarize(state: IngestionState) -> IngestionState:
         assert "pages" in state
@@ -132,7 +134,7 @@ def source_chunks(
                 "originalFileId": request.original_file_id,
                 "contentFingerprint": request.source_file.sha256.lower(),
                 "chunkId": f"{request.document_version_id}:p{chunk.metadata['page']}:{index}",
-                "pipelineVersion": "1",
+                "pipelineVersion": "2",
             }
         )
     return chunks
@@ -141,7 +143,9 @@ def source_chunks(
 def index(request: IndexRequest, settings: Settings, providers: Providers) -> IndexResult:
     def load(_: IngestionState) -> IngestionState:
         data = download_source(request.source_file, settings)
-        return {"pages": VerifiedSourceLoader(data, request.source_file.content_type).load()}
+        return {
+            "pages": VerifiedSourceLoader(data, request.source_file.content_type, settings).load()
+        }
 
     def upsert(state: IngestionState) -> IngestionState:
         assert "pages" in state
@@ -153,7 +157,7 @@ def index(request: IndexRequest, settings: Settings, providers: Providers) -> In
                 status="indexed",
                 document_version_id=request.document_version_id,
                 chunk_count=len(chunks),
-                index_reference=f"source:{request.document_version_id}:1",
+                index_reference=f"source:{request.document_version_id}:2",
                 source_locations=[
                     SourceLocation(page=p.metadata["page"], section=p.metadata["section"])
                     for p in state["pages"]

@@ -34,6 +34,12 @@ import {
 } from "./procedure-evidence";
 import { scanBatch } from "./scan";
 import { logEvent } from "@/lib/observability/logger";
+import {
+  buildVisualAsset,
+  buildVisualDescription,
+  currentVisualVersion,
+  type VisualAssetRecord,
+} from "./visual-assets";
 
 interface Job {
   _id: ObjectId;
@@ -46,6 +52,7 @@ interface Job {
     revision?: number;
     projectId?: string;
     procedureId?: string;
+    assetId?: string;
   };
   status: string;
   attempts: number;
@@ -510,7 +517,42 @@ export async function runJobs(base: Context, limit = 10) {
         await processVersion(ctx, job);
       else if (job.kind === "PROFILE") await processProfile(ctx, job);
       else if (job.kind === "PROCEDURE") await processProcedure(ctx, job);
-      else if (job.kind === "PROCEDURE_EVIDENCE") {
+      else if (["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind)) {
+        await currentLease(ctx, job);
+        const asset =
+          job.kind === "VISUAL_RENDER"
+            ? await buildVisualAsset(ctx, job.payload.assetId!)
+            : await buildVisualDescription(ctx, job.payload.assetId!);
+        await applyJob(ctx, job, async (tx) => {
+          const version = await currentVisualVersion(
+            tx,
+            asset.documentVersionId,
+          );
+          if (version.sha256.toLowerCase() !== asset.originalSha256)
+            fail("VISUAL_SOURCE_CHANGED");
+          await tx.db
+            .collection<VisualAssetRecord>("visualSourceAssets")
+            .replaceOne(
+              {
+                _id: asset._id,
+                tenantId: job.tenantId,
+                selectionFingerprint: asset.selectionFingerprint,
+              },
+              asset,
+              { session: tx.session },
+            );
+          await audit(
+            tx,
+            job.kind === "VISUAL_RENDER"
+              ? "VISUAL_ASSET_READY"
+              : "VISUAL_DESCRIPTION_READY",
+            {
+              assetId: asset._id.toHexString(),
+              versionId: asset.documentVersionId,
+            },
+          );
+        });
+      } else if (job.kind === "PROCEDURE_EVIDENCE") {
         const evidence = await buildProcedureEvidence(
           ctx,
           job.payload.versionId!,
@@ -538,6 +580,40 @@ export async function runJobs(base: Context, limit = 10) {
       });
     } catch (error) {
       const status = job.attempts >= 5 ? "DEAD_LETTER" : "PENDING";
+      if (
+        ["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind) &&
+        status === "DEAD_LETTER"
+      ) {
+        // Fence the asset-state update with the lease, just like successful commits.
+        try {
+          await withDatabaseTransaction(ctx.config, async (db, session) => {
+            const tx = { ...ctx, db, session };
+            await currentLease(tx, job);
+            await db
+              .collection<VisualAssetRecord>("visualSourceAssets")
+              .updateOne(
+                {
+                  _id: oid(job.payload.assetId!),
+                  tenantId: job.tenantId,
+                  ...(job.kind === "VISUAL_RENDER"
+                    ? { state: { $ne: "READY" } }
+                    : { descriptionState: { $ne: "READY" } }),
+                },
+                {
+                  $set: {
+                    ...(job.kind === "VISUAL_RENDER"
+                      ? { state: "FAILED" as const }
+                      : { descriptionState: "FAILED" as const }),
+                    updatedAt: new Date(),
+                  },
+                },
+                { session },
+              );
+          });
+        } catch {
+          /* A newer lease owns the result; do not overwrite it. */
+        }
+      }
       await base.db.collection<Job>("outboxEvents").updateOne(
         { _id: job._id, leaseToken: job.leaseToken, status: "RUNNING" },
         {
