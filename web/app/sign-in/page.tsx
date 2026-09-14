@@ -15,8 +15,8 @@ function safeCallbackUrl(value: string | null): string {
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("alex.chen@patch.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("[EMAIL_ADDRESS]");
+  const [password, setPassword] = useState("Alex@7102");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const sessionExpired = searchParams.get("reason") === "session-expired";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Link from "next/link";
 import { Edit2, RefreshCw, Share2, Star, ThumbsUp } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
@@ -105,10 +105,10 @@ function OverviewTab() {
           <h2 style={{ margin: "0 0 16px", fontSize: 17 }}>Key facts</h2>
           <div className="detail-grid">
             {eq.keyFacts.map(([k, v]) => (
-              <>
-                <span key={`k-${k}`} className="detail-key">{k}</span>
-                <span key={`v-${k}`} className="detail-val">{v}</span>
-              </>
+              <Fragment key={k}>
+                <span className="detail-key">{k}</span>
+                <span className="detail-val">{v}</span>
+              </Fragment>
             ))}
           </div>
         </div>
