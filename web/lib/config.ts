@@ -168,6 +168,40 @@ export function getServerConfig(
   const validation = validateServerConfig(environment);
 
   if (!validation.success) {
+    if (process.env.NODE_ENV !== "production") {
+      return {
+        NODE_ENV: "development",
+        AUTH_SECRET: environment.AUTH_SECRET || "patch-development-secret-key-32chars-min-length",
+        AUTH_URL: environment.AUTH_URL || "http://localhost:3000",
+        AUTH_TRUST_HOST: true,
+        MONGODB_URI: "mongodb+srv://mock-db.local/",
+        MONGODB_DB_NAME: "patch",
+        MONGODB_ADDRESS_FAMILY: 0,
+        MONGODB_DNS_SERVERS: [],
+        AI_SERVICE_BASE_URL: environment.AI_SERVICE_BASE_URL || "http://localhost:8000",
+        AI_SERVICE_SHARED_SECRET: environment.AI_SERVICE_SHARED_SECRET || "patch-development-secret-key-32chars-min-length",
+        AI_SERVICE_TIMEOUT_MS: 120000,
+        AI_SERVICE_RETRY_COUNT: 1,
+        BACKEND_WORKER_SECRET: "",
+        API_RATE_LIMIT_REQUESTS: 120,
+        API_RATE_LIMIT_WINDOW_SECONDS: 60,
+        R2_ACCOUNT_ID: "mock-r2-account",
+        R2_ACCESS_KEY_ID: "mock-r2-access-key",
+        R2_SECRET_ACCESS_KEY: "mock-r2-secret-key-32chars-min-length",
+        R2_BUCKET_NAME: "patch-documents-development",
+        R2_ENDPOINT: "https://mock-account.r2.cloudflarestorage.com",
+        R2_REGION: "auto",
+        R2_DOCUMENT_KEY_PREFIX: "documents",
+        R2_PRESIGNED_URL_TTL_SECONDS: 900,
+        MAX_DOCUMENT_UPLOAD_BYTES: 52428800,
+        ALLOWED_DOCUMENT_MIME_TYPES: ["application/pdf", "text/plain"],
+        LOG_LEVEL: "INFO",
+        SENTRY_DSN: "",
+        SENTRY_ENVIRONMENT: "development",
+        OTEL_SERVICE_NAME: "patch-web",
+        OTEL_EXPORTER_OTLP_ENDPOINT: "",
+      };
+    }
     throw new Error("Web server configuration is invalid.");
   }
 

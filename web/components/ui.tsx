@@ -5,18 +5,21 @@ import { useEffect, useId, type ReactNode } from "react";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "quiet" | "danger";
+  size?: "sm" | "md" | "lg";
   icon?: ReactNode;
 };
 
 export function Button({
   variant = "primary",
+  size,
   icon,
   className = "",
   children,
   ...props
 }: ButtonProps) {
+  const sizeClass = size ? `button-${size}` : "";
   return (
-    <button className={`button button-${variant} ${className}`} {...props}>
+    <button className={`button button-${variant} ${sizeClass} ${className}`} {...props}>
       {icon}
       {children}
     </button>

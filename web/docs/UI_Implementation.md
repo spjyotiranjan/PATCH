@@ -106,7 +106,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 2 - Equipment and Project creation/context
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Create, discover, and understand Equipments/Projects with correct descriptions and access.
 
@@ -129,7 +129,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 3 - Dedicated document management, versions, and ingestion
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Make entity document ownership, active versions, propagation, and AI processing comprehensible.
 
