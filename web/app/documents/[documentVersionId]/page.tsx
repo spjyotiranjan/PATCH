@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -22,45 +22,27 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { Button, StatusBadge } from "@/components/ui";
 import { DocumentStatusBadge } from "@/components/documents";
+import {
+  getDocument,
+  getDocuments,
+} from "@/lib/api/documents";
+import type { Document } from "@/lib/types/document";
 
-const MOCK_DOC_VERSIONS: Record<
+/* Sample extracted excerpts for the seeded pump manual. Other
+   documents show a preview placeholder until backend preview
+   bytes are available. */
+const SAMPLE_EXCERPTS: Record<
   string,
   {
-    title: string;
-    filename: string;
-    fileSize: string;
-    version: string;
-    status: "Active" | "Needs review" | "Superseded" | "Indexing";
-    updatedAt: string;
-    uploadedBy: string;
-    coveragePct: number;
-    entities: { type: string; name: string; href: string }[];
-    history: { version: string; date: string; status: string; author: string; id: string }[];
     highlights: { page: number; text: string; label: string }[];
     contentPages: string[];
   }
 > = {
-  "ver-32": {
-    title: "Centrifugal Pump P-101 Operation & Maintenance Manual",
-    filename: "P-101-OMM-2025.pdf",
-    fileSize: "14.2 MB",
-    version: "v3.2",
-    status: "Active",
-    updatedAt: "May 10, 2025",
-    uploadedBy: "Alex Morgan",
-    coveragePct: 94,
-    entities: [
-      { type: "Equipment", name: "Centrifugal Pump P-101", href: "/equipments/eq-1" },
-      { type: "Project", name: "Cooling Water System Upgrade 2025", href: "/projects/prj-1" },
-    ],
-    history: [
-      { version: "v3.2", date: "May 10, 2025", status: "Active", author: "Alex Morgan", id: "ver-32" },
-      { version: "v3.1", date: "Jan 14, 2024", status: "Superseded", author: "Sarah Chen", id: "ver-31" },
-      { version: "v3.0", date: "Mar 15, 2021", status: "Superseded", author: "System", id: "ver-30" },
-    ],
+  "doc-1": {
     highlights: [
       { page: 4, label: "Operating Pressure", text: "Design Operating Pressure: 12.4 bar (180 PSI) continuous rating." },
       { page: 12, label: "Seal Inspection", text: "Mechanical Seal inspection interval: Every 6 months or 4,000 operational hours." },
@@ -73,14 +55,214 @@ const MOCK_DOC_VERSIONS: Record<
   },
 };
 
+function placeholderPreview(doc: Document): string[] {
+  const active =
+    doc.versions.find(
+      (version) => version.id === doc.activeVersionId,
+    ) ?? doc.versions[0];
+
+  return [
+    `PREVIEW PLACEHOLDER — original preview bytes are unavailable in the frontend mock.\n\n${doc.title}\nActive revision: ${doc.activeVersion ?? "none"} · Status: ${doc.status.replace(/_/g, " ")}\nFile: ${active?.filename ?? "—"} (${active?.fileSize ?? "—"})\nUploaded by ${doc.uploadedBy} on ${doc.updatedAt}`,
+    `VERSION SUMMARY\n\n${active?.changeSummary ?? "No change summary recorded for this version."}\n\nOpen the version history to compare revisions. Approval and indexing states are shown per version.`,
+  ];
+}
+
 export default function SourceViewerPage() {
   const params = useParams();
-  const versionId = (params?.documentVersionId as string) || "ver-32";
-  const doc = MOCK_DOC_VERSIONS[versionId] || MOCK_DOC_VERSIONS["ver-32"];
+  const routeId =
+    (params?.documentVersionId as string) || "doc-1";
+
+  const [doc, setDoc] = useState<Document | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedHighlight, setSelectedHighlight] = useState<number | null>(0);
   const [zoom, setZoom] = useState(100);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        setCurrentPage(1);
+        setSelectedHighlight(0);
+
+        // Accept a logical document ID or a version ID, since both
+        // link here from tables and history rows.
+        const direct = await getDocument(routeId);
+        let resolved = direct;
+
+        if (!resolved) {
+          const all = await getDocuments();
+          resolved =
+            all.find((candidate) =>
+              candidate.versions.some(
+                (version) => version.id === routeId,
+              ),
+            ) ?? null;
+        }
+
+        if (!cancelled) {
+          setDoc(resolved);
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            "The source could not be loaded. Check your connection and retry.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [routeId, reloadToken]);
+
+  function handleShare() {
+    const url = window.location.href;
+
+    if (navigator.clipboard) {
+      void navigator.clipboard
+        .writeText(url)
+        .then(
+          () =>
+            toast.success(
+              "Source link copied to clipboard.",
+            ),
+          () =>
+            toast.error(
+              "The link could not be copied.",
+            ),
+        );
+    } else {
+      toast.error(
+        "Clipboard is unavailable in this browser.",
+      );
+    }
+  }
+
+  function handleDownload() {
+    toast.success(
+      "Export queued. The original file will download once backend file service is connected.",
+    );
+  }
+
+  if (loading) {
+    return (
+      <AppShell title="Source viewer">
+        <section
+          className="empty-state"
+          aria-live="polite"
+        >
+          <h2>Loading source…</h2>
+          <p>
+            Resolving the logical document,
+            active revision, and history.
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell title="Source viewer">
+        <section
+          className="empty-state"
+          role="alert"
+        >
+          <h2>The source could not be loaded</h2>
+          <p>{error}</p>
+          <Button
+            type="button"
+            onClick={() =>
+              setReloadToken(
+                (token) => token + 1,
+              )
+            }
+          >
+            Retry
+          </Button>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (!doc) {
+    return (
+      <AppShell title="Source viewer">
+        <section className="empty-state">
+          <FileText size={28} aria-hidden="true" />
+          <h2>Source unavailable</h2>
+          <p>
+            No document or version with ID “
+            {routeId}” is accessible. It may
+            have been archived or you may not
+            have access.
+          </p>
+          <Link href="/documents">
+            <Button type="button">
+              Back to library
+            </Button>
+          </Link>
+        </section>
+      </AppShell>
+    );
+  }
+
+  const excerpts =
+    SAMPLE_EXCERPTS[doc.id] ?? null;
+  const contentPages = excerpts
+    ? excerpts.contentPages
+    : placeholderPreview(doc);
+  const highlights = excerpts
+    ? excerpts.highlights
+    : [];
+  const activeVersion =
+    doc.versions.find(
+      (version) =>
+        version.id === doc.activeVersionId,
+    ) ?? doc.versions[0];
+  const coverage =
+    activeVersion?.coveragePct ?? null;
+
+  const entities: {
+    type: string;
+    name: string;
+    href: string;
+  }[] = [];
+  if (doc.equipmentId) {
+    entities.push({
+      type: "Equipment",
+      name:
+        doc.equipmentName ?? doc.equipmentId,
+      href: `/equipments/${doc.equipmentId}`,
+    });
+  }
+  if (doc.projectId) {
+    entities.push({
+      type: "Project",
+      name: doc.projectId,
+      href: `/projects/${doc.projectId}`,
+    });
+  }
+
+  const backHref = doc.equipmentId
+    ? `/equipments/${doc.equipmentId}/documents`
+    : doc.projectId
+      ? `/projects/${doc.projectId}/documents`
+      : "/documents";
 
   return (
     <AppShell title={doc.title}>
@@ -97,7 +279,7 @@ export default function SourceViewerPage() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <Link
-            href="/equipments/eq-1/documents"
+            href={backHref}
             style={{
               fontSize: 13,
               color: "var(--patch-muted)",
@@ -110,17 +292,32 @@ export default function SourceViewerPage() {
             <ArrowLeft size={14} /> Back to Documents
           </Link>
           <span style={{ color: "var(--patch-boundary)" }}>|</span>
-          <strong style={{ fontSize: 14 }}>{doc.filename}</strong>
-          <DocumentStatusBadge status={doc.status} />
-          <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>Revision {doc.version}</span>
+          <strong style={{ fontSize: 14 }}>{activeVersion?.filename ?? doc.id}</strong>
+          <DocumentStatusBadge
+            status={
+              doc.status === "ACTIVE"
+                ? "Active"
+                : doc.status === "NEEDS_REVIEW"
+                  ? "Needs review"
+                  : doc.status === "FAILED"
+                    ? "Failed"
+                    : doc.status === "SUPERSEDED"
+                      ? "Superseded"
+                      : "Indexing"
+            }
+          />
+          <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>
+            Revision {doc.activeVersion ?? "—"}
+          </span>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={handleShare}>
             <Share2 size={14} style={{ marginRight: 6 }} /> Share Link
           </Button>
-          <Button size="sm">
-            <Download size={14} style={{ marginRight: 6 }} /> Download PDF ({doc.fileSize})
+          <Button size="sm" onClick={handleDownload}>
+            <Download size={14} style={{ marginRight: 6 }} /> Download
+            {activeVersion?.fileSize ? ` (${activeVersion.fileSize})` : ""}
           </Button>
         </div>
       </div>
@@ -151,13 +348,13 @@ export default function SourceViewerPage() {
                 <ChevronLeft size={16} />
               </button>
               <span>
-                Page <strong>{currentPage}</strong> of {doc.contentPages.length}
+                Page <strong>{currentPage}</strong> of {contentPages.length}
               </span>
               <button
                 type="button"
                 className="icon-button"
-                onClick={() => setCurrentPage((p) => Math.min(doc.contentPages.length, p + 1))}
-                disabled={currentPage >= doc.contentPages.length}
+                onClick={() => setCurrentPage((p) => Math.min(contentPages.length, p + 1))}
+                disabled={currentPage >= contentPages.length}
               >
                 <ChevronRight size={16} />
               </button>
@@ -188,19 +385,25 @@ export default function SourceViewerPage() {
           >
             <Sparkles size={14} color="var(--patch-accent)" />
             <span style={{ fontSize: 12, fontWeight: 650, color: "var(--patch-muted)" }}>Cited Highlights:</span>
-            {doc.highlights.map((hl, idx) => (
-              <button
-                key={hl.label}
-                type="button"
-                className={`doc-mode-pill ${selectedHighlight === idx ? "active" : ""}`}
-                onClick={() => {
-                  setSelectedHighlight(idx);
-                  setCurrentPage(hl.page <= doc.contentPages.length ? hl.page : 1);
-                }}
-              >
-                P.{hl.page} · {hl.label}
-              </button>
-            ))}
+            {highlights.length === 0 ? (
+              <span style={{ fontSize: 12, color: "var(--patch-muted)" }}>
+                No extracted highlights for this version yet.
+              </span>
+            ) : (
+              highlights.map((hl, idx) => (
+                <button
+                  key={hl.label}
+                  type="button"
+                  className={`doc-mode-pill ${selectedHighlight === idx ? "active" : ""}`}
+                  onClick={() => {
+                    setSelectedHighlight(idx);
+                    setCurrentPage(hl.page <= contentPages.length ? hl.page : 1);
+                  }}
+                >
+                  P.{hl.page} · {hl.label}
+                </button>
+              ))
+            )}
           </div>
 
           {/* PDF Page View Content */}
@@ -219,9 +422,9 @@ export default function SourceViewerPage() {
               transformOrigin: "top left",
             }}
           >
-            {doc.contentPages[currentPage - 1] || doc.contentPages[0]}
+            {contentPages[currentPage - 1] || contentPages[0]}
 
-            {selectedHighlight !== null && doc.highlights[selectedHighlight] && (
+            {selectedHighlight !== null && highlights[selectedHighlight] && (
               <div
                 style={{
                   marginTop: 24,
@@ -233,9 +436,9 @@ export default function SourceViewerPage() {
                 }}
               >
                 <strong style={{ display: "block", marginBottom: 4, color: "#ffffff" }}>
-                  Highlighted Reference [{doc.highlights[selectedHighlight].label}]
+                  Highlighted Reference [{highlights[selectedHighlight].label}]
                 </strong>
-                &quot;{doc.highlights[selectedHighlight].text}&quot;
+                &quot;{highlights[selectedHighlight].text}&quot;
               </div>
             )}
           </div>
@@ -250,11 +453,11 @@ export default function SourceViewerPage() {
               Version History Timeline
             </h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {doc.history.map((ver) => {
-                const isCurrent = ver.version === doc.version;
+              {doc.versions.map((ver) => {
+                const isCurrent = ver.id === doc.activeVersionId;
                 return (
                   <div
-                    key={ver.version}
+                    key={ver.id}
                     style={{
                       padding: "10px 12px",
                       borderRadius: 6,
@@ -264,12 +467,13 @@ export default function SourceViewerPage() {
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <strong style={{ fontSize: 13 }}>Revision {ver.version}</strong>
-                      <StatusBadge tone={ver.status === "Active" ? "success" : "neutral"}>
-                        {ver.status}
+                      <StatusBadge tone={ver.status === "ACTIVE" ? "success" : "neutral"}>
+                        {ver.status.replace(/_/g, " ")}
                       </StatusBadge>
                     </div>
                     <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>
-                      Uploaded {ver.date} by {ver.author}
+                      Uploaded {ver.uploadedAt} by {ver.uploadedBy}
+                      {ver.changeSummary ? ` · ${ver.changeSummary}` : ""}
                     </div>
                   </div>
                 );
@@ -284,7 +488,13 @@ export default function SourceViewerPage() {
               Linked Target Entities
             </h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {doc.entities.map((entity) => (
+              {entities.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--patch-muted)", margin: 0 }}>
+                  This document is not linked to any equipment or
+                  project yet.
+                </p>
+              ) : (
+                entities.map((entity) => (
                 <div
                   key={entity.name}
                   style={{
@@ -310,7 +520,8 @@ export default function SourceViewerPage() {
                     </Button>
                   </Link>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
@@ -320,7 +531,9 @@ export default function SourceViewerPage() {
             <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--patch-muted)" }}>Knowledge Coverage:</span>
-                <span className="coverage-pct coverage-high">{doc.coveragePct}%</span>
+                <span className="coverage-pct coverage-high">
+                  {coverage === null ? "—" : `${coverage}%`}
+                </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--patch-muted)" }}>Vector Chunks:</span>

@@ -1,13 +1,22 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useId, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  type ReactNode,
+} from "react";
 
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "quiet" | "danger";
-  size?: "sm" | "md" | "lg";
-  icon?: ReactNode;
-};
+type ButtonProps =
+  React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    variant?:
+      | "primary"
+      | "secondary"
+      | "quiet"
+      | "danger";
+    size?: "sm" | "md" | "lg";
+    icon?: ReactNode;
+  };
 
 export function Button({
   variant = "primary",
@@ -18,8 +27,19 @@ export function Button({
   ...props
 }: ButtonProps) {
   const sizeClass = size ? `button-${size}` : "";
+
   return (
-    <button className={`button button-${variant} ${sizeClass} ${className}`} {...props}>
+    <button
+      className={[
+        "button",
+        `button-${variant}`,
+        sizeClass,
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      {...props}
+    >
       {icon}
       {children}
     </button>
@@ -40,10 +60,18 @@ export function Field({
   return (
     <label className="field">
       <span className="field-label">
-        {label} {required ? <span aria-hidden="true">*</span> : null}
+        {label}
+
+        {required ? (
+          <span aria-hidden="true"> *</span>
+        ) : null}
       </span>
+
       {children}
-      {hint ? <span className="field-hint">{hint}</span> : null}
+
+      {hint ? (
+        <span className="field-hint">{hint}</span>
+      ) : null}
     </label>
   );
 }
@@ -52,12 +80,23 @@ export function StatusBadge({
   tone,
   children,
 }: {
-  tone: "success" | "attention" | "info" | "neutral" | "danger";
+  tone:
+    | "success"
+    | "attention"
+    | "info"
+    | "neutral"
+    | "danger";
   children: ReactNode;
 }) {
   return (
-    <span className={`status-badge status-${tone}`}>
-      <span className="status-dot" aria-hidden="true" />
+    <span
+      className={`status-badge status-${tone}`}
+    >
+      <span
+        className="status-dot"
+        aria-hidden="true"
+      />
+
       {children}
     </span>
   );
@@ -76,10 +115,19 @@ export function Tabs({
   }[];
 }) {
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div
+      className="tabs"
+      role="tablist"
+      aria-label={label}
+    >
       {items.map((item) => (
         <button
-          className={`tab ${item.active ? "tab-active" : ""}`}
+          className={[
+            "tab",
+            item.active ? "tab-active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           type="button"
           role="tab"
           aria-selected={Boolean(item.active)}
@@ -100,35 +148,53 @@ export function DataTable({
   emptyMessage = "No records found.",
 }: {
   caption: string;
-  columns: { key: string; label: string }[];
-  rows: { id: string; cells: Record<string, ReactNode> }[];
+  columns: {
+    key: string;
+    label: string;
+  }[];
+  rows: {
+    id: string;
+    cells: Record<string, ReactNode>;
+  }[];
   emptyMessage?: string;
 }) {
   return (
     <div className="table-scroll">
       <table className="data-table">
-        <caption className="visually-hidden">{caption}</caption>
+        <caption className="visually-hidden">
+          {caption}
+        </caption>
+
         <thead>
           <tr>
             {columns.map((column) => (
-              <th scope="col" key={column.key}>
+              <th
+                scope="col"
+                key={column.key}
+              >
                 {column.label}
               </th>
             ))}
           </tr>
         </thead>
+
         <tbody>
-          {rows.length ? (
+          {rows.length > 0 ? (
             rows.map((row) => (
               <tr key={row.id}>
                 {columns.map((column) => (
-                  <td key={column.key}>{row.cells[column.key]}</td>
+                  <td key={column.key}>
+                    {row.cells[column.key]}
+                  </td>
                 ))}
               </tr>
             ))
           ) : (
             <tr>
-              <td className="table-empty" colSpan={columns.length}>
+              <td
+                className="table-empty"
+                colSpan={columns.length}
+              >
                 {emptyMessage}
               </td>
             </tr>
@@ -153,15 +219,35 @@ export function Drawer({
   const titleId = useId();
 
   useEffect(() => {
-    if (!open) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [onClose, open]);
+    if (!open) {
+      return;
+    }
 
-  if (!open) return null;
+    const closeOnEscape = (
+      event: KeyboardEvent,
+    ) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener(
+      "keydown",
+      closeOnEscape,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        closeOnEscape,
+      );
+    };
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
   return (
     <div className="drawer-layer">
       <button
@@ -170,6 +256,7 @@ export function Drawer({
         aria-label={`Close ${title}`}
         onClick={onClose}
       />
+
       <section
         className="drawer"
         role="dialog"
@@ -178,6 +265,7 @@ export function Drawer({
       >
         <header className="drawer-header">
           <h2 id={titleId}>{title}</h2>
+
           <button
             className="icon-button"
             type="button"
@@ -185,10 +273,16 @@ export function Drawer({
             onClick={onClose}
             autoFocus
           >
-            <X aria-hidden="true" size={20} />
+            <X
+              aria-hidden="true"
+              size={20}
+            />
           </button>
         </header>
-        <div className="drawer-content">{children}</div>
+
+        <div className="drawer-content">
+          {children}
+        </div>
       </section>
     </div>
   );

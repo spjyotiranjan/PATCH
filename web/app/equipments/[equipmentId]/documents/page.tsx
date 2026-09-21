@@ -1,23 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
-  Download,
   Eye,
   FileText,
-  Filter,
   Plus,
   RefreshCw,
   Search,
-  SlidersHorizontal,
   Upload,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { Button, StatusBadge, Tabs } from "@/components/ui";
 import {
@@ -26,118 +25,271 @@ import {
   DocumentStatusBadge,
   ProfileStatusIndicator,
 } from "@/components/documents";
+import { getEquipment } from "@/lib/api/equipments";
+import { getEquipmentDocuments } from "@/lib/api/documents";
+import type { Document } from "@/lib/types/document";
+import type { Equipment } from "@/lib/types/equipment";
 
-const EQUIPMENT = {
-  id: "eq-1",
-  name: "Centrifugal Pump P-101",
-  tag: "P-101",
-  status: "Healthy" as const,
-  profileStatus: "Fresh" as "Fresh" | "Refreshing" | "Stale",
-  lastProfileUpdate: "May 14, 2025 9:58 AM",
-};
+type BadgeStatus =
+  | "Active"
+  | "Needs review"
+  | "Indexing"
+  | "Failed"
+  | "Approved"
+  | "Superseded"
+  | "Rejected"
+  | "Extracting"
+  | "Uploading";
 
-const EQUIPMENT_DOCUMENTS = [
-  {
-    id: "doc-1",
-    title: "Operation & Maintenance Manual",
-    docType: "Manual",
-    subtitle: "P-101-OMM-2025.pdf",
-    activeVersion: "v3.2",
-    status: "Active" as const,
-    fileType: "PDF",
-    fileSize: "14.2 MB",
-    updatedAt: "May 10, 2025",
-    uploadedBy: "Alex Morgan",
-    coveragePct: 94,
-    versions: [
-      { id: "ver-32", version: "v3.2", date: "May 10, 2025", status: "Active", size: "14.2 MB" },
-      { id: "ver-31", version: "v3.1", date: "Jan 14, 2024", status: "Superseded", size: "13.8 MB" },
-      { id: "ver-30", version: "v3.0", date: "Mar 15, 2021", status: "Superseded", size: "12.5 MB" },
-    ],
-  },
-  {
-    id: "doc-2",
-    title: "P&ID Diagram P-101-002",
-    docType: "P&ID",
-    subtitle: "PID-P101-002-REV2.pdf",
-    activeVersion: "v2.0",
-    status: "Needs review" as const,
-    fileType: "PDF",
-    fileSize: "8.5 MB",
-    updatedAt: "May 12, 2025",
-    uploadedBy: "Sarah Chen",
-    coveragePct: 82,
-    versions: [
-      { id: "ver-20", version: "v2.0", date: "May 12, 2025", status: "Needs review", size: "8.5 MB" },
-      { id: "ver-10", version: "v1.0", date: "Mar 15, 2021", status: "Active", size: "8.1 MB" },
-    ],
-  },
-  {
-    id: "doc-3",
-    title: "Mechanical Seal Installation Guide",
-    docType: "Manual",
-    subtitle: "MSIG-P101-V11.pdf",
-    activeVersion: "v1.1",
-    status: "Indexing" as const,
-    fileType: "PDF",
-    fileSize: "3.4 MB",
-    updatedAt: "May 14, 2025",
-    uploadedBy: "David Kim",
-    coveragePct: null,
-    versions: [
-      { id: "ver-11", version: "v1.1", date: "May 14, 2025", status: "Indexing", size: "3.4 MB" },
-      { id: "ver-10", version: "v1.0", date: "Aug 10, 2022", status: "Active", size: "3.1 MB" },
-    ],
-  },
-  {
-    id: "doc-4",
-    title: "Technical Data Sheet",
-    docType: "Datasheet",
-    subtitle: "TDS-XH150-400.pdf",
-    activeVersion: "v1.0",
-    status: "Active" as const,
-    fileType: "PDF",
-    fileSize: "2.1 MB",
-    updatedAt: "Mar 15, 2021",
-    uploadedBy: "System",
-    coveragePct: 98,
-    versions: [
-      { id: "ver-10", version: "v1.0", date: "Mar 15, 2021", status: "Active", size: "2.1 MB" },
-    ],
-  },
-];
+function toBadgeStatus(status: Document["status"]): BadgeStatus {
+  switch (status) {
+    case "ACTIVE":
+      return "Active";
+    case "NEEDS_REVIEW":
+      return "Needs review";
+    case "INDEXING":
+      return "Indexing";
+    case "FAILED":
+      return "Failed";
+    case "APPROVED":
+      return "Approved";
+    case "SUPERSEDED":
+      return "Superseded";
+    case "REJECTED":
+      return "Rejected";
+    case "EXTRACTING":
+      return "Extracting";
+    case "UPLOADING":
+      return "Uploading";
+    default:
+      return "Needs review";
+  }
+}
 
-export default function EquipmentDocumentsPage() {
-  const [activeTab, setActiveTab] = useState("documents");
+function coverageOf(doc: Document): number | null {
+  const active = doc.versions.find(
+    (version) => version.id === doc.activeVersionId,
+  );
+  return (
+    active?.coveragePct ??
+    doc.versions[0]?.coveragePct ??
+    null
+  );
+}
+
+export default function EquipmentDocumentsPage({
+  params,
+}: {
+  params: Promise<{ equipmentId: string }>;
+}) {
+  const { equipmentId } = use(params);
+  const router = useRouter();
+  const [equipment, setEquipment] =
+    useState<Equipment | null>(null);
+  const [documents, setDocuments] =
+    useState<Document[]>([]);
+  const [loading, setLoading] =
+    useState(true);
+  const [error, setError] = useState<
+    string | null
+  >(null);
+  const [reloadToken, setReloadToken] =
+    useState(0);
+
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("All");
   const [addDocOpen, setAddDocOpen] = useState(false);
   const [addVersionOpen, setAddVersionOpen] = useState(false);
-  const [expandedDoc, setExpandedDoc] = useState<string | null>("doc-1");
+  const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [profileState, setProfileState] = useState<
+    "Fresh" | "Refreshing" | "Stale"
+  >("Fresh");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const [loadedEquipment, loadedDocs] =
+          await Promise.all([
+            getEquipment(equipmentId),
+            getEquipmentDocuments(equipmentId),
+          ]);
+
+        if (!cancelled) {
+          setEquipment(loadedEquipment);
+          setDocuments(loadedDocs);
+          setProfileState("Fresh");
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            "Equipment documents could not be loaded. Check your connection and retry.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [equipmentId, reloadToken]);
 
   const tabs = [
-    { id: "overview", label: "Overview", active: false, onSelect: () => {} },
+    { id: "overview", label: "Overview", active: false, onSelect: () => router.push(`/equipments/${equipmentId}?tab=overview`) },
     { id: "documents", label: "Documents", active: true, onSelect: () => {} },
-    { id: "projects", label: "Projects", active: false, onSelect: () => {} },
-    { id: "activity", label: "Activity", active: false, onSelect: () => {} },
+    { id: "projects", label: "Projects", active: false, onSelect: () => router.push(`/equipments/${equipmentId}?tab=projects`) },
+    { id: "activity", label: "Activity", active: false, onSelect: () => router.push(`/equipments/${equipmentId}?tab=activity`) },
   ];
 
-  const filteredDocs = EQUIPMENT_DOCUMENTS.filter((doc) => {
+  const types = useMemo(
+    () => [
+      "All",
+      ...Array.from(
+        new Set(documents.map((doc) => doc.docType)),
+      ),
+    ],
+    [documents],
+  );
+
+  const filteredDocs = documents.filter((doc) => {
     const matchesSearch =
       doc.title.toLowerCase().includes(search.toLowerCase()) ||
-      doc.subtitle.toLowerCase().includes(search.toLowerCase());
-    const matchesType = selectedType === "All" || doc.docType === selectedType;
+      (doc.versions[0]?.filename ?? "")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    const matchesType =
+      selectedType === "All" || doc.docType === selectedType;
     return matchesSearch && matchesType;
   });
 
+  const activeCount = documents.filter(
+    (doc) => doc.status === "ACTIVE",
+  ).length;
+  const reviewCount = documents.filter(
+    (doc) =>
+      doc.status === "NEEDS_REVIEW" ||
+      doc.status === "INDEXING" ||
+      doc.status === "EXTRACTING" ||
+      doc.status === "UPLOADING",
+  ).length;
+  const coverages = documents
+    .map(coverageOf)
+    .filter((pct): pct is number => pct !== null);
+  const avgCoverage =
+    coverages.length > 0
+      ? Math.round(
+          coverages.reduce((sum, pct) => sum + pct, 0) /
+            coverages.length,
+        )
+      : null;
+
+  function handleRefreshProfile() {
+    if (refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+    setProfileState("Refreshing");
+
+    window.setTimeout(() => {
+      setRefreshing(false);
+      setProfileState("Fresh");
+      toast.success(
+        "Equipment profile refreshed from current active versions.",
+      );
+    }, 1200);
+  }
+
+  if (loading) {
+    return (
+      <AppShell title="Equipment documents">
+        <section
+          className="empty-state"
+          aria-live="polite"
+        >
+          <h2>Loading equipment documents…</h2>
+          <p>
+            Resolving logical documents and
+            their active versions.
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell title="Equipment documents">
+        <section
+          className="empty-state"
+          role="alert"
+        >
+          <h2>
+            Equipment documents could not be
+            loaded
+          </h2>
+          <p>{error}</p>
+          <Button
+            type="button"
+            onClick={() =>
+              setReloadToken(
+                (token) => token + 1,
+              )
+            }
+          >
+            Retry
+          </Button>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (!equipment) {
+    return (
+      <AppShell title="Equipment documents">
+        <section className="empty-state">
+          <h2>Equipment not found</h2>
+          <p>
+            No equipment with ID “
+            {equipmentId}” is available to
+            you.
+          </p>
+          <Link href="/equipments">
+            <Button type="button">
+              Back to Equipments
+            </Button>
+          </Link>
+        </section>
+      </AppShell>
+    );
+  }
+
+  const expandedDocument = documents.find(
+    (doc) => doc.id === expandedDoc,
+  );
+
   return (
     <AppShell
-      title={EQUIPMENT.name}
-      status={<StatusBadge tone="success">{EQUIPMENT.status}</StatusBadge>}
+      title={equipment.name}
+      status={
+        <StatusBadge tone="success">
+          {equipment.status.replace(/_/g, " ")}
+        </StatusBadge>
+      }
     >
       <div style={{ marginBottom: 16 }}>
         <Link
-          href="/equipments/eq-1"
+          href={`/equipments/${equipmentId}`}
           style={{
             fontSize: 13,
             color: "var(--patch-muted)",
@@ -157,19 +309,21 @@ export default function EquipmentDocumentsPage() {
       <div className="metrics-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
         <div className="metric-card">
           <div className="metric-label">Total documents</div>
-          <div className="metric-value">4</div>
+          <div className="metric-value">{documents.length}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Active versions</div>
-          <div className="metric-value" style={{ color: "var(--patch-success)" }}>2</div>
+          <div className="metric-value" style={{ color: "var(--patch-success)" }}>{activeCount}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">In review / Indexing</div>
-          <div className="metric-value" style={{ color: "var(--patch-attention)" }}>2</div>
+          <div className="metric-value" style={{ color: "var(--patch-attention)" }}>{reviewCount}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Knowledge coverage</div>
-          <div className="metric-value">91%</div>
+          <div className="metric-value">
+            {avgCoverage === null ? "—" : `${avgCoverage}%`}
+          </div>
         </div>
       </div>
 
@@ -186,19 +340,25 @@ export default function EquipmentDocumentsPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <ProfileStatusIndicator status={EQUIPMENT.profileStatus} />
+          <ProfileStatusIndicator status={profileState} />
           <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>
-            Profile last updated: {EQUIPMENT.lastProfileUpdate}
+            Profile last updated: {equipment.updatedAt}
           </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/documents/processing-state">
             <Button variant="secondary" size="sm">
-              <Clock size={14} style={{ marginRight: 6 }} /> View processing queue (2)
+              <Clock size={14} style={{ marginRight: 6 }} /> View processing queue ({reviewCount})
             </Button>
           </Link>
-          <Button variant="secondary" size="sm">
-            <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh profile
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={refreshing}
+            onClick={handleRefreshProfile}
+          >
+            <RefreshCw size={14} style={{ marginRight: 6 }} />
+            {refreshing ? "Refreshing…" : "Refresh profile"}
           </Button>
         </div>
       </div>
@@ -231,6 +391,7 @@ export default function EquipmentDocumentsPage() {
               placeholder="Search documents..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search equipment documents"
               className="form-select"
               style={{
                 paddingLeft: 36,
@@ -244,12 +405,14 @@ export default function EquipmentDocumentsPage() {
             className="form-select"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
+            aria-label="Filter by document type"
             style={{ width: 140 }}
           >
-            <option value="All">All Types</option>
-            <option value="Manual">Manual</option>
-            <option value="P&amp;ID">P&amp;ID</option>
-            <option value="Datasheet">Datasheet</option>
+            {types.map((type) => (
+              <option key={type} value={type}>
+                {type === "All" ? "All Types" : type}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -264,185 +427,228 @@ export default function EquipmentDocumentsPage() {
       </div>
 
       {/* Documents Table */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        <table className="doc-table">
-          <thead>
-            <tr>
-              <th style={{ width: 32 }}></th>
-              <th>Document name &amp; file</th>
-              <th>Type</th>
-              <th>Active rev</th>
-              <th>Status</th>
-              <th>Coverage</th>
-              <th>Updated</th>
-              <th style={{ textAlign: "right" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDocs.map((doc) => {
-              const isExpanded = expandedDoc === doc.id;
-              return (
-                <tr key={doc.id} style={{ cursor: "pointer" }}>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--patch-muted)",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    </button>
-                  </td>
-                  <td>
-                    <div>
-                      <Link
-                        href={`/documents/${doc.versions[0].id}`}
+      {filteredDocs.length === 0 ? (
+        <section className="empty-state card">
+          <FileText size={28} aria-hidden="true" />
+          <h2>
+            {documents.length === 0
+              ? "No documents linked yet"
+              : "No documents match your filters"}
+          </h2>
+          <p>
+            {documents.length === 0
+              ? "Add the first logical document for this equipment to start the upload → extract → review → approve → index → active lifecycle."
+              : "Try a different search term or document type."}
+          </p>
+          {documents.length === 0 && (
+            <Button size="sm" onClick={() => setAddDocOpen(true)}>
+              <Plus size={14} style={{ marginRight: 6 }} /> Add new document
+            </Button>
+          )}
+        </section>
+      ) : (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <table className="doc-table">
+            <thead>
+              <tr>
+                <th style={{ width: 32 }}><span className="visually-hidden">Expand</span></th>
+                <th>Document name &amp; file</th>
+                <th>Type</th>
+                <th>Active rev</th>
+                <th>Status</th>
+                <th>Coverage</th>
+                <th>Updated</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDocs.map((doc) => {
+                const isExpanded = expandedDoc === doc.id;
+                const coverage = coverageOf(doc);
+                return (
+                  <tr key={doc.id} style={{ cursor: "pointer" }}>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Collapse" : "Expand"} version history for ${doc.title}`}
                         style={{
-                          fontWeight: 600,
-                          fontSize: 14,
-                          color: "var(--patch-text)",
-                          textDecoration: "none",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--patch-muted)",
+                          display: "flex",
+                          alignItems: "center",
                         }}
                       >
-                        {doc.title}
-                      </Link>
-                      <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>
-                        {doc.subtitle} · {doc.fileSize}
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                        background: "var(--patch-surface-elevated)",
-                        border: "1px solid var(--patch-boundary)",
-                      }}
-                    >
-                      {doc.docType}
-                    </span>
-                  </td>
-                  <td>
-                    <strong>{doc.activeVersion}</strong>
-                  </td>
-                  <td>
-                    <DocumentStatusBadge status={doc.status} />
-                  </td>
-                  <td>
-                    {doc.coveragePct !== null ? (
-                      <span className="coverage-pct coverage-high">{doc.coveragePct}%</span>
-                    ) : (
-                      <span className="coverage-pct coverage-none">—</span>
-                    )}
-                  </td>
-                  <td style={{ fontSize: 13, color: "var(--patch-muted)" }}>{doc.updatedAt}</td>
-                  <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                      <Link href={`/documents/${doc.versions[0].id}`}>
-                        <Button variant="secondary" size="sm">
-                          <Eye size={13} style={{ marginRight: 4 }} /> View
-                        </Button>
-                      </Link>
-                      {doc.status === "Needs review" && (
-                        <Link href="/documents/upload-review">
-                          <Button size="sm">Review</Button>
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+                    </td>
+                    <td>
+                      <div>
+                        <Link
+                          href={`/documents/${doc.id}`}
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color: "var(--patch-text)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          {doc.title}
                         </Link>
+                        <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>
+                          {doc.versions[0]?.filename ?? doc.id}
+                          {" · "}
+                          {doc.versions[0]?.fileSize ?? ""}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: "var(--patch-surface-elevated)",
+                          border: "1px solid var(--patch-boundary)",
+                        }}
+                      >
+                        {doc.docType}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{doc.activeVersion ?? "—"}</strong>
+                    </td>
+                    <td>
+                      <DocumentStatusBadge status={toBadgeStatus(doc.status)} />
+                    </td>
+                    <td>
+                      {coverage !== null ? (
+                        <span className="coverage-pct coverage-high">{coverage}%</span>
+                      ) : (
+                        <span className="coverage-pct coverage-none">—</span>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                    <td style={{ fontSize: 13, color: "var(--patch-muted)" }}>{doc.updatedAt}</td>
+                    <td style={{ textAlign: "right" }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                        <Link href={`/documents/${doc.id}`}>
+                          <Button variant="secondary" size="sm">
+                            <Eye size={13} style={{ marginRight: 4 }} /> View
+                          </Button>
+                        </Link>
+                        {doc.status === "NEEDS_REVIEW" && (
+                          <Link href="/documents/upload-review">
+                            <Button size="sm">Review</Button>
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
-        {/* Version expanded details card */}
-        {expandedDoc && (
-          <div
-            style={{
-              padding: "16px 24px",
-              background: "var(--patch-surface-elevated)",
-              borderTop: "1px solid var(--patch-boundary)",
-            }}
-          >
+          {/* Version expanded details card */}
+          {expandedDocument && (
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 12,
+                padding: "16px 24px",
+                background: "var(--patch-surface-elevated)",
+                borderTop: "1px solid var(--patch-boundary)",
               }}
             >
-              <h4 style={{ fontSize: 14, fontWeight: 650, margin: 0 }}>Version History</h4>
-              <Button variant="secondary" size="sm" onClick={() => setAddVersionOpen(true)}>
-                + Add new version
-              </Button>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {EQUIPMENT_DOCUMENTS.find((d) => d.id === expandedDoc)?.versions.map((ver) => (
-                <div
-                  key={ver.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px",
-                    borderRadius: 6,
-                    background: "var(--patch-surface)",
-                    border: "1px solid var(--patch-boundary)",
-                    fontSize: 13,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <FileText size={16} color="var(--patch-muted)" />
-                    <div>
-                      <strong style={{ marginRight: 8 }}>{ver.version}</strong>
-                      <span style={{ color: "var(--patch-muted)" }}>{ver.date} · {ver.size}</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <h4 style={{ fontSize: 14, fontWeight: 650, margin: 0 }}>Version History</h4>
+                <Button variant="secondary" size="sm" onClick={() => setAddVersionOpen(true)}>
+                  + Add new version
+                </Button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {expandedDocument.versions.map((ver) => (
+                  <div
+                    key={ver.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 14px",
+                      borderRadius: 6,
+                      background: "var(--patch-surface)",
+                      border: "1px solid var(--patch-boundary)",
+                      fontSize: 13,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <FileText size={16} color="var(--patch-muted)" />
+                      <div>
+                        <strong style={{ marginRight: 8 }}>{ver.version}</strong>
+                        <span style={{ color: "var(--patch-muted)" }}>
+                          {ver.uploadedAt} · {ver.fileSize}
+                          {ver.changeSummary ? ` · ${ver.changeSummary}` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <StatusBadge
+                        tone={
+                          ver.status === "ACTIVE"
+                            ? "success"
+                            : ver.status === "NEEDS_REVIEW"
+                              ? "attention"
+                              : "neutral"
+                        }
+                      >
+                        {ver.status.replace(/_/g, " ")}
+                      </StatusBadge>
+                      <Link href={`/documents/${expandedDocument.id}`}>
+                        <Button variant="secondary" size="sm">
+                          Source viewer
+                        </Button>
+                      </Link>
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <StatusBadge
-                      tone={
-                        ver.status === "Active"
-                          ? "success"
-                          : ver.status === "Needs review"
-                          ? "attention"
-                          : "neutral"
-                      }
-                    >
-                      {ver.status}
-                    </StatusBadge>
-                    <Link href={`/documents/${ver.id}`}>
-                      <Button variant="secondary" size="sm">
-                        Source viewer
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              {expandedDocument.status === "FAILED" && (
+                <p
+                  style={{
+                    margin: "12px 0 0",
+                    fontSize: 13,
+                    color: "var(--patch-muted)",
+                  }}
+                >
+                  <CheckCircle2 size={14} style={{ marginRight: 6 }} />
+                  Indexing failed for the latest upload. The previous
+                  active revision remains in use until a new version is
+                  successfully indexed and activated.
+                </p>
+              )}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Drawers */}
       <AddNewDocumentDrawer open={addDocOpen} onClose={() => setAddDocOpen(false)} />
       <AddNewVersionDrawer
         open={addVersionOpen}
         onClose={() => setAddVersionOpen(false)}
-        documents={EQUIPMENT_DOCUMENTS.map((d) => ({
+        documents={documents.map((d) => ({
           id: d.id,
           name: d.title,
-          subtitle: d.subtitle,
-          activeRevision: d.activeVersion,
+          subtitle: d.versions[0]?.filename ?? d.id,
+          activeRevision: d.activeVersion ?? "No active revision",
           activeDate: d.updatedAt,
         }))}
       />

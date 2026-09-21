@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronRight, FolderKanban, Info, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui";
 import { StatusBadge } from "@/components/ui";
+import { getEquipments } from "@/lib/api/equipments";
+import { getEquipmentDocuments } from "@/lib/api/documents";
+import { createProject } from "@/lib/api/projects";
+import type { Document } from "@/lib/types/document";
+import type { Equipment } from "@/lib/types/equipment";
 
 /* ── step definitions ─────────────────────────────────────── */
 const STEPS = [
@@ -15,26 +20,19 @@ const STEPS = [
   { id: 4, label: "Review" },
 ];
 
-/* ── hardcoded Equipment options for step 2 ──────────────── */
-const AVAILABLE_EQUIPMENTS = [
-  { id: "eq-1", name: "Centrifugal Pump P-101", type: "Centrifugal Pump", location: "Utility Room" },
-  { id: "eq-2", name: "Boiler B-201",           type: "Boiler",           location: "Boiler House" },
-  { id: "eq-3", name: "Filler O2",              type: "Filler",           location: "Packaging Line 1" },
-  { id: "eq-4", name: "Conveyor 11",            type: "Conveyor",         location: "Packaging Line 1" },
-  { id: "eq-5", name: "Capper 04",              type: "Capper",           location: "Packaging Line 1" },
-  { id: "eq-6", name: "Compressor C-301",       type: "Compressor",       location: "Utility Room" },
-];
+type DerivedDoc = {
+  id: string;
+  name: string;
+  from: string;
+  revision: string;
+  status: string;
+};
 
-/* ── hardcoded Equipment-derived docs for step 3 ─────────── */
-const DERIVED_DOCS = [
-  { name: "P-101 Maintenance Manual", from: "P-101", revision: "Revision 2 (Active)", status: "Up to date" },
-  { name: "P-101 P&ID",               from: "P-101", revision: "Revision 3 (Active)", status: "Up to date" },
-  { name: "P-101 Datasheet",          from: "P-101", revision: "Revision 1 (Active)", status: "Up to date" },
-];
-
-const DIRECT_DOCS = [
-  { id: "dd1", name: "HAZOP Study Report", desc: "Hazard & operability analysis", type: "Report", addedBy: "You", status: "Indexing" },
-];
+type StagedDoc = {
+  id: string;
+  name: string;
+  size: string;
+};
 
 const STATUSES = ["Planning", "Active", "On hold", "Completed"];
 
@@ -50,12 +48,117 @@ export default function NewProjectPage() {
 
   // Step 2 fields
   const [selectedEquips, setSelectedEquips] = useState<string[]>([]);
+  const [availableEquips, setAvailableEquips] = useState<Equipment[]>([]);
+  const [equipsLoading, setEquipsLoading] = useState(true);
+  const [equipsError, setEquipsError] = useState<string | null>(null);
+  const [equipsReloadToken, setEquipsReloadToken] = useState(0);
 
   // Step 3 fields
   const [docMode, setDocMode] = useState<"add" | "skip">("skip");
+  const [derivedDocs, setDerivedDocs] = useState<DerivedDoc[]>([]);
+  const [derivedLoading, setDerivedLoading] = useState(false);
+  const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([]);
+
+  // Submit state
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const descError = descTouched && description.trim() === "";
   const canNext1 = name.trim() !== "" && description.trim() !== "";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEquipments() {
+      try {
+        setEquipsLoading(true);
+        setEquipsError(null);
+        const result = await getEquipments();
+
+        if (!cancelled) {
+          setAvailableEquips(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setEquipsError(
+            "Equipments could not be loaded. Retry to try again.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setEquipsLoading(false);
+        }
+      }
+    }
+
+    void loadEquipments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [equipsReloadToken]);
+
+  useEffect(() => {
+    if (step !== 3 || selectedEquips.length === 0) {
+      function clearDerivedDocs() {
+        setDerivedDocs([]);
+      }
+
+      clearDerivedDocs();
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadDerivedDocs() {
+      setDerivedLoading(true);
+
+      try {
+        const lists = await Promise.all(
+          selectedEquips.map((id) => getEquipmentDocuments(id)),
+        );
+        const byId = new Map(availableEquips.map((e) => [e.id, e.name]));
+        const seen = new Set<string>();
+        const docs: DerivedDoc[] = [];
+
+        for (const list of lists) {
+          for (const doc of list as Document[]) {
+            if (seen.has(doc.id)) {
+              continue;
+            }
+            seen.add(doc.id);
+            docs.push({
+              id: doc.id,
+              name: doc.title,
+              from: doc.equipmentName ?? byId.get(doc.equipmentId ?? "") ?? "Equipment",
+              revision: doc.activeVersion
+                ? `Revision ${doc.activeVersion} (Active)`
+                : "No active revision",
+              status: doc.status === "ACTIVE" ? "Up to date" : doc.status.replace(/_/g, " "),
+            });
+          }
+        }
+
+        if (!cancelled) {
+          setDerivedDocs(docs);
+        }
+      } catch {
+        if (!cancelled) {
+          setDerivedDocs([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setDerivedLoading(false);
+        }
+      }
+    }
+
+    void loadDerivedDocs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedEquips, availableEquips]);
 
   function toggleEquip(id: string) {
     setSelectedEquips((prev) =>
@@ -63,13 +166,64 @@ export default function NewProjectPage() {
     );
   }
 
-  function goNext() {
-    if (step === 1 && !canNext1) { setDescTouched(true); return; }
-    if (step < STEPS.length) setStep((s) => s + 1);
-    else router.push("/projects/proj-1");
+  function stageFiles(files: FileList | null) {
+    if (!files) {
+      return;
+    }
+
+    const staged: StagedDoc[] = Array.from(files).map((file, index) => ({
+      id: `staged-${Date.now()}-${index}`,
+      name: file.name,
+      size:
+        file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${Math.max(1, Math.round(file.size / 1024))} KB`,
+    }));
+
+    setStagedDocs((current) => [...current, ...staged]);
+    setDocMode("add");
   }
 
-  const selectedEquipObjs = AVAILABLE_EQUIPMENTS.filter((e) => selectedEquips.includes(e.id));
+  function removeStagedDoc(id: string) {
+    setStagedDocs((current) =>
+      current.filter((doc) => doc.id !== id),
+    );
+  }
+
+  async function goNext() {
+    if (step === 1 && !canNext1) { setDescTouched(true); return; }
+    if (step < STEPS.length) {
+      setStep((s) => s + 1);
+      return;
+    }
+
+    if (submitting) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+
+      const project = await createProject({
+        name: name.trim(),
+        code: `PRJ-${new Date().getFullYear()}-DRAFT`,
+        description: description.trim(),
+        equipmentIds: selectedEquips,
+        stagedDocumentsCount: stagedDocs.length,
+      });
+
+      router.push(`/projects/${project.id}`);
+    } catch {
+      setSubmitError(
+        "The project could not be created. Check your connection and retry.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const selectedEquipObjs = availableEquips.filter((e) => selectedEquips.includes(e.id));
 
   return (
     <AppShell
@@ -89,7 +243,12 @@ export default function NewProjectPage() {
       )}
       {step === 2 && (
         <Step2Equipments
-          available={AVAILABLE_EQUIPMENTS}
+          available={availableEquips}
+          loading={equipsLoading}
+          error={equipsError}
+          onRetry={() =>
+            setEquipsReloadToken((token) => token + 1)
+          }
           selected={selectedEquips}
           onToggle={toggleEquip}
         />
@@ -97,8 +256,11 @@ export default function NewProjectPage() {
       {step === 3 && (
         <Step3Documents
           selectedEquips={selectedEquipObjs}
-          derivedDocs={DERIVED_DOCS}
-          directDocs={DIRECT_DOCS}
+          derivedDocs={derivedDocs}
+          derivedLoading={derivedLoading}
+          stagedDocs={stagedDocs}
+          onStageFiles={stageFiles}
+          onRemoveStagedDoc={removeStagedDoc}
           docMode={docMode}
           onDocMode={setDocMode}
           descComplete={description.trim() !== ""}
@@ -108,15 +270,29 @@ export default function NewProjectPage() {
         <Step4Review
           name={name} description={description} status={status}
           selectedEquips={selectedEquipObjs} docMode={docMode}
+          stagedCount={stagedDocs.length}
         />
       )}
 
       {/* Footer */}
       <div className="wizard-footer">
+        {submitError ? (
+          <p
+            className="form-message form-message-error"
+            role="alert"
+            style={{ marginRight: "auto" }}
+          >
+            {submitError}
+          </p>
+        ) : null}
         <Button variant="secondary" onClick={() => router.push("/projects")}>Cancel</Button>
         {step > 1 && <Button variant="secondary" onClick={() => setStep((s) => s - 1)}>Back</Button>}
-        <Button onClick={goNext}>
-          {step === STEPS.length ? "Create project" : "Next"}
+        <Button onClick={() => void goNext()} disabled={submitting}>
+          {step === STEPS.length
+            ? submitting
+              ? "Creating…"
+              : "Create project"
+            : "Next"}
         </Button>
       </div>
     </AppShell>
@@ -208,8 +384,11 @@ function Step1Details({ name, onName, description, onDescription, descError, sta
 }
 
 /* ── Step 2: Select Equipments ────────────────────────────── */
-function Step2Equipments({ available, selected, onToggle }: {
-  available: typeof AVAILABLE_EQUIPMENTS;
+function Step2Equipments({ available, loading, error, onRetry, selected, onToggle }: {
+  available: Equipment[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
   selected: string[];
   onToggle: (id: string) => void;
 }) {
@@ -219,6 +398,36 @@ function Step2Equipments({ available, selected, onToggle }: {
     e.type.toLowerCase().includes(search.toLowerCase())
   );
   const selectedObjs = available.filter((e) => selected.includes(e.id));
+
+  if (loading) {
+    return (
+      <div className="wizard-form" style={{ gridTemplateColumns: "1fr" }}>
+        <p className="section-heading">Select Equipments to include</p>
+        <p className="section-sub" role="status">Loading equipments…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="wizard-form" style={{ gridTemplateColumns: "1fr" }}>
+        <p className="section-heading">Select Equipments to include</p>
+        <p className="form-message form-message-error" role="alert">{error}</p>
+        <div>
+          <Button variant="secondary" onClick={onRetry}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (available.length === 0) {
+    return (
+      <div className="wizard-form" style={{ gridTemplateColumns: "1fr" }}>
+        <p className="section-heading">Select Equipments to include</p>
+        <p className="section-sub">No equipments are available yet. Create an Equipment first, or continue without linked Equipments.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="wizard-form" style={{ gridTemplateColumns: "1fr" }}>
@@ -256,7 +465,12 @@ function Step2Equipments({ available, selected, onToggle }: {
       </label>
 
       <div className="equip-selector" role="group" aria-label="Available equipments">
-        {filtered.map((eq) => {
+        {filtered.length === 0 ? (
+          <p className="section-sub" role="status">
+            No equipments match “{search}”. Try a different search term.
+          </p>
+        ) : (
+          filtered.map((eq) => {
           const sel = selected.includes(eq.id);
           return (
             <button
@@ -276,17 +490,21 @@ function Step2Equipments({ available, selected, onToggle }: {
               {sel && <span className="equip-option-check" aria-hidden="true"><Check size={16} /></span>}
             </button>
           );
-        })}
+          })
+        )}
       </div>
     </div>
   );
 }
 
 /* ── Step 3: Documents ────────────────────────────────────── */
-function Step3Documents({ selectedEquips, derivedDocs, directDocs, docMode, onDocMode, descComplete }: {
-  selectedEquips: typeof AVAILABLE_EQUIPMENTS;
-  derivedDocs: typeof DERIVED_DOCS;
-  directDocs: typeof DIRECT_DOCS;
+function Step3Documents({ selectedEquips, derivedDocs, derivedLoading, stagedDocs, onStageFiles, onRemoveStagedDoc, docMode, onDocMode, descComplete }: {
+  selectedEquips: Equipment[];
+  derivedDocs: DerivedDoc[];
+  derivedLoading: boolean;
+  stagedDocs: StagedDoc[];
+  onStageFiles: (files: FileList | null) => void;
+  onRemoveStagedDoc: (id: string) => void;
   docMode: "add" | "skip";
   onDocMode: (v: "add" | "skip") => void;
   descComplete: boolean;
@@ -320,14 +538,38 @@ function Step3Documents({ selectedEquips, derivedDocs, directDocs, docMode, onDo
                   </tr>
                 </thead>
                 <tbody>
-                  {derivedDocs.map((doc) => (
-                    <tr key={doc.name}>
-                      <td style={{ fontWeight: 600, fontSize: 14 }}>{doc.name}</td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.from}</td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.revision}</td>
-                      <td><StatusBadge tone="success">{doc.status}</StatusBadge></td>
+                  {derivedLoading ? (
+                    <tr>
+                      <td colSpan={4} role="status">
+                        Loading inherited documents…
+                      </td>
                     </tr>
-                  ))}
+                  ) : derivedDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        No active documents on the selected Equipments yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    derivedDocs.map((doc) => (
+                      <tr key={doc.id}>
+                        <td style={{ fontWeight: 600, fontSize: 14 }}>{doc.name}</td>
+                        <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.from}</td>
+                        <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.revision}</td>
+                        <td>
+                          <StatusBadge
+                            tone={
+                              doc.status === "Up to date"
+                                ? "success"
+                                : "attention"
+                            }
+                          >
+                            {doc.status}
+                          </StatusBadge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -348,34 +590,64 @@ function Step3Documents({ selectedEquips, derivedDocs, directDocs, docMode, onDo
           </div>
         </div>
 
-        {docMode === "add" && directDocs.length > 0 && (
+        {docMode === "add" && (
           <div className="directory-panel" style={{ marginTop: 12 }}>
             <div className="table-scroll">
               <table className="data-table" aria-label="Direct project documents">
                 <thead>
                   <tr>
                     <th scope="col">Document</th>
-                    <th scope="col">Document type</th>
-                    <th scope="col">Added by</th>
+                    <th scope="col">Size</th>
                     <th scope="col">Processing status</th>
                     <th scope="col"><span className="visually-hidden">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {directDocs.map((doc) => (
-                    <tr key={doc.id}>
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{doc.name}</div>
-                        <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>{doc.desc}</div>
+                  {stagedDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>
+                        No files staged yet. Choose files to upload them with
+                        this project.
                       </td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.type}</td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.addedBy}</td>
-                      <td><StatusBadge tone="info">{doc.status}</StatusBadge></td>
-                      <td><button className="icon-button" type="button" aria-label={`View ${doc.name}`}><span aria-hidden="true">⎘</span></button></td>
                     </tr>
-                  ))}
+                  ) : (
+                    stagedDocs.map((doc) => (
+                      <tr key={doc.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{doc.name}</div>
+                        </td>
+                        <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{doc.size}</td>
+                        <td><StatusBadge tone="info">Staged</StatusBadge></td>
+                        <td>
+                          <button
+                            className="icon-button"
+                            type="button"
+                            aria-label={`Remove ${doc.name}`}
+                            onClick={() => onRemoveStagedDoc(doc.id)}
+                          >
+                            <X size={16} aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
+            </div>
+            <div style={{ padding: 16 }}>
+              <label className="button button-secondary" style={{ cursor: "pointer" }}>
+                Choose files
+                <input
+                  type="file"
+                  multiple
+                  hidden
+                  accept=".pdf,.doc,.docx,.txt,.md"
+                  onChange={(event) => {
+                    onStageFiles(event.target.files);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
             </div>
           </div>
         )}
@@ -403,10 +675,11 @@ function Step3Documents({ selectedEquips, derivedDocs, directDocs, docMode, onDo
 }
 
 /* ── Step 4: Review ───────────────────────────────────────── */
-function Step4Review({ name, description, status, selectedEquips, docMode }: {
+function Step4Review({ name, description, status, selectedEquips, docMode, stagedCount }: {
   name: string; description: string; status: string;
-  selectedEquips: typeof AVAILABLE_EQUIPMENTS;
+  selectedEquips: Equipment[];
   docMode: "add" | "skip";
+  stagedCount: number;
 }) {
   return (
     <div className="wizard-form" style={{ gridTemplateColumns: "1fr", maxWidth: 720 }}>
@@ -433,7 +706,11 @@ function Step4Review({ name, description, status, selectedEquips, docMode }: {
         <h3>Documents</h3>
         <div className="review-row">
           <span className="review-key">Document step</span>
-          <span>{docMode === "add" ? "Documents uploaded" : "Skipped – add documents later"}</span>
+          <span>
+            {docMode === "add"
+              ? `${stagedCount} staged document${stagedCount === 1 ? "" : "s"}`
+              : "Skipped – add documents later"}
+          </span>
         </div>
       </div>
       <div className="info-banner">

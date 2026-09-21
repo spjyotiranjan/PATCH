@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -16,9 +16,11 @@ import {
 import { AppShell } from "@/components/app-shell";
 import { Button, StatusBadge } from "@/components/ui";
 import { ProcessingStepBar, ProfileStatusIndicator } from "@/components/documents";
+import { getProcessingQueue } from "@/lib/api/documents";
 
 interface QueueItem {
   id: string;
+  documentId: string;
   documentTitle: string;
   subtitle: string;
   version: string;
@@ -26,53 +28,106 @@ interface QueueItem {
   step: number;
   stepName: string;
   progressPct: number;
-  status: "Indexing" | "Failed" | "Approved";
+  status: "Indexing" | "Failed" | "Approved" | "Needs review";
   eta?: string;
   errorMsg?: string;
 }
 
-const QUEUE_ITEMS: QueueItem[] = [
-  {
-    id: "job-1",
-    documentTitle: "Mechanical Seal Installation Guide",
-    subtitle: "MSIG-P101-V11.pdf",
-    version: "v1.1",
-    entityName: "Centrifugal Pump P-101",
-    step: 5, // Indexing
-    stepName: "Generating Vector Embeddings",
-    progressPct: 68,
-    status: "Indexing",
-    eta: "45 seconds remaining",
-  },
-  {
-    id: "job-2",
-    documentTitle: "Vibration Sensor Callout & Setup Guide",
-    subtitle: "VS-TELEMETRY-SETUP.pdf",
-    version: "v1.0",
-    entityName: "Centrifugal Pump P-101",
-    step: 2, // Extracting
-    stepName: "OCR Text Extraction Failed",
-    progressPct: 25,
-    status: "Failed",
-    errorMsg: "Low resolution raster scan detected on page 3. Text threshold under 80%.",
-  },
-  {
-    id: "job-3",
-    documentTitle: "P&ID Diagram P-101-002",
-    subtitle: "PID-P101-002-REV2.pdf",
-    version: "v2.0",
-    entityName: "Centrifugal Pump P-101",
-    step: 4, // Approved
-    stepName: "Approved - Profile Refresh Queued",
-    progressPct: 100,
-    status: "Approved",
-    eta: "Completed",
-  },
-];
-
 export default function ProcessingStatePage() {
-  const [items, setItems] = useState<QueueItem[]>(QUEUE_ITEMS);
+  const [items, setItems] = useState<QueueItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const queue = await getProcessingQueue();
+
+        if (!cancelled) {
+          setItems(
+            queue.map((item) => {
+              if (item.status === "FAILED") {
+                return {
+                  id: item.id,
+                  documentId: item.documentId,
+                  documentTitle: item.documentTitle,
+                  subtitle: item.filename,
+                  version: "",
+                  entityName:
+                    item.equipmentName ??
+                    item.projectName ??
+                    "—",
+                  step: 2,
+                  stepName: "Extraction Failed",
+                  progressPct: 25,
+                  status: "Failed" as const,
+                  errorMsg: `${item.errorMessage ?? "Processing failed."} The previous active revision remains in use.`,
+                };
+              }
+
+              if (item.status === "NEEDS_REVIEW") {
+                return {
+                  id: item.id,
+                  documentId: item.documentId,
+                  documentTitle: item.documentTitle,
+                  subtitle: item.filename,
+                  version: "",
+                  entityName:
+                    item.equipmentName ??
+                    item.projectName ??
+                    "—",
+                  step: 3,
+                  stepName: "Awaiting Metadata Review",
+                  progressPct: 50,
+                  status: "Needs review" as const,
+                  eta: "Waiting for reviewer",
+                };
+              }
+
+              return {
+                id: item.id,
+                documentId: item.documentId,
+                documentTitle: item.documentTitle,
+                subtitle: item.filename,
+                version: "",
+                entityName:
+                  item.equipmentName ??
+                  item.projectName ??
+                  "—",
+                step: 5,
+                stepName: "Generating Vector Embeddings",
+                progressPct: 68,
+                status: "Indexing" as const,
+                eta: "45 seconds remaining",
+              };
+            }),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            "The processing queue could not be loaded. Check your connection and retry.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   function handleRetry(id: string) {
     setItems((prev) =>
@@ -90,6 +145,18 @@ export default function ProcessingStatePage() {
       )
     );
   }
+
+  const indexingCount = items.filter(
+    (item) => item.status === "Indexing",
+  ).length;
+  const failedCount = items.filter(
+    (item) => item.status === "Failed",
+  ).length;
+  const reviewCount = items.filter(
+    (item) =>
+      item.status === "Needs review" ||
+      item.status === "Approved",
+  ).length;
 
   return (
     <AppShell title="Document Processing &amp; Indexing Queue">
@@ -127,7 +194,10 @@ export default function ProcessingStatePage() {
             Active Background Ingestion Queue
           </h3>
           <p style={{ fontSize: 13, color: "var(--patch-muted)", margin: 0 }}>
-            1 active indexing job · 1 failed extraction · 1 profile refresh pending
+            {indexingCount} active indexing job
+            {indexingCount === 1 ? "" : "s"} · {failedCount} failed
+            extraction{failedCount === 1 ? "" : "s"} · {reviewCount}{" "}
+            profile refresh pending
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -150,6 +220,51 @@ export default function ProcessingStatePage() {
       </div>
 
       {/* Active Processing Items list */}
+      {loading ? (
+        <section
+          className="empty-state card"
+          aria-live="polite"
+          style={{ marginBottom: 32 }}
+        >
+          <h2>Loading processing queue…</h2>
+          <p>Checking upload, extract, review, and index states.</p>
+        </section>
+      ) : error ? (
+        <section
+          className="empty-state card"
+          role="alert"
+          style={{ marginBottom: 32 }}
+        >
+          <h2>The queue could not be loaded</h2>
+          <p>{error}</p>
+          <Button
+            type="button"
+            onClick={() =>
+              setReloadToken((token) => token + 1)
+            }
+          >
+            Retry
+          </Button>
+        </section>
+      ) : items.length === 0 ? (
+        <section
+          className="empty-state card"
+          style={{ marginBottom: 32 }}
+        >
+          <CheckCircle2 size={28} aria-hidden="true" />
+          <h2>Queue is clear</h2>
+          <p>
+            No documents are currently uploading, extracting, or
+            indexing. Every version is active or awaiting review in
+            the library.
+          </p>
+          <Link href="/documents">
+            <Button type="button" variant="secondary">
+              Back to library
+            </Button>
+          </Link>
+        </section>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 32 }}>
         {items.map((item) => (
           <div key={item.id} className="card" style={{ padding: 20 }}>
@@ -165,7 +280,9 @@ export default function ProcessingStatePage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <FileText size={18} color="var(--patch-accent)" />
                   <strong style={{ fontSize: 15 }}>{item.documentTitle}</strong>
-                  <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>({item.version})</span>
+                  {item.version ? (
+                    <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>({item.version})</span>
+                  ) : null}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--patch-muted)", marginTop: 4 }}>
                   {item.subtitle} · Target: <strong>{item.entityName}</strong>
@@ -179,6 +296,9 @@ export default function ProcessingStatePage() {
                   </StatusBadge>
                 )}
                 {item.status === "Failed" && <StatusBadge tone="danger">Failed</StatusBadge>}
+                {item.status === "Needs review" && (
+                  <StatusBadge tone="attention">Needs review</StatusBadge>
+                )}
                 {item.status === "Approved" && <StatusBadge tone="success">Queued</StatusBadge>}
               </div>
             </div>
@@ -231,6 +351,29 @@ export default function ProcessingStatePage() {
               </div>
             )}
 
+            {item.status === "Needs review" && (
+              <div
+                style={{
+                  background: "var(--patch-surface-elevated)",
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "1px solid var(--patch-boundary)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <CheckCircle2 size={16} color="var(--patch-attention)" />
+                  <span>{item.stepName}. Review the extracted metadata, then approve to queue indexing.</span>
+                </div>
+                <Link href="/documents/upload-review">
+                  <Button variant="secondary" size="sm">Review</Button>
+                </Link>
+              </div>
+            )}
+
             {item.status === "Approved" && (
               <div
                 style={{
@@ -248,7 +391,7 @@ export default function ProcessingStatePage() {
                   <CheckCircle2 size={16} color="var(--patch-success)" />
                   <span>Metadata review complete. Queued for profile propagation.</span>
                 </div>
-                <Link href={`/documents/${item.id}`}>
+                <Link href={`/documents/${item.documentId}`}>
                   <Button variant="secondary" size="sm">View Document</Button>
                 </Link>
               </div>
@@ -256,6 +399,7 @@ export default function ProcessingStatePage() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Profile Freshness & Propagation Queue Section */}
       <div className="card">
