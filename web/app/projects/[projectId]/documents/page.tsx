@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  ChevronDown,
-  ChevronRight,
   Eye,
   FileText,
   FolderOpen,
@@ -14,6 +13,8 @@ import {
   Search,
   Upload,
 } from "lucide-react";
+import { toast } from "sonner";
+
 import { AppShell } from "@/components/app-shell";
 import { Button, StatusBadge, Tabs } from "@/components/ui";
 import {
@@ -23,412 +24,891 @@ import {
   InclusionBadge,
   ProfileStatusIndicator,
 } from "@/components/documents";
+import { getProjectDocuments } from "@/lib/api/documents";
+import { getProject } from "@/lib/api/projects";
+import type { Document } from "@/lib/types/document";
+import type { Project } from "@/lib/types/project";
 
-const PROJECT = {
-  id: "prj-1",
-  name: "Cooling Water System Upgrade 2025",
-  code: "PRJ-2025-089",
-  status: "In Progress" as const,
-  profileStatus: "Fresh" as "Fresh" | "Refreshing" | "Stale",
-  lastProfileUpdate: "May 14, 2025 10:15 AM",
-};
+type BadgeStatus =
+  | "Active"
+  | "Needs review"
+  | "Indexing"
+  | "Failed"
+  | "Approved"
+  | "Superseded"
+  | "Rejected"
+  | "Extracting"
+  | "Uploading";
 
-const DIRECT_PROJECT_DOCS = [
-  {
-    id: "pdoc-1",
-    title: "Project Execution Plan & Scope of Work",
-    docType: "Project Plan",
-    subtitle: "PRJ-2025-PEP-V2.pdf",
-    activeVersion: "v2.0",
-    status: "Active" as const,
-    fileSize: "6.8 MB",
-    updatedAt: "May 01, 2025",
-    uploadedBy: "Mark Stevens",
-    coveragePct: 96,
-    versions: [{ id: "pver-20", version: "v2.0", date: "May 01, 2025", status: "Active", size: "6.8 MB" }],
-  },
-  {
-    id: "pdoc-2",
-    title: "Piping & Instrumentation Refit Specification",
-    docType: "Specification",
-    subtitle: "PIR-SPEC-REV1.pdf",
-    activeVersion: "v1.0",
-    status: "Active" as const,
-    fileSize: "4.5 MB",
-    updatedAt: "Apr 20, 2025",
-    uploadedBy: "Elena Rostova",
-    coveragePct: 90,
-    versions: [{ id: "pver-10", version: "v1.0", date: "Apr 20, 2025", status: "Active", size: "4.5 MB" }],
-  },
-  {
-    id: "pdoc-3",
-    title: "Commissioning & Safety Risk Assessment",
-    docType: "Safety",
-    subtitle: "CS-RA-2025-DRAFT.pdf",
-    activeVersion: "v0.9",
-    status: "Needs review" as const,
-    fileSize: "3.1 MB",
-    updatedAt: "May 13, 2025",
-    uploadedBy: "David Kim",
-    coveragePct: 75,
-    versions: [{ id: "pver-09", version: "v0.9", date: "May 13, 2025", status: "Needs review", size: "3.1 MB" }],
-  },
-];
+function toBadgeStatus(status: Document["status"]): BadgeStatus {
+  switch (status) {
+    case "ACTIVE":
+      return "Active";
+    case "NEEDS_REVIEW":
+      return "Needs review";
+    case "INDEXING":
+      return "Indexing";
+    case "FAILED":
+      return "Failed";
+    case "APPROVED":
+      return "Approved";
+    case "SUPERSEDED":
+      return "Superseded";
+    case "REJECTED":
+      return "Rejected";
+    case "EXTRACTING":
+      return "Extracting";
+    case "UPLOADING":
+      return "Uploading";
+    default:
+      return "Needs review";
+  }
+}
 
-const INHERITED_EQUIPMENT_DOCS = [
-  {
-    id: "doc-1",
-    title: "Operation & Maintenance Manual",
-    docType: "Manual",
-    subtitle: "P-101-OMM-2025.pdf",
-    activeVersion: "v3.2",
-    status: "Active" as const,
-    fileSize: "14.2 MB",
-    updatedAt: "May 10, 2025",
-    equipmentName: "Centrifugal Pump P-101",
-    equipmentId: "eq-1",
-    coveragePct: 94,
-  },
-  {
-    id: "doc-2",
-    title: "P&ID Diagram P-101-002",
-    docType: "P&ID",
-    subtitle: "PID-P101-002-REV2.pdf",
-    activeVersion: "v2.0",
-    status: "Needs review" as const,
-    fileSize: "8.5 MB",
-    updatedAt: "May 12, 2025",
-    equipmentName: "Centrifugal Pump P-101",
-    equipmentId: "eq-1",
-    coveragePct: 82,
-  },
-  {
-    id: "doc-4",
-    title: "Heat Exchanger Data Sheet & Thermal Curve",
-    docType: "Datasheet",
-    subtitle: "HX-202-TDS.pdf",
-    activeVersion: "v1.2",
-    status: "Active" as const,
-    fileSize: "5.4 MB",
-    updatedAt: "Feb 18, 2025",
-    equipmentName: "Heat Exchanger HX-202",
-    equipmentId: "eq-2",
-    coveragePct: 91,
-  },
-];
+function coverageOf(doc: Document): number | null {
+  const active = doc.versions.find(
+    (version) => version.id === doc.activeVersionId,
+  );
+  return (
+    active?.coveragePct ??
+    doc.versions[0]?.coveragePct ??
+    null
+  );
+}
 
-export default function ProjectDocumentsPage() {
+function coverageClass(pct: number | null): string {
+  if (pct === null) {
+    return "coverage-none";
+  }
+  if (pct >= 90) {
+    return "coverage-high";
+  }
+  if (pct >= 70) {
+    return "coverage-mid";
+  }
+  return "coverage-low";
+}
+
+export default function ProjectDocumentsPage({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}) {
+  const { projectId } = use(params);
+  const router = useRouter();
+
+  const [project, setProject] =
+    useState<Project | null>(null);
+  const [documents, setDocuments] =
+    useState<Document[]>([]);
+  const [loading, setLoading] =
+    useState(true);
+  const [error, setError] = useState<
+    string | null
+  >(null);
+  const [reloadToken, setReloadToken] =
+    useState(0);
+
   const [search, setSearch] = useState("");
-  const [docSourceFilter, setDocSourceFilter] = useState<"All" | "Direct" | "Inherited">("All");
+
+  const [docSourceFilter, setDocSourceFilter] = useState<
+    "All" | "Direct" | "Inherited"
+  >("All");
+
   const [addDocOpen, setAddDocOpen] = useState(false);
   const [addVersionOpen, setAddVersionOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [profileState, setProfileState] = useState<
+    "Fresh" | "Refreshing" | "Stale"
+  >("Fresh");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const [loadedProject, loadedDocs] =
+          await Promise.all([
+            getProject(projectId),
+            getProjectDocuments(projectId),
+          ]);
+
+        if (!cancelled) {
+          setProject(loadedProject);
+          setDocuments(loadedDocs);
+          setProfileState(
+            loadedProject?.profileStatus === "STALE"
+              ? "Stale"
+              : loadedProject?.profileStatus === "REFRESHING"
+                ? "Refreshing"
+                : "Fresh",
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            "Project documents could not be loaded. Check your connection and retry.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, reloadToken]);
 
   const tabs = [
-    { id: "overview", label: "Overview", active: false, onSelect: () => {} },
-    { id: "documents", label: "Documents", active: true, onSelect: () => {} },
-    { id: "equipment", label: "Associated Equipment", active: false, onSelect: () => {} },
-    { id: "activity", label: "Activity", active: false, onSelect: () => {} },
+    {
+      id: "overview",
+      label: "Overview",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}?tab=overview`),
+    },
+    {
+      id: "equipments",
+      label: "Equipments",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}?tab=equipments`),
+    },
+    {
+      id: "documents",
+      label: "Documents",
+      active: true,
+      onSelect: () => {},
+    },
+    {
+      id: "maintenance-logs",
+      label: "Maintenance logs",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}/maintenance-logs`),
+    },
+    {
+      id: "procedures",
+      label: "Procedures",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}/procedures`),
+    },
+    {
+      id: "members",
+      label: "Members",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}?tab=members`),
+    },
+    {
+      id: "activity",
+      label: "Activity",
+      active: false,
+      onSelect: () =>
+        router.push(`/projects/${projectId}?tab=activity`),
+    },
   ];
 
-  const filteredDirect = DIRECT_PROJECT_DOCS.filter(
-    (d) =>
-      (docSourceFilter === "All" || docSourceFilter === "Direct") &&
-      (d.title.toLowerCase().includes(search.toLowerCase()) ||
-        d.subtitle.toLowerCase().includes(search.toLowerCase()))
+  const normalizedSearch = search.toLowerCase().trim();
+
+  const directDocs = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.source === "DIRECT",
+      ),
+    [documents],
   );
 
-  const filteredInherited = INHERITED_EQUIPMENT_DOCS.filter(
-    (d) =>
-      (docSourceFilter === "All" || docSourceFilter === "Inherited") &&
-      (d.title.toLowerCase().includes(search.toLowerCase()) ||
-        d.subtitle.toLowerCase().includes(search.toLowerCase()) ||
-        d.equipmentName.toLowerCase().includes(search.toLowerCase()))
+  const inheritedDocs = useMemo(
+    () =>
+      documents.filter(
+        (doc) => doc.source === "INHERITED",
+      ),
+    [documents],
   );
+
+  const matchesSearch = (doc: Document) =>
+    !normalizedSearch ||
+    doc.title
+      .toLowerCase()
+      .includes(normalizedSearch) ||
+    doc.docType
+      .toLowerCase()
+      .includes(normalizedSearch) ||
+    (doc.equipmentName ?? "")
+      .toLowerCase()
+      .includes(normalizedSearch);
+
+  const filteredDirect = useMemo(() => {
+    if (docSourceFilter === "Inherited") {
+      return [];
+    }
+    return directDocs.filter(matchesSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directDocs, normalizedSearch, docSourceFilter]);
+
+  const filteredInherited = useMemo(() => {
+    if (docSourceFilter === "Direct") {
+      return [];
+    }
+    return inheritedDocs.filter(matchesSearch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inheritedDocs, normalizedSearch, docSourceFilter]);
+
+  const reviewCount = useMemo(
+    () =>
+      documents.filter(
+        (doc) =>
+          doc.status === "NEEDS_REVIEW",
+      ).length,
+    [documents],
+  );
+
+  function handleRefreshProfile() {
+    if (refreshing) {
+      return;
+    }
+
+    setRefreshing(true);
+    setProfileState("Refreshing");
+
+    window.setTimeout(() => {
+      setRefreshing(false);
+      setProfileState("Fresh");
+      toast.success(
+        "Project profile refreshed from current active versions.",
+      );
+    }, 1200);
+  }
+
+  if (loading) {
+    return (
+      <AppShell title="Project documents">
+        <section
+          className="empty-state"
+          aria-live="polite"
+        >
+          <h2>Loading project documents…</h2>
+          <p>
+            Resolving direct and inherited
+            active versions.
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell title="Project documents">
+        <section
+          className="empty-state"
+          role="alert"
+        >
+          <h2>
+            Project documents could not be
+            loaded
+          </h2>
+          <p>{error}</p>
+          <Button
+            type="button"
+            onClick={() =>
+              setReloadToken(
+                (token) => token + 1,
+              )
+            }
+          >
+            Retry
+          </Button>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (!project) {
+    return (
+      <AppShell title="Project documents">
+        <section className="empty-state">
+          <h2>Project not found</h2>
+          <p>
+            No project with ID “{projectId}”
+            is available to you.
+          </p>
+          <Link href="/projects">
+            <Button type="button">
+              Back to Projects
+            </Button>
+          </Link>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
-      title={PROJECT.name}
-      status={<StatusBadge tone="info">{PROJECT.status}</StatusBadge>}
+      title={project.name}
+      status={
+        <StatusBadge tone="info">
+          {project.status.replace(/_/g, " ")}
+        </StatusBadge>
+      }
     >
-      <div style={{ marginBottom: 16 }}>
-        <Link
-          href="/projects/prj-1"
-          style={{
-            fontSize: 13,
-            color: "var(--patch-muted)",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            textDecoration: "none",
-            marginBottom: 12,
-          }}
-        >
-          <ArrowLeft size={14} /> Back to Project Overview
-        </Link>
-        <Tabs label="Project sections" items={tabs} />
-      </div>
-
-      {/* Metric strip */}
-      <div className="metrics-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 20 }}>
-        <div className="metric-card">
-          <div className="metric-label">Direct project docs</div>
-          <div className="metric-value">3</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Inherited equipment docs</div>
-          <div className="metric-value">3</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Total linked docs</div>
-          <div className="metric-value" style={{ color: "var(--patch-success)" }}>6</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Ingestion / Review</div>
-          <div className="metric-value" style={{ color: "var(--patch-attention)" }}>2</div>
-        </div>
-      </div>
-
-      {/* Profile Freshness bar */}
-      <div
-        className="card"
-        style={{
-          padding: "14px 20px",
-          marginBottom: 24,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "var(--patch-surface-elevated)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <ProfileStatusIndicator status={PROJECT.profileStatus} />
-          <span style={{ fontSize: 13, color: "var(--patch-muted)" }}>
-            Project profile last updated: {PROJECT.lastProfileUpdate}
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/documents/processing-state">
-            <Button variant="secondary" size="sm">View processing queue (2)</Button>
-          </Link>
-          <Button variant="secondary" size="sm">
-            <RefreshCw size={14} style={{ marginRight: 6 }} /> Refresh project profile
-          </Button>
-        </div>
-      </div>
-
-      {/* Document toolbar */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div style={{ display: "flex", gap: 10, flex: 1, minWidth: 280, maxWidth: 480 }}>
-          <div style={{ position: "relative", flex: 1 }}>
-            <Search
-              size={16}
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--patch-muted)",
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search project documents..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="form-select"
-              style={{
-                paddingLeft: 36,
-                backgroundImage: "none",
-                appearance: "auto",
-                width: "100%",
-              }}
-            />
-          </div>
-          <select
-            className="form-select"
-            value={docSourceFilter}
-            onChange={(e) => setDocSourceFilter(e.target.value as any)}
-            style={{ width: 150 }}
+      <div className="project-documents-page">
+        <div className="project-section-header">
+          <Link
+            href={`/projects/${project.id}`}
+            className="project-back-link"
           >
-            <option value="All">All Sources</option>
-            <option value="Direct">Direct Only</option>
-            <option value="Inherited">Inherited Only</option>
-          </select>
+            <ArrowLeft size={14} />
+            Back to Project Overview
+          </Link>
+
+          <Tabs
+            label="Project sections"
+            items={tabs}
+          />
         </div>
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="secondary" size="sm" onClick={() => setAddVersionOpen(true)}>
-            <Upload size={14} style={{ marginRight: 6 }} /> Add version
-          </Button>
-          <Button size="sm" onClick={() => setAddDocOpen(true)}>
-            <Plus size={14} style={{ marginRight: 6 }} /> Add direct document
-          </Button>
-        </div>
-      </div>
+        <div className="project-documents-heading">
+          <div>
+            <div className="project-documents-eyebrow">
+              {project.code}
+            </div>
 
-      {/* Direct Project Documents Table */}
-      {(docSourceFilter === "All" || docSourceFilter === "Direct") && (
-        <div style={{ marginBottom: 28 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 650, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <FolderOpen size={18} color="var(--patch-accent)" />
-            Direct Project Documents
-            <span style={{ fontSize: 12, color: "var(--patch-muted)", fontWeight: 400 }}>
-              ({filteredDirect.length} documents uploaded directly to project)
+            <h1>Project documents</h1>
+
+            <p>
+              Manage project documents and
+              documents inherited from
+              associated equipment. Inherited
+              documents update automatically
+              when the owning Equipment
+              activates a new version.
+            </p>
+          </div>
+
+          <div className="project-documents-count">
+            <FileText size={18} />
+
+            <span>
+              <strong>
+                {documents.length}
+              </strong>{" "}
+              linked documents
             </span>
-          </h3>
-
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table className="doc-table">
-              <thead>
-                <tr>
-                  <th>Document title &amp; file</th>
-                  <th>Type</th>
-                  <th>Active rev</th>
-                  <th>Status</th>
-                  <th>Coverage</th>
-                  <th>Updated</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredDirect.map((doc) => (
-                  <tr key={doc.id}>
-                    <td>
-                      <div>
-                        <Link
-                          href={`/documents/${doc.versions[0].id}`}
-                          style={{ fontWeight: 600, fontSize: 14, color: "var(--patch-text)", textDecoration: "none" }}
-                        >
-                          {doc.title}
-                        </Link>
-                        <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>
-                          {doc.subtitle} · {doc.fileSize}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        style={{
-                          fontSize: 12,
-                          padding: "2px 8px",
-                          borderRadius: 4,
-                          background: "var(--patch-surface-elevated)",
-                          border: "1px solid var(--patch-boundary)",
-                        }}
-                      >
-                        {doc.docType}
-                      </span>
-                    </td>
-                    <td><strong>{doc.activeVersion}</strong></td>
-                    <td><DocumentStatusBadge status={doc.status} /></td>
-                    <td><span className="coverage-pct coverage-high">{doc.coveragePct}%</span></td>
-                    <td style={{ fontSize: 13, color: "var(--patch-muted)" }}>{doc.updatedAt}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                        <Link href={`/documents/${doc.versions[0].id}`}>
-                          <Button variant="secondary" size="sm">
-                            <Eye size={13} style={{ marginRight: 4 }} /> View
-                          </Button>
-                        </Link>
-                        {doc.status === "Needs review" && (
-                          <Link href="/documents/upload-review">
-                            <Button size="sm">Review</Button>
-                          </Link>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
-      )}
 
-      {/* Inherited Equipment Documents Table */}
-      {(docSourceFilter === "All" || docSourceFilter === "Inherited") && (
-        <div>
-          <h3 style={{ fontSize: 15, fontWeight: 650, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <RefreshCw size={18} color="var(--patch-success)" />
-            Inherited Equipment Documents
-            <span style={{ fontSize: 12, color: "var(--patch-muted)", fontWeight: 400 }}>
-              ({filteredInherited.length} documents linked via associated equipment)
+        <div className="metrics-grid project-documents-metrics">
+          <div className="metric-card">
+            <div className="metric-label">
+              Direct project docs
+            </div>
+
+            <div className="metric-value">
+              {directDocs.length}
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-label">
+              Inherited equipment docs
+            </div>
+
+            <div className="metric-value">
+              {inheritedDocs.length}
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-label">
+              Total linked docs
+            </div>
+
+            <div
+              className="metric-value"
+              style={{
+                color:
+                  "var(--patch-success)",
+              }}
+            >
+              {documents.length}
+            </div>
+          </div>
+
+          <div className="metric-card">
+            <div className="metric-label">
+              Needs review
+            </div>
+
+            <div
+              className="metric-value"
+              style={{
+                color:
+                  "var(--patch-attention)",
+              }}
+            >
+              {reviewCount}
+            </div>
+          </div>
+        </div>
+
+        <div className="card project-profile-bar">
+          <div className="project-profile-status">
+            <ProfileStatusIndicator
+              status={profileState}
+            />
+
+            <span>
+              Project profile last updated:{" "}
+              {project.lastProfileUpdate}
             </span>
-          </h3>
+          </div>
 
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <table className="doc-table">
-              <thead>
-                <tr>
-                  <th>Document title &amp; file</th>
-                  <th>Source equipment</th>
-                  <th>Active rev</th>
-                  <th>Status</th>
-                  <th>Coverage</th>
-                  <th>Updated</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredInherited.map((doc) => (
-                  <tr key={doc.id}>
-                    <td>
-                      <div>
-                        <Link
-                          href={`/documents/${doc.id}`}
-                          style={{ fontWeight: 600, fontSize: 14, color: "var(--patch-text)", textDecoration: "none" }}
-                        >
-                          {doc.title}
-                        </Link>
-                        <div style={{ fontSize: 12, color: "var(--patch-muted)" }}>
-                          {doc.subtitle} · {doc.fileSize}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <InclusionBadge equipmentName={doc.equipmentName} />
-                    </td>
-                    <td><strong>{doc.activeVersion}</strong></td>
-                    <td><DocumentStatusBadge status={doc.status} /></td>
-                    <td><span className="coverage-pct coverage-high">{doc.coveragePct}%</span></td>
-                    <td style={{ fontSize: 13, color: "var(--patch-muted)" }}>{doc.updatedAt}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <Link href={`/documents/${doc.id}`}>
-                        <Button variant="secondary" size="sm">
-                          <Eye size={13} style={{ marginRight: 4 }} /> View
+          <div className="project-profile-actions">
+            <Link href="/documents/processing-state">
+              <Button
+                variant="secondary"
+                size="sm"
+              >
+                View processing queue (
+                {reviewCount})
+              </Button>
+            </Link>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={refreshing}
+              onClick={handleRefreshProfile}
+            >
+              <RefreshCw size={14} />
+              {refreshing
+                ? "Refreshing…"
+                : "Refresh project profile"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="project-documents-toolbar">
+          <div className="project-documents-search-area">
+            <div className="projects-search">
+              <Search
+                size={17}
+                className="projects-search-icon"
+              />
+
+              <input
+                type="text"
+                placeholder="Search project documents..."
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                aria-label="Search project documents"
+                className="form-select"
+              />
+            </div>
+
+            <select
+              className="form-select"
+              value={docSourceFilter}
+              onChange={(event) =>
+                setDocSourceFilter(
+                  event.target.value as
+                    | "All"
+                    | "Direct"
+                    | "Inherited",
+                )
+              }
+              aria-label="Filter by document source"
+            >
+              <option value="All">
+                All sources
+              </option>
+              <option value="Direct">
+                Direct project
+              </option>
+              <option value="Inherited">
+                From equipment
+              </option>
+            </select>
+          </div>
+
+          <div className="project-documents-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                setAddVersionOpen(true)
+              }
+            >
+              <Upload size={14} />
+              Add new version
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() =>
+                setAddDocOpen(true)
+              }
+            >
+              <Plus size={14} />
+              Add new document
+            </Button>
+          </div>
+        </div>
+
+        {(docSourceFilter === "All" ||
+          docSourceFilter === "Direct") && (
+          <section className="project-documents-section">
+            <div className="project-documents-section-heading">
+              <div>
+                <h2>
+                  <FolderOpen
+                    size={18}
+                    color="var(--patch-accent)"
+                  />
+                  Direct Project Documents
+                </h2>
+
+                <p>
+                  Documents uploaded directly
+                  to this project.
+                </p>
+              </div>
+
+              <span>
+                {filteredDirect.length}{" "}
+                documents
+              </span>
+            </div>
+
+            <DirectDocumentsTable
+              docs={filteredDirect}
+            />
+          </section>
+        )}
+
+        {(docSourceFilter === "All" ||
+          docSourceFilter === "Inherited") && (
+          <section className="project-documents-section">
+            <div className="project-documents-section-heading">
+              <div>
+                <h2>
+                  <RefreshCw
+                    size={18}
+                    color="var(--patch-success)"
+                  />
+                  From Associated Equipment
+                </h2>
+
+                <p>
+                  Documents inherited through
+                  equipment associated with
+                  this project. Activating a
+                  new version on the owning
+                  Equipment updates every
+                  linked project automatically
+                  without copying files.
+                </p>
+              </div>
+
+              <span>
+                {filteredInherited.length}{" "}
+                documents
+              </span>
+            </div>
+
+            <InheritedDocumentsTable
+              docs={filteredInherited}
+            />
+          </section>
+        )}
+
+        <AddNewDocumentDrawer
+          open={addDocOpen}
+          onClose={() => setAddDocOpen(false)}
+        />
+
+        <AddNewVersionDrawer
+          open={addVersionOpen}
+          onClose={() =>
+            setAddVersionOpen(false)
+          }
+          documents={directDocs.map(
+            (doc) => ({
+              id: doc.id,
+              name: doc.title,
+              subtitle:
+                doc.versions[0]?.filename ??
+                doc.id,
+              activeRevision:
+                doc.activeVersion ??
+                "No active revision",
+              activeDate: doc.updatedAt,
+            }),
+          )}
+        />
+      </div>
+    </AppShell>
+  );
+}
+
+function DirectDocumentsTable({
+  docs,
+}: {
+  docs: Document[];
+}) {
+  if (docs.length === 0) {
+    return (
+      <div className="card project-documents-table-card">
+        <p className="project-documents-empty">
+          No direct project documents found.
+          Add the first document to give
+          this project approved sources.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card project-documents-table-card">
+      <table className="doc-table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Type</th>
+            <th>Active revision</th>
+            <th>Status</th>
+            <th>Coverage</th>
+            <th>Updated</th>
+            <th />
+          </tr>
+        </thead>
+
+        <tbody>
+          {docs.map((doc) => {
+            const coverage =
+              coverageOf(doc);
+
+            return (
+              <tr key={doc.id}>
+                <td>
+                  <div>
+                    <Link
+                      href={`/documents/${doc.id}`}
+                      className="project-document-title"
+                    >
+                      {doc.title}
+                    </Link>
+
+                    <div className="project-document-file">
+                      {doc.versions[0]
+                        ?.filename ?? doc.id}
+                    </div>
+
+                    <div className="project-document-uploader">
+                      Uploaded by{" "}
+                      {doc.uploadedBy}
+                    </div>
+                  </div>
+                </td>
+
+                <td>
+                  <span className="project-document-type">
+                    {doc.docType}
+                  </span>
+                </td>
+
+                <td>
+                  <strong>
+                    {doc.activeVersion ??
+                      "—"}
+                  </strong>
+                </td>
+
+                <td>
+                  <DocumentStatusBadge
+                    status={toBadgeStatus(
+                      doc.status,
+                    )}
+                  />
+                </td>
+
+                <td>
+                  <span
+                    className={`coverage-pct ${coverageClass(coverage)}`}
+                  >
+                    {coverage === null
+                      ? "—"
+                      : `${coverage}%`}
+                  </span>
+                </td>
+
+                <td className="project-document-date">
+                  {doc.updatedAt}
+                </td>
+
+                <td>
+                  <div className="project-document-row-actions">
+                    <Link
+                      href={`/documents/${doc.id}`}
+                    >
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                      >
+                        <Eye size={13} />
+                        View
+                      </Button>
+                    </Link>
+
+                    {doc.status ===
+                      "NEEDS_REVIEW" && (
+                      <Link href="/documents/upload-review">
+                        <Button size="sm">
+                          Review
                         </Button>
                       </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-      {/* Drawers */}
-      <AddNewDocumentDrawer open={addDocOpen} onClose={() => setAddDocOpen(false)} />
-      <AddNewVersionDrawer
-        open={addVersionOpen}
-        onClose={() => setAddVersionOpen(false)}
-        documents={DIRECT_PROJECT_DOCS.map((d) => ({
-          id: d.id,
-          name: d.title,
-          subtitle: d.subtitle,
-          activeRevision: d.activeVersion,
-          activeDate: d.updatedAt,
-        }))}
-      />
-    </AppShell>
+function InheritedDocumentsTable({
+  docs,
+}: {
+  docs: Document[];
+}) {
+  if (docs.length === 0) {
+    return (
+      <div className="card project-documents-table-card">
+        <p className="project-documents-empty">
+          No inherited equipment documents.
+          Include Equipments in this project
+          to link their current documents
+          automatically.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card project-documents-table-card">
+      <table className="doc-table">
+        <thead>
+          <tr>
+            <th>Document</th>
+            <th>Source equipment</th>
+            <th>Active revision</th>
+            <th>Status</th>
+            <th>Coverage</th>
+            <th>Updated</th>
+            <th />
+          </tr>
+        </thead>
+
+        <tbody>
+          {docs.map((doc) => {
+            const coverage =
+              coverageOf(doc);
+
+            return (
+              <tr key={doc.id}>
+                <td>
+                  <div>
+                    <Link
+                      href={`/documents/${doc.id}`}
+                      className="project-document-title"
+                    >
+                      {doc.title}
+                    </Link>
+
+                    <div className="project-document-file">
+                      {doc.versions[0]
+                        ?.filename ?? doc.id}
+                    </div>
+
+                    <div className="project-document-uploader">
+                      Updated via{" "}
+                      {doc.equipmentName ??
+                        "linked Equipment"}
+                    </div>
+                  </div>
+                </td>
+
+                <td>
+                  <InclusionBadge
+                    equipmentName={
+                      doc.equipmentName ??
+                      "Equipment"
+                    }
+                  />
+                </td>
+
+                <td>
+                  <strong>
+                    {doc.activeVersion ??
+                      "—"}
+                  </strong>
+                </td>
+
+                <td>
+                  <DocumentStatusBadge
+                    status={toBadgeStatus(
+                      doc.status,
+                    )}
+                  />
+                </td>
+
+                <td>
+                  <span
+                    className={`coverage-pct ${coverageClass(coverage)}`}
+                  >
+                    {coverage === null
+                      ? "—"
+                      : `${coverage}%`}
+                  </span>
+                </td>
+
+                <td className="project-document-date">
+                  {doc.updatedAt}
+                </td>
+
+                <td>
+                  <Link
+                    href={`/documents/${doc.id}`}
+                  >
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                    >
+                      <Eye size={13} />
+                      View
+                    </Button>
+                  </Link>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

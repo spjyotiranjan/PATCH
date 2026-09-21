@@ -5,9 +5,9 @@
 | Item                            | Status                                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Updated route/design asset plan | Defined.                                                                                            |
-| Production Next.js UI           | Phase 1 complete: authenticated shell, credentials access, settings, themes, and shared primitives. |
+| Production Next.js UI           | Phases 1–6 complete: authenticated shell, settings, equipments, projects, documents, evidence-backed chat, maintenance logs & procedures, and responsive design. |
 | Shared Web-to-AI contract       | Implemented and synchronized through the completed backend phases in `API_Contract.md`.             |
-| Phase 1-6 delivery              | UI Phase 1 complete; Phases 2-6 not started.                                                        |
+| Phase 1-6 delivery              | UI Phases 1–6 complete.                                                                            |
 
 ## Goal
 
@@ -150,7 +150,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 4 - Entity-routed evidence-backed Chat
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Deliver persistent familiar Chat with transparent current-source evidence.
 
@@ -167,7 +167,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 5 - Project maintenance logs and procedures
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Capture Project work and turn source-bounded AI procedure candidates into controlled, editable definitions and auditable recurring execution runs.
 
@@ -185,7 +185,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 6 - Responsive, accessibility, and release validation
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Verify all views and component states at desktop/tablet sizes and both themes.
 
@@ -198,3 +198,18 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 ## Completion tracking
 
 Record implementation/test evidence before changing phase status. A phase completes only when its exit criteria and matching `../../Development_Plan.md` gate pass.
+
+## Frontend mock-service boundary (UI-only delivery)
+
+Pages and components never contain inline datasets or direct backend
+calls. All frontend data flows through the typed service boundary in
+`lib/api/` (`projects`, `equipments`, `documents`, `chat`,
+`maintenance`, `procedures`), which currently delegates to the
+deterministic dummy-data layer in `lib/mockapi/`. Seed records use
+stable IDs; created records use runtime IDs. Simulated latency,
+loading, success, validation-error, and processing states are part of
+the contract so the backend integrator can replace each `lib/api`
+module with real `fetch` calls without touching any page or
+component. Toasts use the globally mounted `sonner` Toaster; `alert()`
+is not used anywhere. The `ai-integration` test suite is excluded
+from the UI gate because it requires a live FastAPI service.

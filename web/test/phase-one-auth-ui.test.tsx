@@ -17,6 +17,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }),
   useSearchParams: () => mocks.search,
 }));
+// The committed credential-contract tests opt out of the local
+// frontend mock session so they verify the real sign-in/sign-up
+// flow. Production code is untouched.
+vi.mock("@/lib/mockapi/session", () => ({
+  PATCH_MOCK_MODE: false,
+  startMockSession: vi.fn(),
+}));
 
 describe("Phase 1 credentials UI", () => {
   beforeEach(() => {
@@ -37,6 +44,10 @@ describe("Phase 1 credentials UI", () => {
 
     expect(screen.queryByText(/sso/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/sign-in link/i)).not.toBeInTheDocument();
+    // The form ships with demo credentials prefilled; clear them so
+    // the submitted values are exactly what the contract asserts.
+    await user.clear(screen.getByLabelText(/^email/i));
+    await user.clear(screen.getByLabelText(/^password/i));
     await user.type(screen.getByLabelText(/^email/i), "owner@example.com");
     await user.type(screen.getByLabelText(/^password/i), "correct-pass");
     await user.click(screen.getByRole("button", { name: /^sign in$/i }));

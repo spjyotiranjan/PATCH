@@ -1,253 +1,684 @@
 "use client";
 
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Filter,
+  MoreHorizontal,
+  Plus,
+  Search,
+  CircleCheck,
+  TriangleAlert,
+  Clock3,
+  CircleX,
+} from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { ChevronDown, Filter, Plus, Search, Wrench } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui";
-import { StatusBadge } from "@/components/ui";
+import { getEquipments } from "@/lib/api/equipments";
+import type {
+  Equipment,
+  EquipmentStatus,
+} from "@/lib/types/equipment";
 
-/* ── hardcoded Equipment rows ─────────────────────────────── */
-type EquipRow = {
-  id: string;
-  name: string;
-  type: string;
-  location: string;
-  status: "Healthy" | "Warning";
-  documents: "Up to date" | "Expiring soon" | "Out of date";
-  profile: "Up to date" | "Stale";
-};
-
-const EQUIPMENTS: EquipRow[] = [
-  { id: "eq-1", name: "Centrifugal Pump P-101", type: "Centrifugal Pump", location: "Utility Room",     status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
-  { id: "eq-2", name: "Boiler B-201",           type: "Boiler",           location: "Boiler House",     status: "Warning",  documents: "Expiring soon", profile: "Up to date" },
-  { id: "eq-3", name: "Filler O2",              type: "Filler",           location: "Packaging Line 1", status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
-  { id: "eq-4", name: "Conveyor 11",            type: "Conveyor",         location: "Packaging Line 1", status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
-  { id: "eq-5", name: "Capper 04",              type: "Capper",           location: "Packaging Line 1", status: "Warning",  documents: "Out of date",  profile: "Up to date" },
-  { id: "eq-6", name: "Labeler 01",             type: "Labeler",          location: "Packaging Line 1", status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
-  { id: "eq-7", name: "Compressor C-301",       type: "Compressor",       location: "Utility Room",     status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
-  { id: "eq-8", name: "Cooling Tower CT-01",    type: "Cooling Tower",    location: "Roof",             status: "Healthy",  documents: "Up to date",   profile: "Up to date" },
+const statuses: Array<EquipmentStatus | "ALL"> = [
+  "ALL",
+  "ACTIVE",
+  "WARNING",
+  "MAINTENANCE",
+  "INACTIVE",
 ];
 
-function docTone(val: EquipRow["documents"]): "success" | "attention" | "danger" {
-  if (val === "Up to date") return "success";
-  if (val === "Expiring soon") return "attention";
-  return "danger";
-}
-
 export default function EquipmentsPage() {
+  const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All types");
-  const [locationFilter, setLocationFilter] = useState("All locations");
-  const [statusFilter, setStatusFilter] = useState("All status");
+  const [status, setStatus] =
+    useState<EquipmentStatus | "ALL">("ALL");
+  const [type, setType] = useState("ALL");
+  const [location, setLocation] = useState("ALL");
 
-  const filtered = EQUIPMENTS.filter((e) => {
-    const q = search.toLowerCase();
-    return (
-      (typeFilter === "All types" || e.type === typeFilter) &&
-      (locationFilter === "All locations" || e.location === locationFilter) &&
-      (statusFilter === "All status" || e.status === statusFilter) &&
-      (q === "" || e.name.toLowerCase().includes(q) || e.type.toLowerCase().includes(q))
-    );
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const types = ["All types", ...Array.from(new Set(EQUIPMENTS.map((e) => e.type)))];
-  const locations = ["All locations", ...Array.from(new Set(EQUIPMENTS.map((e) => e.location)))];
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const result = await getEquipments();
+
+        if (!cancelled) {
+          setEquipments(result);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Unable to load equipments.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const types = useMemo(() => {
+    return [
+      "ALL",
+      ...Array.from(
+        new Set(equipments.map((equipment) => equipment.type)),
+      ),
+    ];
+  }, [equipments]);
+
+  const locations = useMemo(() => {
+    return [
+      "ALL",
+      ...Array.from(
+        new Set(
+          equipments.map((equipment) => equipment.location),
+        ),
+      ),
+    ];
+  }, [equipments]);
+
+  const filtered = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+
+    return equipments.filter((equipment) => {
+      const matchesSearch =
+        !normalized ||
+        equipment.name.toLowerCase().includes(normalized) ||
+        equipment.type.toLowerCase().includes(normalized) ||
+        equipment.location.toLowerCase().includes(normalized);
+
+      const matchesStatus =
+        status === "ALL" ||
+        equipment.status === status;
+
+      const matchesType =
+        type === "ALL" ||
+        equipment.type === type;
+
+      const matchesLocation =
+        location === "ALL" ||
+        equipment.location === location;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesType &&
+        matchesLocation
+      );
+    });
+  }, [
+    equipments,
+    search,
+    status,
+    type,
+    location,
+  ]);
 
   return (
     <AppShell
       title="Equipments"
       actions={
         <Link href="/equipments/new">
-          <Button icon={<Plus size={16} />}>Create equipment</Button>
+          <Button icon={<Plus size={17} />}>
+            Create Equipment
+          </Button>
         </Link>
       }
     >
-      <div style={{ display: "grid", gap: 16, maxWidth: 1200 }}>
-        {/* Filter bar */}
-        <div className="filter-bar">
-          <label className="search-field" htmlFor="equip-search">
-            <Search size={16} color="var(--patch-muted)" />
-            <input
-              id="equip-search"
-              type="search"
-              placeholder="Search equipments..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+      <div className="equipment-directory">
+        <section className="equipment-directory-toolbar">
+          <div className="equipment-search">
+            <Search
+              size={17}
+              aria-hidden="true"
             />
-          </label>
 
-          <FilterDropdown
-            label={typeFilter}
-            options={types}
-            onSelect={setTypeFilter}
-          />
-          <FilterDropdown
-            label={locationFilter}
-            options={locations}
-            onSelect={setLocationFilter}
-          />
-          <FilterDropdown
-            label={statusFilter}
-            options={["All status", "Healthy", "Warning"]}
-            onSelect={setStatusFilter}
-          />
-          <button className="filter-select" type="button">
-            <Filter size={15} />
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder="Search equipments..."
+              aria-label="Search equipments"
+            />
+          </div>
+
+          <select
+            value={type}
+            onChange={(event) =>
+              setType(event.target.value)
+            }
+            aria-label="Filter by equipment type"
+            className="equipment-filter-select"
+          >
+            {types.map((item) => (
+              <option key={item} value={item}>
+                {item === "ALL" ? "All types" : item}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={location}
+            onChange={(event) =>
+              setLocation(event.target.value)
+            }
+            aria-label="Filter by location"
+            className="equipment-filter-select"
+          >
+            {locations.map((item) => (
+              <option key={item} value={item}>
+                {item === "ALL"
+                  ? "All locations"
+                  : item}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={status}
+            onChange={(event) =>
+              setStatus(
+                event.target.value as
+                  | EquipmentStatus
+                  | "ALL",
+              )
+            }
+            aria-label="Filter by status"
+            className="equipment-filter-select"
+          >
+            {statuses.map((item) => (
+              <option key={item} value={item}>
+                {item === "ALL"
+                  ? "All status"
+                  : formatStatus(item)}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className="equipment-filter-button"
+          >
+            <Filter size={16} />
             Filters
           </button>
-        </div>
+        </section>
 
-        {/* Table */}
-        <div className="directory-panel">
-          <div className="table-scroll">
-            <table className="data-table" aria-label="Equipments directory">
-              <thead>
-                <tr>
-                  <th scope="col">Name ↕</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Location</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Documents</th>
-                  <th scope="col">Profile</th>
-                  <th scope="col"><span className="visually-hidden">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td className="table-empty" colSpan={7}>
-                      No equipments match the current filters.
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((eq) => (
-                    <tr key={eq.id}>
-                      <td>
-                        <Link className="table-name-cell" href={`/equipments/${eq.id}`}>
-                          <span className="equip-icon-cell" aria-hidden="true">
-                            <Wrench size={16} strokeWidth={1.7} />
-                          </span>
-                          {eq.name}
-                        </Link>
-                      </td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{eq.type}</td>
-                      <td style={{ color: "var(--patch-muted)", fontSize: 14 }}>{eq.location}</td>
-                      <td>
-                        <StatusBadge tone={eq.status === "Healthy" ? "success" : "attention"}>
-                          {eq.status}
-                        </StatusBadge>
-                      </td>
-                      <td>
-                        <StatusBadge tone={docTone(eq.documents)}>{eq.documents}</StatusBadge>
-                      </td>
-                      <td>
-                        <StatusBadge tone={eq.profile === "Up to date" ? "success" : "attention"}>
-                          {eq.profile}
-                        </StatusBadge>
-                      </td>
-                      <td>
-                        <button
-                          className="row-overflow-btn"
-                          type="button"
-                          aria-label={`More actions for ${eq.name}`}
-                        >
-                          ···
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="pagination-bar">
-            <span>1–{filtered.length} of 128</span>
-            <div className="pagination-controls" role="navigation" aria-label="Pagination">
-              <button className="page-btn" type="button" disabled aria-label="Previous page">‹</button>
-              <button className="page-btn page-btn-active" type="button" aria-current="page">1</button>
-              <button className="page-btn" type="button">2</button>
-              <button className="page-btn" type="button">3</button>
-              <span style={{ padding: "0 4px", color: "var(--patch-muted)" }}>…</span>
-              <button className="page-btn" type="button">16</button>
-              <button className="page-btn" type="button" aria-label="Next page">›</button>
+        {loading ? (
+          <section className="equipment-table-shell">
+            <div className="equipment-table-loading">
+              Loading equipments...
             </div>
-            <button className="page-size-select" type="button">
-              10 / page <ChevronDown size={13} />
-            </button>
-          </div>
-        </div>
+          </section>
+        ) : error ? (
+          <section className="equipment-table-shell">
+            <div className="equipment-table-empty">
+              <WrenchIcon />
+
+              <h2>Unable to load equipments</h2>
+
+              <p>{error}</p>
+
+              <Button
+                type="button"
+                onClick={() =>
+                  window.location.reload()
+                }
+              >
+                Try again
+              </Button>
+            </div>
+          </section>
+        ) : filtered.length === 0 ? (
+          <section className="equipment-table-shell">
+            <div className="equipment-table-empty">
+              <Search size={30} />
+
+              <h2>No equipments found</h2>
+
+              <p>
+                Try another search or filter.
+              </p>
+
+              <Link href="/equipments/new">
+                <Button
+                  icon={<Plus size={17} />}
+                >
+                  Create Equipment
+                </Button>
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <EquipmentDirectoryTable
+            equipments={filtered}
+          />
+        )}
       </div>
     </AppShell>
   );
 }
 
-function FilterDropdown({
-  label,
-  options,
-  onSelect,
+function EquipmentDirectoryTable({
+  equipments,
 }: {
-  label: string;
-  options: string[];
-  onSelect: (v: string) => void;
+  equipments: Equipment[];
 }) {
-  const [open, setOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] =
+    useState<string | null>(null);
+
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        className="filter-select"
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {label} <ChevronDown size={13} />
-      </button>
-      {open && (
-        <ul
-          role="listbox"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            zIndex: 20,
-            minWidth: 180,
-            background: "var(--patch-surface)",
-            border: "1px solid var(--patch-boundary)",
-            borderRadius: 8,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            padding: "4px 0",
-            listStyle: "none",
-            margin: 0,
-          }}
+    <section className="equipment-table-shell">
+      <div className="equipment-table-scroll">
+        <table className="equipment-table">
+          <thead>
+            <tr>
+              <th className="equipment-name-column">
+                <span className="sortable-header">
+                  Name
+                  <ChevronUp size={14} />
+                </span>
+              </th>
+
+              <th>Type</th>
+
+              <th>Location</th>
+
+              <th>Status</th>
+
+              <th>Documents</th>
+
+              <th>Profile</th>
+
+              <th
+                className="equipment-actions-column"
+                aria-label="Actions"
+              />
+            </tr>
+          </thead>
+
+          <tbody>
+            {equipments.map((equipment) => (
+              <EquipmentRow
+                key={equipment.id}
+                equipment={equipment}
+                menuOpen={
+                  openMenuId === equipment.id
+                }
+                onToggleMenu={() =>
+                  setOpenMenuId((current) =>
+                    current === equipment.id
+                      ? null
+                      : equipment.id,
+                  )
+                }
+                onCloseMenu={() =>
+                  setOpenMenuId(null)
+                }
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="equipment-table-footer">
+        <span>
+          1–{equipments.length} of{" "}
+          {equipments.length}
+        </span>
+
+        <div className="equipment-pagination">
+          <button
+            type="button"
+            disabled
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={17} />
+          </button>
+
+          <button
+            type="button"
+            className="active"
+          >
+            1
+          </button>
+
+          <button type="button">
+            2
+          </button>
+
+          <button type="button">
+            3
+          </button>
+
+          <span>...</span>
+
+          <button type="button">
+            16
+          </button>
+
+          <button
+            type="button"
+            aria-label="Next page"
+          >
+            <ChevronRight size={17} />
+          </button>
+
+          <select
+            defaultValue="10"
+            aria-label="Rows per page"
+          >
+            <option value="10">
+              10 / page
+            </option>
+
+            <option value="25">
+              25 / page
+            </option>
+
+            <option value="50">
+              50 / page
+            </option>
+          </select>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EquipmentRow({
+  equipment,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+}: {
+  equipment: Equipment;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+}) {
+  return (
+    <tr>
+      <td>
+        <Link
+          href={`/equipments/${equipment.id}`}
+          className="equipment-name-link"
         >
-          {options.map((opt) => (
-            <li key={opt}>
+          <span className="equipment-row-icon">
+            <EquipmentIcon
+              type={equipment.type}
+            />
+          </span>
+
+          <span>
+            <strong>
+              {equipment.name}
+            </strong>
+
+            <small>
+              {getEquipmentIdentifier(
+                equipment,
+              )}
+            </small>
+          </span>
+        </Link>
+      </td>
+
+      <td>
+        {equipment.type}
+      </td>
+
+      <td>
+        {equipment.location}
+      </td>
+
+      <td>
+        <StatusBadge
+          status={equipment.status}
+        />
+      </td>
+
+      <td>
+        <DocumentStatus
+          equipment={equipment}
+        />
+      </td>
+
+      <td>
+        <ProfileStatus
+          equipment={equipment}
+        />
+      </td>
+
+      <td>
+        <div className="equipment-row-menu-wrap">
+          <button
+            type="button"
+            className="equipment-row-menu"
+            aria-label={`Actions for ${equipment.name}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={onToggleMenu}
+          >
+            <MoreHorizontal size={18} />
+          </button>
+
+          {menuOpen ? (
+            <>
               <button
                 type="button"
-                role="option"
-                aria-selected={label === opt}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "8px 14px",
-                  border: 0,
-                  background: label === opt ? "color-mix(in srgb, var(--patch-accent) 8%, var(--patch-surface))" : "transparent",
-                  color: "var(--patch-text)",
-                  textAlign: "left",
-                  fontSize: 14,
-                  cursor: "pointer",
+                className="equipment-menu-backdrop"
+                aria-label="Close actions menu"
+                onClick={onCloseMenu}
+                onKeyDown={(event) => {
+                  if (
+                    event.key ===
+                    "Escape"
+                  ) {
+                    onCloseMenu();
+                  }
                 }}
-                onClick={() => { onSelect(opt); setOpen(false); }}
+              />
+
+              <div
+                className="equipment-row-dropdown"
+                role="menu"
+                aria-label={`Actions for ${equipment.name}`}
               >
-                {opt}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                <Link
+                  href={`/equipments/${equipment.id}`}
+                  role="menuitem"
+                  onClick={onCloseMenu}
+                >
+                  View details
+                </Link>
+
+                <Link
+                  href={`/equipments/${equipment.id}/documents`}
+                  role="menuitem"
+                  onClick={onCloseMenu}
+                >
+                  Manage documents
+                </Link>
+
+                <Link
+                  href={`/equipments/${equipment.id}?tab=activity`}
+                  role="menuitem"
+                  onClick={onCloseMenu}
+                >
+                  View activity
+                </Link>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: EquipmentStatus;
+}) {
+  if (status === "WARNING") {
+    return (
+      <span className="equipment-status-badge warning">
+        <TriangleAlert size={14} />
+        Warning
+      </span>
+    );
+  }
+
+  if (status === "MAINTENANCE") {
+    return (
+      <span className="equipment-status-badge maintenance">
+        <Clock3 size={14} />
+        Maintenance
+      </span>
+    );
+  }
+
+  if (status === "INACTIVE") {
+    return (
+      <span className="equipment-status-badge inactive">
+        <CircleX size={14} />
+        Inactive
+      </span>
+    );
+  }
+
+  return (
+    <span className="equipment-status-badge healthy">
+      <CircleCheck size={14} />
+      Healthy
+    </span>
+  );
+}
+
+function DocumentStatus({
+  equipment,
+}: {
+  equipment: Equipment;
+}) {
+  const documentCount =
+    "documentCount" in equipment
+      ? Number(
+          (equipment as Equipment & {
+            documentCount?: number;
+          }).documentCount ?? 0,
+        )
+      : 0;
+
+  if (documentCount === 0) {
+    return (
+      <span className="equipment-meta-status neutral">
+        <Clock3 size={14} />
+        No documents
+      </span>
+    );
+  }
+
+  return (
+    <span className="equipment-meta-status success">
+      <CircleCheck size={14} />
+      Up to date
+    </span>
+  );
+}
+
+function ProfileStatus({
+  equipment,
+}: {
+  equipment: Equipment;
+}) {
+  const profileStatus =
+    "profileStatus" in equipment
+      ? (
+          equipment as Equipment & {
+            profileStatus?: string;
+          }
+        ).profileStatus
+      : undefined;
+
+  if (
+    profileStatus === "STALE" ||
+    profileStatus === "stale"
+  ) {
+    return (
+      <span className="equipment-meta-status warning">
+        <Clock3 size={14} />
+        Profile stale
+      </span>
+    );
+  }
+
+  return (
+    <span className="equipment-meta-status success">
+      <CircleCheck size={14} />
+      Up to date
+    </span>
+  );
+}
+
+function EquipmentIcon({
+  type,
+}: {
+  type: string;
+}) {
+  return (
+    <span className="equipment-type-icon">
+      <WrenchIcon />
+    </span>
+  );
+}
+
+function WrenchIcon() {
+  return <CircleCheck size={22} />;
+}
+
+function getEquipmentIdentifier(
+  equipment: Equipment,
+) {
+  if ("serialNumber" in equipment) {
+    const serialNumber = (
+      equipment as Equipment & {
+        serialNumber?: string;
+      }
+    ).serialNumber;
+
+    if (serialNumber) {
+      return serialNumber;
+    }
+  }
+
+  return equipment.id;
+}
+
+function formatStatus(
+  status: EquipmentStatus,
+) {
+  return (
+    status.charAt(0) +
+    status.slice(1).toLowerCase()
   );
 }

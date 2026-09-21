@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Clock,
@@ -22,109 +22,74 @@ import {
   DocumentStatusBadge,
   InclusionBadge,
 } from "@/components/documents";
+import {
+  getDocuments,
+  getProcessingQueue,
+} from "@/lib/api/documents";
+import type { Document } from "@/lib/types/document";
 
-const ALL_LIBRARY_DOCUMENTS = [
-  {
-    id: "doc-1",
-    title: "Centrifugal Pump P-101 Operation & Maintenance Manual",
-    subtitle: "P-101-OMM-2025.pdf",
-    docType: "Manual",
-    activeVersion: "v3.2",
-    status: "Active" as const,
-    fileSize: "14.2 MB",
-    updatedAt: "May 10, 2025",
-    entityType: "Equipment",
-    entityName: "Centrifugal Pump P-101",
-    entityId: "eq-1",
-    coveragePct: 94,
-  },
-  {
-    id: "doc-2",
-    title: "P&ID Diagram P-101-002 (Utility Cooling Water)",
-    subtitle: "PID-P101-002-REV2.pdf",
-    docType: "P&ID",
-    activeVersion: "v2.0",
-    status: "Needs review" as const,
-    fileSize: "8.5 MB",
-    updatedAt: "May 12, 2025",
-    entityType: "Equipment",
-    entityName: "Centrifugal Pump P-101",
-    entityId: "eq-1",
-    coveragePct: 82,
-  },
-  {
-    id: "pdoc-1",
-    title: "Project Execution Plan & Scope of Work - Cooling Water Upgrade",
-    subtitle: "PRJ-2025-PEP-V2.pdf",
-    docType: "Specification",
-    activeVersion: "v2.0",
-    status: "Active" as const,
-    fileSize: "6.8 MB",
-    updatedAt: "May 01, 2025",
-    entityType: "Project",
-    entityName: "Cooling Water System Upgrade 2025",
-    entityId: "prj-1",
-    coveragePct: 96,
-  },
-  {
-    id: "doc-3",
-    title: "Mechanical Seal Installation & Maintenance Guide",
-    subtitle: "MSIG-P101-V11.pdf",
-    docType: "Manual",
-    activeVersion: "v1.1",
-    status: "Indexing" as const,
-    fileSize: "3.4 MB",
-    updatedAt: "May 14, 2025",
-    entityType: "Equipment",
-    entityName: "Centrifugal Pump P-101",
-    entityId: "eq-1",
-    coveragePct: null,
-  },
-  {
-    id: "doc-4",
-    title: "Heat Exchanger HX-202 Datasheet & Thermal Specification",
-    subtitle: "HX-202-TDS.pdf",
-    docType: "Datasheet",
-    activeVersion: "v1.2",
-    status: "Active" as const,
-    fileSize: "5.4 MB",
-    updatedAt: "Feb 18, 2025",
-    entityType: "Equipment",
-    entityName: "Heat Exchanger HX-202",
-    entityId: "eq-2",
-    coveragePct: 91,
-  },
-  {
-    id: "doc-5",
-    title: "Plant Safety Standards & Pressure Vessel Compliance 2024",
-    subtitle: "PLANT-SAFETY-STD-2024.pdf",
-    docType: "Safety",
-    activeVersion: "v4.0",
-    status: "Active" as const,
-    fileSize: "18.6 MB",
-    updatedAt: "Jan 10, 2025",
-    entityType: "Global",
-    entityName: "Facility Global Standard",
-    entityId: "global-1",
-    coveragePct: 99,
-  },
-  {
-    id: "doc-6",
-    title: "Vibration Sensor Callout & Telemetry Setup Guide",
-    subtitle: "VS-TELEMETRY-SETUP.pdf",
-    docType: "Manual",
-    activeVersion: "v1.0",
-    status: "Failed" as const,
-    fileSize: "1.8 MB",
-    updatedAt: "May 14, 2025",
-    entityType: "Equipment",
-    entityName: "Centrifugal Pump P-101",
-    entityId: "eq-1",
-    coveragePct: null,
-  },
-];
+type LibraryDoc = {
+  id: string;
+  title: string;
+  subtitle: string;
+  docType: string;
+  activeVersion: string;
+  status: "Active" | "Needs review" | "Indexing" | "Failed";
+  fileSize: string;
+  updatedAt: string;
+  entityType: string;
+  entityName: string;
+  entityId: string;
+  coveragePct: number | null;
+};
 
+function toLibraryDoc(doc: Document): LibraryDoc {
+  const active = doc.versions.find(
+    (version) => version.id === doc.activeVersionId,
+  );
+
+  return {
+    id: doc.id,
+    title: doc.title,
+    subtitle:
+      doc.versions[0]?.filename ?? doc.id,
+    docType: doc.docType,
+    activeVersion: doc.activeVersion ?? "—",
+    status:
+      doc.status === "ACTIVE"
+        ? "Active"
+        : doc.status === "NEEDS_REVIEW"
+          ? "Needs review"
+          : doc.status === "FAILED"
+            ? "Failed"
+            : "Indexing",
+    fileSize:
+      doc.versions[0]?.fileSize ?? "—",
+    updatedAt: doc.updatedAt,
+    entityType: doc.equipmentId
+      ? "Equipment"
+      : doc.projectId
+        ? "Project"
+        : "Global",
+    entityName:
+      doc.equipmentName ??
+      "Facility Global Standard",
+    entityId:
+      doc.equipmentId ??
+      doc.projectId ??
+      "global-1",
+    coveragePct:
+      active?.coveragePct ??
+      doc.versions[0]?.coveragePct ??
+      null,
+  };
+}
 export default function GlobalDocumentsPage() {
+  const [libraryDocs, setLibraryDocs] = useState<LibraryDoc[]>([]);
+  const [queueCount, setQueueCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("All");
   const [selectedEntity, setSelectedEntity] = useState("All");
@@ -132,7 +97,44 @@ export default function GlobalDocumentsPage() {
   const [addDocOpen, setAddDocOpen] = useState(false);
   const [addVersionOpen, setAddVersionOpen] = useState(false);
 
-  const filteredDocs = ALL_LIBRARY_DOCUMENTS.filter((doc) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const [docs, queue] = await Promise.all([
+          getDocuments(),
+          getProcessingQueue(),
+        ]);
+
+        if (!cancelled) {
+          setLibraryDocs(docs.map(toLibraryDoc));
+          setQueueCount(queue.length);
+        }
+      } catch {
+        if (!cancelled) {
+          setError(
+            "The document library could not be loaded. Check your connection and retry.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
+
+  const filteredDocs = useMemo(() => {
+    return libraryDocs.filter((doc) => {
     const matchesSearch =
       doc.title.toLowerCase().includes(search.toLowerCase()) ||
       doc.subtitle.toLowerCase().includes(search.toLowerCase()) ||
@@ -142,7 +144,63 @@ export default function GlobalDocumentsPage() {
     const matchesStatus = selectedStatus === "All" || doc.status === selectedStatus;
 
     return matchesSearch && matchesType && matchesEntity && matchesStatus;
-  });
+    });
+  }, [
+    libraryDocs,
+    search,
+    selectedType,
+    selectedEntity,
+    selectedStatus,
+  ]);
+
+  const activeCount = libraryDocs.filter(
+    (doc) => doc.status === "Active",
+  ).length;
+  const reviewCount = libraryDocs.filter(
+    (doc) => doc.status !== "Active" && doc.status !== "Failed",
+  ).length;
+  const failedCount = libraryDocs.filter(
+    (doc) => doc.status === "Failed",
+  ).length;
+
+  if (loading) {
+    return (
+      <AppShell title="Documents Library">
+        <section
+          className="empty-state"
+          aria-live="polite"
+        >
+          <h2>Loading document library…</h2>
+          <p>
+            Deduplicating logical documents
+            across equipments and projects.
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <AppShell title="Documents Library">
+        <section
+          className="empty-state"
+          role="alert"
+        >
+          <h2>The library could not be loaded</h2>
+          <p>{error}</p>
+          <Button
+            type="button"
+            onClick={() =>
+              setReloadToken((token) => token + 1)
+            }
+          >
+            Retry
+          </Button>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Documents Library">
@@ -150,19 +208,19 @@ export default function GlobalDocumentsPage() {
       <div className="metrics-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 24 }}>
         <div className="metric-card">
           <div className="metric-label">Total library documents</div>
-          <div className="metric-value">38</div>
+          <div className="metric-value">{libraryDocs.length}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Active revisions</div>
-          <div className="metric-value" style={{ color: "var(--patch-success)" }}>34</div>
+          <div className="metric-value" style={{ color: "var(--patch-success)" }}>{activeCount}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">In review / Processing</div>
-          <div className="metric-value" style={{ color: "var(--patch-attention)" }}>3</div>
+          <div className="metric-value" style={{ color: "var(--patch-attention)" }}>{reviewCount}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Failed extractions</div>
-          <div className="metric-value" style={{ color: "var(--patch-danger)" }}>1</div>
+          <div className="metric-value" style={{ color: "var(--patch-danger)" }}>{failedCount}</div>
         </div>
       </div>
 
@@ -244,7 +302,7 @@ export default function GlobalDocumentsPage() {
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/documents/processing-state">
             <Button variant="secondary" size="sm">
-              <Clock size={14} style={{ marginRight: 6 }} /> Processing Queue (3)
+              <Clock size={14} style={{ marginRight: 6 }} /> Processing Queue ({queueCount})
             </Button>
           </Link>
           <Button variant="secondary" size="sm" onClick={() => setAddVersionOpen(true)}>
@@ -272,7 +330,16 @@ export default function GlobalDocumentsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredDocs.map((doc) => (
+            {filteredDocs.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="table-empty">
+                  {libraryDocs.length === 0
+                    ? "No documents in the library yet. Add the first document to start the ingestion lifecycle."
+                    : "No documents match your search or filters."}
+                </td>
+              </tr>
+            ) : (
+              filteredDocs.map((doc) => (
               <tr key={doc.id}>
                 <td>
                   <div>
@@ -350,7 +417,8 @@ export default function GlobalDocumentsPage() {
                   </div>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -360,7 +428,7 @@ export default function GlobalDocumentsPage() {
       <AddNewVersionDrawer
         open={addVersionOpen}
         onClose={() => setAddVersionOpen(false)}
-        documents={ALL_LIBRARY_DOCUMENTS.map((d) => ({
+        documents={filteredDocs.map((d) => ({
           id: d.id,
           name: d.title,
           subtitle: d.subtitle,
