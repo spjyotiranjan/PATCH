@@ -119,7 +119,9 @@ class VerifiedSourceLoader(BaseLoader):
                 for embedded in page.images:
                     if embedded.image is None:
                         raise SourceRejected("SOURCE_IMAGE_UNREADABLE")
-                    raster_text = ocr.image_text(embedded.image, self.settings)
+                    raster_text = ocr.image_text(
+                        embedded.image, self.settings, supplemental_labels=True
+                    )
                     if raster_text and raster_text not in text:
                         texts.append(raster_text)
                 text = "\n\n".join(texts)

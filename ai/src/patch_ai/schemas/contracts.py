@@ -158,6 +158,104 @@ class VisualDescribeResult(ApiModel):
         return self
 
 
+VisualClass = Literal["SCHEMATIC", "DIAGRAM", "CHART", "TABLE", "PHOTO", "SCREENSHOT", "OTHER"]
+
+
+class VisualDocumentRequest(ContractRequest):
+    tenant_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    approval_state: Literal["APPROVED"]
+    source_file: SourceFile
+    pipeline_version: Literal["visual-discovery-v1"] = "visual-discovery-v1"
+
+
+class VisualTriageResult(ApiModel):
+    request_id: UUID
+    document_version_id: Identifier
+    original_sha256: Sha256
+    status: Literal["complete", "partial", "failed"]
+    pages: list[int] = Field(default_factory=list, max_length=12)
+    total_pages: int = Field(default=0, ge=0, le=500)
+    scanned_pages: int = Field(default=0, ge=0, le=500)
+
+
+class VisualDiscoverRequest(VisualDocumentRequest):
+    page: int = Field(ge=1, le=500)
+
+
+class VisualRegion(ApiModel):
+    bounds: VisualBounds
+    visual_class: VisualClass
+    confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
+    uncertainty: str = Field(max_length=500)
+
+
+class VisualDiscoverResult(ApiModel):
+    request_id: UUID
+    document_version_id: Identifier
+    original_sha256: Sha256
+    page: int = Field(ge=1, le=500)
+    status: Literal["complete", "partial", "failed"]
+    regions: list[VisualRegion] = Field(default_factory=list, max_length=4)
+
+
+class VisualIndexRequest(ContractRequest):
+    tenant_id: Identifier
+    approval_state: Literal["APPROVED"]
+    asset: VisualSourceAsset
+    description: VisualDescription
+    description_fingerprint: Sha256
+    visual_class: VisualClass = "OTHER"
+    confidence: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+
+class VisualIndexResult(ApiModel):
+    request_id: UUID
+    asset_id: Identifier
+    description_fingerprint: Sha256
+    status: Literal["indexed", "failed"]
+    embedding_model: str = Field(max_length=255)
+
+
+class VisualScopeEntry(ApiModel):
+    asset: VisualSourceAsset
+    description_fingerprint: Sha256
+    embedding_model: str = Field(min_length=1, max_length=255)
+    visual_class: VisualClass = "OTHER"
+    confidence: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+
+class VisualSelection(ApiModel):
+    asset_id: Identifier
+    relevance_role: Literal["REQUIRED", "HELPFUL"]
+
+
+class VisualSearchResult(ApiModel):
+    request_id: UUID
+    state: Literal["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"]
+    selected: list[VisualSelection] = Field(default_factory=list, max_length=3)
+    visual_required: bool = False
+
+
+class VisualCitation(ApiModel):
+    id: Identifier
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds
+    sha256: Sha256
+    description_fingerprint: Sha256
+    visual_class: VisualClass
+    relevance_role: Literal["REQUIRED", "HELPFUL"]
+
+
+class VisualObservation(ApiModel):
+    text: str = Field(min_length=1, max_length=2000)
+    visual_citation_ids: list[Identifier] = Field(min_length=1, max_length=3)
+
+
 class DeclaredMetadata(ApiModel):
     title: str = Field(min_length=1, max_length=500)
     document_type: str = Field(min_length=1, max_length=100)
@@ -465,6 +563,10 @@ class QuestionRequest(ContractRequest):
     question: str = Field(min_length=1, max_length=10_000)
     retrieval_scope_manifest: RetrievalScopeManifest
     retrieval_policy: RetrievalPolicy
+    visual_scope_manifest: list[VisualScopeEntry] = Field(default_factory=list, max_length=100)
+    visual_scope_partial: bool = Field(default_factory=lambda: False)
+    visual_selection: VisualSearchResult | None = None
+    visual_sources: list[VisualDescribeRequest] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="after")
     def validate_assigned_references(self) -> "QuestionRequest":
@@ -473,6 +575,30 @@ class QuestionRequest(ContractRequest):
             raise ValueError("assignedReferences must be unique")
 
         manifest = self.retrieval_scope_manifest
+        parents = {v.document_version_id: v.document_id for v in manifest.allowed_document_versions}
+        assets = {v.asset.asset_id: v for v in self.visual_scope_manifest}
+        if len(assets) != len(self.visual_scope_manifest) or any(
+            parents.get(v.asset.document_version_id) != v.asset.document_id
+            for v in self.visual_scope_manifest
+        ):
+            raise ValueError("visual manifest is duplicate or outside authorized parents")
+        selected = self.visual_selection.selected if self.visual_selection else []
+        if self.visual_selection and (
+            (self.visual_selection.state == "AVAILABLE") != bool(selected)
+        ):
+            raise ValueError("visual selection state is inconsistent")
+        selected_ids = {s.asset_id for s in selected}
+        if len(selected_ids) != len(selected) or not selected_ids.issubset(assets):
+            raise ValueError("visual selection is outside manifest")
+        source_ids = {s.asset.asset_id for s in self.visual_sources}
+        if len(source_ids) != len(self.visual_sources) or not source_ids.issubset(selected_ids):
+            raise ValueError("visual sources are outside selected assets")
+        for source in self.visual_sources:
+            if (
+                source.tenant_id != self.actor.tenant_id
+                or source.asset != assets[source.asset.asset_id].asset
+            ):
+                raise ValueError("visual source metadata mismatch")
         document_ids = {item.document_id for item in manifest.allowed_document_versions}
         version_ids = {item.document_version_id for item in manifest.allowed_document_versions}
         equipment_ids = {item.id for item in manifest.entities if item.type == "EQUIPMENT"}
@@ -551,6 +677,11 @@ class QuestionResult(ApiModel):
     citations: list[Citation] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     follow_up_allowed: bool
+    visual_evidence_state: Literal["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"] = Field(
+        default_factory=lambda: "TEXT_ONLY"
+    )
+    visual_citations: list[VisualCitation] = Field(default_factory=list, max_length=3)
+    visual_observations: list[VisualObservation] = Field(default_factory=list, max_length=6)
 
 
 class LogScope(StrEnum):

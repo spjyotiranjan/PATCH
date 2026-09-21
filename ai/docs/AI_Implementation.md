@@ -9,7 +9,7 @@
 | Source ingestion, entity profiles, Pinecone, and LangGraph flows             | **Backend complete through Phase 5 (2026-09-08).** Provider-backed workflows, graph/safety tests, hosted workflows, and the dated repair acceptance cover the implemented AI backend scope. |
 | Evaluation and production readiness                                          | **Phase 6 backend complete (2026-09-08).** Evaluation tooling, failure handling, metadata telemetry, and repair checks are implemented and verified. Product release/SME gates remain separate. |
 | Phase 1–6 delivery                                                           | **Complete for the AI backend only (2026-09-08).** This does not mark the synchronized product/UI phase complete; `Development_Plan.md` continues to govern its separate UI, representative-source/SME, and operational gates. |
-| Phase 7 delivery                                                             | In progress: signed visual rendering, bounded PNG derivatives and independently verified image descriptions implemented. Embeddings, visual retrieval, Chat citations and live visual acceptance remain pending. |
+| Phase 7 delivery                                                             | Backend implementation delivered; representative live visual-quality/cost acceptance pending. Automatic processing/retrieval are opt-in; no UI completion claim. |
 
 ## Goal
 
@@ -198,161 +198,175 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 7 - Multimodal visual understanding and retrieval (backend-only)
 
-**Description milestone:** `/v1/visual-assets/describe` runs a bounded LangGraph
-load/describe/verify workflow. `adapters/visual_source.py` validates SHA, byte count,
-dimensions, single-frame PNG structure and existing download host restrictions.
-The existing LangChain provider sends actual pixels (base64, high detail) to the
-configured answer model and independently to the configured complex verifier.
-Existing model/effort settings apply; no hardcoded model, new provider or package.
-Unsupported descriptions, injection detected by verification, malformed sources
-and provider failures return no partial description. Search descriptors are not
-OCR transcripts or approved evidence, and model verification is not a guarantee
-of complete visual understanding. Query-time pixel grounding remains pending.
+**Status (14 September 2026):** Backend implementation delivered; representative
+live visual-quality/cost acceptance remains open. This does not complete any UI
+phase or grant safety/SME approval. Automatic rollout remains opt-in.
 
-Implementation follows the official [image input documentation](https://developers.openai.com/api/docs/guides/images-vision).
-The configured [text embedding model](https://developers.openai.com/api/docs/models/text-embedding-3-large)
-does not directly embed images. No image vector is written by this milestone;
-the later retrieval implementation must distinguish descriptor embeddings from
-pixel evidence and preserve original asset retrieval.
+**Implemented pipeline and ownership:**
 
-**Status:** In progress — visual asset foundation implemented. This is an AI/Web backend phase only. It does not implement a
-Chat UI or mark a synchronized product phase complete.
+1. Signed `/v1/visual-assets/triage` downloads the Web-approved immutable PDF,
+   validates its checksum, rejects encrypted/unsupported or >500-page sources,
+   and uses pypdf caption, drawing and image/Form XObject signals locally.
+   Mixed text/image pages remain eligible. No model call for rejected pages.
+   Decoded page-content parsing is capped at 2 MB; scanning stops at the deadline
+   or candidate cap and returns explicit `partial` coverage.
+2. Signed `/v1/visual-assets/discover` takes the same original and one shortlisted
+   page. AI, not Web, renders a 72-DPI preview inside a bounded LangGraph workflow.
+   The configured routing model/low effort proposes up to four normalized regions,
+   class, confidence and uncertainty. Zero regions is valid. Web owns validation,
+   overlap deduplication, allocation quotas and durable job dispatch.
+3. `/render` preserves exact PDFium pixels rather than generating/redrawing an
+   image. Existing pypdf/PDFium/Pillow adapters enforce rotation-aware top-left
+   bounds, four-million full-page pixels before crop, 4096 output pixels per side,
+   and 2 MB PNG. Web stores private immutable R2 derivatives; AI has no R2 credentials.
+4. `/describe` uses the configured answer model and independent complex verifier
+   on checksum-, byte-count-, dimension- and format-validated PNGs. Ambiguous
+   labels/connections stay uncertain. Descriptors are untrusted retrieval hints,
+   not OCR, approved facts, operational steps or substitutes for pixel inspection.
+5. `/index` hashes a canonical bounded descriptor, checks the supplied fingerprint,
+   and uses LangChain OpenAI embeddings/Pinecone to upsert an `IMAGE_REGION`
+   projection. IDs are deterministic by tenant/asset/description fingerprint.
+   Metadata binds parent/version/page/bounds, original and derivative SHA, class,
+   confidence, uncertainty count, pipeline/renderer and embedding model.
+   `PINECONE_NAMESPACE` remains the explicit text/profile setting;
+   `PINECONE_VISUAL_NAMESPACE` is distinct and explicit. Local values are
+   `development` and `visual-development`; neither is synthesized from `APP_ENV`.
+   The same configured embedding model/index dimensions serve both namespaces.
+   A dimension mismatch fails the upsert, never returns indexed success.
+6. Signed `/search` intersects the visual manifest with current assignments before
+   querying. Text and visual searches run concurrently with tenant, environment,
+   record type, approval, allowed parent/asset and embedding-model filters.
+   Returned metadata is checked again against the manifest. Fusion uses reciprocal
+   ranks (constant 60), parent-page agreement, deterministic asset-ID ties,
+   confidence/generic-class/uncertainty penalties and checksum deduplication.
+   Raw cross-namespace similarity scores are never compared.
+7. A low-effort gate sees the question, shortlisted descriptors and up to four
+   current scoped text excerpts (2,000 characters each), labels
+   candidates `REQUIRED | HELPFUL | NOT_RELEVANT`, and may not invent IDs.
+   No candidates means no gate/pixel call. Visuals can help without an explicit
+   image request. Explicit image-dependent wording is conservatively detected even
+   when the gate cannot run. More required assets than the final cap fails closed.
+   Bounded recent history may resolve follow-ups, but is never evidence; every turn
+   still performs fresh scoped retrieval and exact pixel verification.
+   The excerpts are untrusted relevance context, not a new answer/evidence path.
+   Text-sufficient factual lookups must not require a redundant image; HELPFUL
+   requires added explanatory value. Prior image requests do not carry forward
+   unless needed to resolve the current question. This reuses the existing text
+   retrieval, adds no provider call, and leaves pixel verification mandatory for
+   any selected visual.
+8. Web supplies private PNG sources only for selected IDs on the usual question
+   REST/socket request. The answer graph retains its source-chunk-grounded text
+   baseline, then loads exact pixels, generates bounded factual visual observations,
+   and independently verifies each observation against the cited image/question.
+   `visualObservations` maps to `visualCitations`; no generated description is
+   promoted directly into evidence. Physical actions, operating values and safety
+   instructions remain in the existing source-chunk-cited answer, never inferred
+   from images. Unsupported/injected/conflicting visual claims are removed.
+9. Optional visual failure preserves separately grounded text. Required failure
+   makes an otherwise approved answer incomplete with a warning.
+   `visualEvidenceState` is `TEXT_ONLY | AVAILABLE | UNAVAILABLE`.
+   The pixel branch uses a 45-second sub-budget and reserves two seconds of the
+   enclosing deadline for a safe fallback. Partial manifest coverage is disclosed.
+10. Signed `/delete-vectors` removes only tenant/version `IMAGE_REGION` records
+    in the visual namespace. Web owns eligibility, retention, disable/rebuild and
+    generation fencing. Text/profile records and retained originals are untouched.
 
-**Current milestone:** `POST /v1/visual-assets/render` accepts one approved immutable
-PDF source and an explicit page/normalized crop. It reuses the verified source
-downloader, pypdf inspection, mutex-protected PDFium renderer and Pillow PNG encoder;
-no new dependency/model/embedding provider is selected. Output is bounded to four
-million rendered pixels, 4096 per output side and 2 MB PNG; unsupported/encrypted/
-oversized PDFs or invalid pages fail without partial bytes or private error text.
-The private result includes source/derivative hashes, dimensions and render
-provenance; Web alone persists the image in R2. This is a deterministic derivative
-operation inside the existing workflow executor and does not call an LLM or OCR.
-Automatic figure detection, descriptor embeddings, question-time vision,
-LangGraph visual retrieval, exact Chat image citations and representative evaluation
-remain pending. The OpenAPI contract and generated Web types are synchronized.
+**Configuration and cost controls:** Defaults are 12 candidate pages, four
+regions/page, 72 preview DPI, 20 visual vector candidates, six gate candidates,
+three final pixels and 15-second search budget. Hard public/private contract caps
+cannot be bypassed through configuration. Automatic assets are capped at 48/version,
+100 total including manual assets. One detection call per shortlisted page;
+normally two description calls and one embedding operation per accepted region;
+normally one relevance plus two pixel calls per visual Chat turn, in addition to
+the text baseline. Retries can repeat paid calls; they are not exactly-once billing.
+Model telemetry records only schema/role, counts, image bytes, input characters,
+numeric provider usage, latency and bounded verification outcomes. Visual diagnostics
+include role counts, verdict booleans and fixed unsupported-reason/error enums;
+never rejected claim text or raw provider exceptions. Raw messages/URLs/reasoning are transient and
+never exported. Price estimates use recorded usage and current configured-model
+rates, not hardcoded prices. See the environment/setup tables and manual guide.
 
-**Remaining implementation plan — staged, cost-aware multimodal retrieval:**
+**Dependencies:** No new packages or provider SDK exceptions. Reuse maintained
+LangChain integrations, LangGraph, pypdf, PDFium and Pillow already owned by AI.
+The configured text embedding model embeds descriptions, not native pixel data.
+Pinecone metadata is a projection; R2 preserves the retrievable image and MongoDB
+owns authorization/currentness. Model configuration remains environment-driven.
 
-1. **Candidate-page triage is local and deterministic.** AI must not run vision
-over every PDF page. Web provides only current, approved, authorized shortlisted
-pages selected from bounded local signals. A future `VisualDiscoverRequest` carries
-parent/version/checksum, page, pipeline version, checksum-bound preview source and
-limits; it never accepts a browser URL, arbitrary asset ID or model-controlled
-scope. Discovery can return no regions, and a failure never breaks text indexing.
-2. **Low-cost detection proposes; it does not prove.** A LangGraph discovery
-workflow uses the configured routing model at low reasoning effort on a small page
-preview. Its strictly structured output has bounded proposed regions, class,
-confidence and uncertainty. Pixels and labels are untrusted content: embedded
-instructions cannot alter limits, filters, tools or schema. It creates no factual
-or operational evidence; Web owns coordinate/dedup/quota/lifecycle validation.
-3. **High-quality understanding remains separate.** Existing describe/verify
-inspects a selected immutable PNG with configured answer/complex models and creates
-an uncertain semantic descriptor, not an OCR replacement. A planned
-`VisualIndexRequest` embeds only canonical bounded descriptor text after fresh
-parent/asset revalidation. Raw pixels, base64, URLs, OCR blobs and traces never
-enter Pinecone.
-4. **Use descriptor embeddings, not falsely named image embeddings.**
-`text-embedding-3-large` receives description text only, so its result is a
-*visual-description embedding*, useful for semantic search but not native pixel
-similarity. Store it as `recordType: IMAGE_REGION` in the configured
-`PINECONE_VISUAL_NAMESPACE`, never mixed with `SOURCE_CHUNK`/profiles. Existing
-text/profile vectors use `PINECONE_NAMESPACE`. Deployment maps the two values to
-`{environment}` and `visual-{environment}` respectively. Filter every query by tenant,
-environment, allowed asset IDs and parent versions, current approval, and record
-type. Metadata includes asset ID, page/bounds, SHA, class and pipeline/description/
-embedding versions. Check vector dimensions before enablement.
-5. **Retrieve text and visuals in parallel, but fuse ranks safely.** Answering
-first resolves existing authorized text scope. It queries visuals only for a
-non-empty authorized visual manifest. It never compares raw scores across Pinecone
-namespaces; it applies bounded rank-based fusion (for example RRF), deterministic
-tie breaking, parent-page/caption agreement boost, and generic/duplicate/
-low-confidence/high-uncertainty penalties. Keep only a small configured visual
-shortlist; no candidate means no image-model call and normal text answering.
-6. **Gate relevance before pixel cost.** A low-effort structured gate sees the
-question, authorized metadata and verified descriptor—not pixels—and labels each
-shortlisted candidate `REQUIRED`, `HELPFUL`, or `NOT_RELEVANT`. It cannot introduce
-new candidates or widen scope. Only `REQUIRED`/`HELPFUL` assets are checksum
-re-downloaded and inspected as pixels. For operational/safety claims, visuals
-supplement rather than replace approved source-chunk evidence. Unloadable or
-unverified pixels are `UNAVAILABLE`, never claimed as inspected.
-7. **Generate and independently verify multimodal claims.** Final answers cite
-text chunks and visual assets separately. A complex visual verifier checks visual
-claims against exact supplied pixels and maps citations to the asset inspected in
-that turn. It removes unsupported claims, detects conflicts/injection, preserves
-ordinary evidence states, and cannot convert a diagram into physical-action or
-safety authority. Only metadata counts/timings reach telemetry.
-8. **Fail closed without degrading text.** Empty visual scope yields `TEXT_ONLY`;
-visual provider/index/source failure yields `UNAVAILABLE` while separately grounded
-text remains usable. An image-dependent question with unavailable visual evidence is
-`incomplete`. All stages are deadline/byte/pixel/asset bounded and use deterministic
-IDs and idempotent index/delete behavior.
+**Verification and remaining gate:** Deterministic tests cover triage/detection
+bounds, duplicate/tampered vectors, relevance roles, unauthorized manifests,
+same-turn pixel verification, injection/operational rejection, timeout fallback,
+namespace isolation and signed endpoints. The real loopback Web/AI suite covers
+descriptor indexing/search and exact visual citations over authenticated sockets.
+Recorded gate (14 September 2026): 135 AI and 111 Web tests pass; AI Ruff/format,
+mypy/Pyright, Web lint/typecheck/build, and 15 paired synthetic evaluation cases pass.
+The npm production-dependency audit reports zero vulnerabilities.
+`evaluations/visual_metrics.py` scores recorded page/region recall/precision,
+descriptor retrieval, relevance selection, citation provenance, text regression,
+human-reviewed groundedness, latency and cost. It does not fabricate human reviews
+or approve automatic rollout. Before enabling automatic processing broadly, run
+the representative manual matrix: diagrams, charts, photos, screenshots, scans,
+mixed pages, decoration, cropped labels, duplicate figures and embedded injection.
+Require zero unauthorized/stale/uninspected citations, no text recall regression
+and reviewed usefulness/legibility. Record actual provider costs and SME thresholds.
 
-**Cost policy:** no AI call for locally rejected pages; one low-effort call only for
-shortlisted previews; render/describe only accepted deduplicated regions; embed once
-per immutable description fingerprint; inspect pixels only for final small
-`REQUIRED`/`HELPFUL` candidates. Record per-stage candidate/call/byte/token-cost
-estimate/latency metadata without source content. Preserve a feature-disabled
-text-only baseline and do not bulk-enrich historic documents before reviewed
-quality and cost acceptance.
-
-**Goal:** Give the service both grounded understanding of meaningful document
-visuals and a safe way to return the exact supporting diagram/image as a cited,
-authorized asset. OCR remains text extraction; it is not visual understanding and
-does not make the original image retrievable as evidence by itself.
-
-**Prerequisites:** Contract-first visual-asset and visual-citation schemas;
-version-bound R2 derivative metadata supplied by Web; a reviewed maintained
-LangChain-compatible visual embedding/vision capability (or an isolated, tested
-adapter exception with ADR and migration path); separate vector compatibility
-evaluation; and explicit image-safety/evaluation cases. No provider, model,
-embedding dimension, or namespace may be chosen from workflow code literals.
-`PINECONE_NAMESPACE` owns text/profile vectors; the future
-`PINECONE_VISUAL_NAMESPACE` owns `IMAGE_REGION` vectors. Deployment values follow
-`{environment}` and `visual-{environment}`.
-
-**Deliverables:**
-
-- Extend ingestion to render bounded document pages, identify useful visual regions
-  and retain their page/normalized-bounds/provenance links. Preserve native text,
-  OCR text, and visual regions as complementary evidence rather than replacing one
-  with another. Image bytes remain private in R2 and are never put in Pinecone.
-- Create a distinct `IMAGE_REGION` vector record family (or documented equivalent
-  isolated namespace) with its own model/version/dimension compatibility checks,
-  deterministic region IDs, parent document/version/page/anchor metadata and
-  lifecycle state. It must never enter an unfiltered `SOURCE_CHUNK` query or become
-  a relational authority.
-- Add a bounded visual-retrieval branch to the answering LangGraph after scope
-  validation. Query only visual records named in the current authorized manifest;
-  combine visual candidates with applicable source chunks; and use a bounded vision
-  verification step only for shortlisted assets. A model description is supporting
-  evidence, not permission to invent facts or operational instructions.
-- Return an exact visual citation only after validating the parent active/approved
-  version, page/region anchor, extraction provenance and source-manifest membership.
-  Responses must distinguish `visualEvidenceAvailable`, `visualEvidenceUnavailable`,
-  and ordinary text-only evidence; never pretend a diagram was inspected when the
-  visual branch failed or was not authorized.
-- Treat all pixels, embedded labels, OCR output, captions, and diagrams as untrusted
-  content. Visual prompt injection cannot modify filters, tools, evidence status,
-  citation rules, or procedure controls. Do not infer unsafe operation from an image
-  without applicable approved source support and the existing safety rubric.
-- Evaluate text-only baseline versus multimodal retrieval for exact-region recall,
-  parent-version/citation validity, diagram-answer groundedness, unauthorized asset
-  rejection, visual-provider failure behavior, latency/cost, and regression of
-  existing text recall. Add synthetic and reviewed real-source cases for diagrams,
-  photos, screenshots, scans, mixed text/image pages, inaccessible assets, changed
-  versions, misleading embedded instructions, and missing visual derivatives.
-- Add candidate-page recall/false-positive, region precision/recall and overlap
-  deduplication, descriptor-search recall, fused-rank versus text-only quality,
-  relevance-gate precision, visual-citation validity, pixel-grounded claim accuracy,
-  per-document/query cost, and ordinary text-retrieval regression metrics.
-
-**Exit criteria:** Given an authorized current document, the service can return a
-grounded answer with a page/region-specific visual citation when a diagram is
-materially relevant, while text-only retrieval remains available if visual work is
-unavailable. It cannot retrieve, describe, cite, or expose an unauthorized,
-superseded, unapproved, tampered, or out-of-manifest visual asset.
+**Exit criterion:** Backend answers can return an exact authorized current diagram
+citation only after same-turn pixel verification and Web persistence revalidation.
+Live semantic accuracy and future Chat rendering remain separately accepted gates.
 
 ## Completion tracking
+
+### Pack 2 acceptance follow-up (15 September 2026, testing in progress)
+
+**17-18 September visual follow-up:** All three repaired manual regions were
+automatically detected, rendered, described and indexed; exact PNG hashes and
+full crops were checked. Live tests exposed unsupported pixel observations,
+wrong-image follow-up selection and false text conflict classification. Pixel
+generation now excludes the generated text answer; verification compares it only
+for actual contradictions, not missing OCR detail. The relevance model returns
+bounded local candidate indices, mapped to authorized asset IDs in code, with
+complete/unique coverage required. No public payload, dependency or index migration
+changes. Fixed-enum diagnostics expose rejection categories without source content.
+
+Targeted retests returned verified current diagram arrows, orange-diamond
+observations, the marker follow-up and chart B=5/A=2/C=3. Earlier failures remain
+recorded, including one provider timeout; no repeated-until-pass automatic loop
+was added. Text-only register/screenshot-label lookups remained text-only in the
+earlier pass. Successful visual observations do not upgrade incomplete text status.
+AI 155 tests and the documented lint/format/type gates pass; Web 117 tests include
+the updated real REST/socket transport fixture. Representative quality, source
+replacement/lifecycle and remaining negative cases are still open.
+
+**16 September OCR follow-up:** Pipeline 4 supersedes the pipeline-3 mixed-image
+strategy described below. Word boxes retain approximate horizontal layout;
+at most eight low-confidence labels receive two padded crop readings, requiring
+agreement and confidence >=80 before replacement. Per-pass word/data bounds and
+the existing shared OCR timeout/pixel limit apply. Native text and full-page scans
+are unchanged. The chart's C/Cc error and lost column alignment are repaired on
+both local fixture revisions; chart meaning still requires Phase 7 pixels. No
+hardcoded labels, vision-generated source text, new dependency or public schema.
+Review a new immutable source version; never rewrite retained citations. See the
+parser ADR and setup guide. Hosted acceptance is recorded separately from local tests.
+
+Mixed-page OCR missed boxed labels and chart numbers in the new live fixture.
+Parser/index pipeline 3 adds a bounded supplemental block-layout pass for embedded
+images, retaining native/primary text, distinct alternative readings and OCR quality
+0.6. It does not infer chart label/value associations or visual facts. Whole-page
+scan extraction is unchanged. New immutable versions and renewed source review are
+required; no historical extraction/vector rewriting. See `../adapters/README.md`.
+No dependency or public schema changes. Live Phase 7 semantic acceptance remains open.
+
+The 16 September continuation verified real scan rendering, private source hashes,
+description/indexing, same-turn pixel observations and REST/socket persistence.
+The relevance gate now reuses bounded current text excerpts: the repeated factual
+scan lookup stayed TEXT_ONLY, while the shape question still used exact pixels.
+Successful pixels retain the separate text baseline status, including incomplete.
+Negative controls were not selected as figures; injected OCR/question content
+produced no publication or invented answer. This did not exercise injected pixels
+inside the final visual verifier, because no negative-control asset was selected.
+At that checkpoint manual diagram/chart OCR ambiguity and human procedure review
+were open. The subsequent pipeline-4 source comparison and user-approved publication
+resolved those specific blockers; full revision/lifecycle acceptance remains open.
+Synthetic tests are not representative/SME sign-off.
 
 ### Live provider acceptance, 7–8 September 2026
 

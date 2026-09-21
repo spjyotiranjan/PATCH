@@ -8,7 +8,7 @@
 | MongoDB models and browser-facing API                | **Backend complete through Phase 6 (2026-09-08).** Phase 3–6 state/authorization tests, hosted workflow checks, and the dated repair acceptance cover the implemented backend scope. |
 | Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04.                         |
 | Phase 1–6 delivery                                   | **Complete for the Web backend only (2026-09-08).** This is not a synchronized product/UI completion claim; the separate global UI, representative-source/SME, and operational gates remain governed by `Development_Plan.md`. |
-| Phase 7 delivery                                     | In progress: visual assets, private R2 storage, authorized routes, durable render/description jobs and verified image descriptions implemented. Visual indexing/retrieval and Chat citations remain pending. |
+| Phase 7 delivery                                     | Backend implementation delivered; representative live visual-quality/cost acceptance pending. Automatic processing/retrieval are opt-in; no UI completion claim. |
 
 ## Goal
 
@@ -194,141 +194,159 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 7 - Multimodal visual-source retrieval and asset mediation (backend-only)
 
-**Status:** In progress — visual asset foundation implemented. This is a Web/AI backend phase only. It deliberately creates no
-browser UI, renderer, or global synchronized-phase completion claim.
+**Status (14 September 2026):** Backend implementation delivered; representative
+live visual-quality/cost acceptance remains open. UI files and synchronized phase
+statuses are unchanged. Automatic processing and visual Chat are opt-in.
 
-**Current milestone:** `/api/document-versions/{versionId}/visual-assets` supports
-POST of an explicit page/crop and GET of authorized current assets;
-`/api/visual-assets/{assetId}/source` resolves a ready asset after fresh manifest
-authorization. `VISUAL_RENDER` uses the existing fenced outbox/worker and signed AI
-client; Web validates provenance, size, PNG dimensions and checksum before storing
-private content-addressed R2 derivatives. Migration `0004_visual_assets` adds a
-tenant/version/selection unique index; per-version transactional allocation limits
-explicit assets to 100. Operator retry resets a failed visual asset to queued.
-This milestone uses existing packages and adds only Web `VISUAL_RENDER_DPI`.
-No asset enters the Chat evidence manifest yet. Automatic region identification,
-visual indexing/retrieval, verified visual Chat results and their evaluation are
-still required before Phase 7 completion. See the
-[Phase 7 manual test](../../Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md).
+**Implemented modules:**
 
-**Description milestone:** `POST /api/visual-assets/{assetId}/describe` queues
-`VISUAL_DESCRIBE` only after current-source mutation authorization. The worker
-validates correlation and exact derivative checksum, then lease-fences persistence
-of the bounded verified description. Description state is separate from rendering;
-failure/dead-letter/retry never removes the original or derivative. No new package,
-environment setting or migration is needed; fields are additive and old assets
-report `NOT_REQUESTED`. This endpoint is explicit because each attempt can make
-two paid vision calls. Descriptions do not enter Chat or ordinary source chunks.
+- `visual-assets.ts`: authorized explicit page/crop requests, immutable private
+  R2 PNGs, safe metadata listing, verified descriptions and fresh source opening.
+  Original/derivative hashes, page/bounds, renderer/DPI and dimensions are retained.
+  A source URL expires after at most 300 seconds; already-issued URLs cannot be
+  instantly revoked. List/Chat/history never store or expose URLs, keys or bytes.
+- `visual-pipeline.ts`: idempotent discovery initiation/status and descriptor
+  indexing. AI owns local PDF triage and preview detection. Web validates
+  correlated tenant-bound parent/SHA/page results, finite positive normalized bounds,
+  class/confidence/uncertainty, max four regions, and current document eligibility.
+  It rejects confidence below 0.5 and deduplicates overlap at intersection/min-area
+  >=0.8, including contained crops, in deterministic confidence/position order.
+  Per-version transactional allocation enforces 48 automatic/100 total assets.
+  Reused manual pages/crops finish enrichment when explicit discovery requests it;
+  an undescribed manual derivative cannot silently suppress searchable evidence.
+  Discovery records distinguish detection status from end-to-end status and expose
+  candidate/completed pages, total/scanned counts, partial coverage and asset counts.
+  COMPLETE is not reported while automatic rendering/description/indexing is pending.
+- `jobs.ts`: fenced outbox stages `VISUAL_TRIAGE → VISUAL_DISCOVER →
+  VISUAL_RENDER → VISUAL_DESCRIBE → VISUAL_INDEX`; independent `VISUAL_DELETE`.
+  Each job has bounded retries/five attempts/dead-letter recovery. Automatic
+  regions chain all stages; manual renders remain rendering-only until description
+  is requested. Verified descriptions enqueue indexing. Correlation, source state,
+  SHA, selection fingerprint, description fingerprint and index generation are
+  rechecked before commit. Lost leases and stale generations cannot publish success.
+- `documents.ts`: activating a linked approved/indexed PDF optionally queues
+  discovery when `VISUAL_PROCESSING_ENABLED=true`. Existing versions are not
+  bulk-enriched; owners/managers may explicitly request discovery. Visual failure
+  never changes successful text indexing or the active original version.
+- `visual-chat.ts`: when `VISUAL_RETRIEVAL_ENABLED=true`, resolves at most
+  100 READY/described/indexed assets from the assigned authorized active versions;
+  discloses a truncated scope. Signed AI search selects max three IDs/roles.
+  Only selected assets receive AI-only expiring source URLs. The usual private
+  question socket returns text plus bounded verified visual observations/citations.
+  Before persistence, revalidate current access, parent/version/SHA/bounds, index
+  state/fingerprint/model, class, selected role and observation-to-citation IDs.
+  An uninspected, altered, revoked or superseded asset cannot become a saved citation.
+- `visual-repair.ts`: bounded fair recovery scans restart requested missing work,
+  disable ineligible vectors immediately in product state, enqueue tenant/version
+  visual-only deletion and rebuild a restored source with a new index generation.
+  Periodic cleanup catches stale external upserts whose workers lost their lease.
+  Reads always reauthorize, even before asynchronous cleanup. Revoking one user's
+  access never deletes vectors still needed by other authorized users.
+  Originals/derivatives remain retained; there is no automatic destructive R2 purge.
+- Migration `0005_visual_retrieval` adds eligibility/discovery indexes alongside
+  `0004_visual_assets`. Additive fields preserve older assets. Never remove
+  migration markers to retry a job.
 
-**Remaining implementation plan — automatic discovery, retrieval, and Chat
-mediation:** The following is planned Phase 7 work, not a claim that automatic
-detection, visual vectors, or visual Chat citations already exist.
+**Public API and Chat contract:**
 
-1. **Discover candidates cheaply before model use.** After a version is active,
-approved, indexed, PDF-backed, and still reachable through its current logical
-document link, a fenced `VISUAL_DISCOVER` outbox job performs deterministic local
-page triage. It may use only bounded parser/render facts—page count, native-text
-density, image/XObject presence when available, drawing density, and nearby
-caption signals such as `Figure`, `Diagram`, `Schematic`, `Flow`, or `Wiring`.
-These signals only select pages; they are never visual evidence or user-visible
-claims. Pages without a qualifying signal do not incur a model call. Reaching a
-candidate cap must produce an explicit partial state, never a false claim of full
-document coverage.
-2. **Detect regions only on shortlisted previews.** AI receives a checksum-bound,
-low-resolution page preview through the existing signed boundary. The configured
-low-effort routing model returns structured candidate regions: normalized bounds,
-visual class (`SCHEMATIC`, `DIAGRAM`, `CHART`, `TABLE`, `PHOTO`, `SCREENSHOT`, or
-`OTHER`), confidence, and uncertainty. Its output is a proposal, never evidence.
-Web validates positive finite bounds/provenance/caps, deterministically deduplicates
-overlaps, and queues immutable high-resolution renders using the existing asset
-fingerprint. It rejects model-proposed instructions, malformed coordinates, stale
-parents, private URLs and raw bytes.
-3. **Bound cost and lifecycle.** Before code is written, configuration and the
-contract must declare safe caps for candidate pages/version, regions/page,
-automatic assets/version, preview DPI/pixels, detector calls, and queue attempts.
-Detection is idempotent by parent checksum plus discovery-pipeline version.
-Activation, archive, revocation, supersession, unlinking and retention fence both
-enqueue and commit. Manual visual assets remain available independently.
-4. **Index descriptions, never image bytes.** A ready verified description is
-queued through `VISUAL_INDEX`. Web records its fingerprint/state and sends only
-immutable metadata plus verified description text. `IMAGE_REGION` is a rebuildable
-vector projection in `PINECONE_VISUAL_NAMESPACE`—mapped by deployment to
-`visual-{environment}`—not an approved source claim,
-Mongo authority, copied document, or public URL. Its metadata includes tenant/
-environment, parent document/version, page/bounds, SHA, asset/pipeline/model and
-embedding versions. Lifecycle changes trigger scoped delete/rebuild while originals
-and derivatives follow retention policy.
-5. **Build visual scope from current authorization.** Turn preparation resolves
-ready/indexed visual assets only from the same active approved versions already in
-the text manifest. Web sends stable metadata and expiring AI-only source URLs only
-for a bounded shortlist. Browser responses, persisted turns, audits and logs never
-retain URLs or pixels. `@` references may narrow/prioritize scope but cannot add
-assets outside the user's document set.
-6. **Validate visual citations at both edges.** Before persistence Web re-resolves
-scope and verifies asset ID, tenant, parent document/version, page/bounds, SHA,
-`READY` state, index state, approval and current access. A stale, altered,
-out-of-scope, unauthorized or uninspected returned asset fails safely. Chat stores
-a stable citation only; a source route freshly authorizes any later browser URL.
+| Operation | Endpoint |
+| --- | --- |
+| Start discovery / inspect coverage | POST / GET `/api/document-versions/{versionId}/visual-discovery` |
+| Explicit render / list assets | POST / GET `/api/document-versions/{versionId}/visual-assets` |
+| Describe a rendered asset | POST `/api/visual-assets/{assetId}/describe`, body `{}` |
+| Index a verified description | POST `/api/visual-assets/{assetId}/index`, body `{}` |
+| Open the exact retained PNG | GET `/api/visual-assets/{assetId}/source` |
 
-**Planned visual Chat contract:** `QuestionRequest` gains a bounded visual-scope
-manifest and private response-scoped source descriptors. `QuestionResult` gains
-separate `visualCitations` and `visualEvidenceState: TEXT_ONLY | AVAILABLE |
-UNAVAILABLE`. A citation contains stable asset ID, parent document/version, page,
-normalized bounds, derivative SHA, class and relevance role (`REQUIRED` or
-`HELPFUL`); never a R2 key, URL, bytes or raw model output. An approved answer may
-be text-only; it may claim visual evidence only after inspecting that exact asset.
+Mutation requires document owner/approved manager access; reads require a current
+authorized inclusion path. Chat returns `visualEvidenceState`,
+`visualCitations` and `visualObservations` through both existing REST and product
+WebSocket transports. Citation fields identify asset/document/version/page/bounds,
+SHA, description fingerprint, class and REQUIRED/HELPFUL role. The later UI can
+resolve each asset through the source endpoint; no direct browser-to-AI connection
+or model-generated replacement image is introduced.
 
-**Goal:** Preserve diagrams, photographs, screenshots, schematics, and page visual
-context as immutable source assets; retrieve the exact authorized visual when it
-materially supports a question; and return a validated visual citation that a later
-Chat UI can render without giving the browser direct R2 or AI access.
+**Safety/cost:** Descriptors are not approved facts; AI must inspect exact pixels
+in the current turn. Visual observations cannot supply operating/safety actions in
+place of applicable text citations. Optional visual failure retains valid text;
+required visual failure is incomplete. Separate namespaces, relevance gating,
+bounded candidates and opt-in automatic processing limit additional paid work.
+Retrying external inference/upserts can repeat cost; durable jobs are not a billing
+exactly-once guarantee. No new dependencies, R2 credentials in AI, or Web retrieval SDK.
 
-**Prerequisites:** A contract-first `VisualSourceAsset`/visual-citation schema in
-the FastAPI OpenAPI artifact; a reviewed AI visual-extraction and embedding
-strategy; bounded R2 derivative policy; document-version authorization; and the
-Phase 6 audit, retry, deletion, and safety controls. Model/vector selection must
-follow the repository dependency policy before a package, provider, or index change.
+**Verification:** Tests cover the full durable stage chain, quotas/overlap
+deduplication, coverage states, stale-index fencing, exact citation checks,
+selected-only URL issuance, invented selections, revocation, orphan disable and
+restoration/rebuild. Existing rendering/description tests cover corrupt PNGs,
+supersession, tenant isolation, leased retries and retained-source availability.
+Generated OpenAPI/TypeScript and real signed REST/socket integration are tested.
+Recorded gate (14 September 2026): 111 Web and 135 AI tests pass, along with Web
+lint/typecheck/build, AI Ruff/format/mypy/Pyright and paired synthetic evaluation.
+The npm production-dependency audit reports zero vulnerabilities.
+See [Phase 7 manual testing](../../Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
+for representative source inspection, outage, authorization and recovery acceptance.
 
-**Deliverables:**
-
-- Persist version-bound visual-asset records for a full rendered page and detected
-  meaningful regions. Each record carries immutable `documentId`,
-  `documentVersionId`, page, normalized bounding box, derivative R2 key/checksum,
-  extraction/index state, source anchor, and provenance; it is never a copied
-  logical document or a public object URL.
-- Extend the staged document outbox with idempotent visual extraction/index work,
-  bounded retries and dead-letter/recovery states. A visual-processing failure is
-  explicit and auditable; it must not silently claim that a document's figures are
-  searchable or corrupt the already-valid text-source lifecycle.
-- Reauthorize the exact parent version and current inclusion path before issuing a
-  short-lived derivative URL. Revocation, archival, supersession, approval changes,
-  and retention deletion cascade to visual assets and prevent stale visual citations
-  from being persisted or opened.
-- Add Web-to-AI manifest entries for only the currently authorized visual assets and
-  validate every returned visual citation against that manifest, parent version,
-  page/region anchor, and derived-object checksum before it reaches chat history.
-  A visual reference can narrow evidence; it can never broaden retrieval scope.
-- Mediate visual result metadata through the existing authenticated REST/WebSocket
-  Chat path. The later UI receives a stable citation/asset descriptor, not an R2
-  credential, signed source URL, raw model output, or browser-to-AI endpoint.
-- Add authorization, lifecycle, idempotency, version-propagation, expired-URL,
-  citation-tampering, and Web/AI contract tests. Manual acceptance must prove that
-  an authorized answer can cite and open the exact diagram while an unauthorized or
-  superseded asset cannot be retrieved.
-- Add discovery, rank-fusion, relevance-gate and pixel-grounding tests: no-figure
-  documents, decorative images, duplicate diagrams, image-only scans, mixed pages,
-  ambiguous labels, embedded injections, text-relevant/image-irrelevant questions,
-  image-required questions, expired sources, partial discovery, deletion/rebuild
-  and visual-provider outage without ordinary Chat regression.
-
-**Exit criteria:** An answer may include a visual citation only when Web can resolve
-the exact current approved parent version, page/region and authorized derivative.
-The same logical document linked to multiple entities retains one visual asset set;
-new version activation changes the resolved visual set without copying assets. Text
-Chat remains safe and usable when visual extraction, indexing, or a visual provider
-is unavailable.
+**Exit criterion:** A valid current diagram can be selected, pixel-verified,
+persisted as an exact citation and freshly opened without copying the logical
+document across entities. Live representative quality/cost and future UI rendering
+are separate gates; no blanket completion of those gates is claimed here.
 
 ## Completion tracking
+
+### Pack 2 acceptance follow-up (15 September 2026, testing in progress)
+
+**16 September follow-up:** The user-reviewed four-step synthetic procedure was
+published unchanged through the normal Owner workflow. Live checks passed published
+immutability, current-period run deduplication, required-step blocking, performed
+digital-only review/log submission, stale run revision rejection and completed-run
+immutability. No physical work occurred. The 17 September continuation verified
+actual next-day rollover (fresh unchecked steps, unchanged completed history) and
+the published export's download; its export/index job completed. AI parser pipeline 4 requires
+a new immutable manual version and renewed review; Web payloads are unchanged.
+
+**17-18 September follow-up:** The new pipeline-4 manual was source-compared,
+approved, indexed and activated without approving its faulty historical versions.
+Three automatically discovered exact visual assets reached READY. Current diagram,
+marker/follow-up and chart observations passed targeted real-service retests; the
+stored chart result replayed identically over REST and WebSocket after restart.
+Linking the manual to the second Equipment twice left one logical source/current
+version across both Equipments and both Projects, with the same three asset IDs.
+The link-triggered jobs completed, drive/main-Project profiles became FRESH, and
+the published procedure remained unchanged; old unrelated dead letters were retained.
+No UI or public schema changes; Web's 117 tests, including paired AI transport,
+pass. This does not certify replacement/archive races or representative accuracy.
+
+The configured Mongo DNS resolver timed out while system DNS/ping succeeded.
+The first test server used a process-only empty resolver list, without rewriting
+local credentials/settings. On resumption, configured DNS succeeded and system
+DNS failed; the test server returned to the unchanged configured resolver.
+Readiness now bounds each parallel probe to five seconds;
+unsettled probes are shared across requests until they settle, preventing duplicate
+probe accumulation. AI readiness has a five-second maximum and no retry. Native
+DNS/storage work may outlive the HTTP response; timeout does not claim cancellation
+or switch DNS automatically. Public output remains aggregate; only safe service
+names appear in logs. No dependency/schema change or phase sign-off.
+
+Live visual discovery exposed a transaction-helper defect: a committed callback
+returning `void` was incorrectly reported as HTTP 500. Completion is now tracked
+independently of the callback value, with regression tests for void mutations,
+retry results, failure propagation, and session cleanup. Retesting discovery
+returned HTTP 200 and reused the existing queued job; no migration or API payload
+change is required. Visual end-to-end acceptance remains in progress.
+
+The 16 September continuation passed scan PNG checksum/source authorization,
+REST visual observations, WebSocket replay/conflict/authentication, scoped log
+draft/edit conflicts, Project assignment exclusion, and whole-AI outage source
+availability. The relevance optimization is AI-owned and changes no public schema.
+Web clients must distinguish the text status from visual availability; verified
+observations do not promote incomplete text to approved. Manual revision/crop
+acceptance and human publication/run checks remain open for this new fixture pack.
+
+Full npm audit subsequently reported two high-severity development-tooling findings
+in the `@redocly/openapi-core` / `js-yaml` chain; production-only audit stayed clear.
+The [publisher advisory](https://github.com/advisories/GHSA-2883-xcg3-v3hh) lists
+4.3.2 as a patched js-yaml version. An npm remediation dry-run failed with
+`EALLOWREMOTE` under the local package-fetch restriction. No package-policy override
+or dependency change was made; full dependency remediation remains an open gate.
 
 ### Live API acceptance, 7–8 September 2026
 

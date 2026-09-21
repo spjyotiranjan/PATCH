@@ -414,6 +414,8 @@ export async function validateAnswer(
   answer: Schema["QuestionResult"],
   request: Schema["QuestionRequest"],
 ) {
+  const { validateVisualAnswer } = await import("./visual-chat");
+  await validateVisualAnswer(ctx, answer, request);
   if (
     answer.requestId !== request.requestId ||
     answer.chatSession.id !== request.chatSession.id ||

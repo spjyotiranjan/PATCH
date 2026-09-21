@@ -418,6 +418,14 @@ export async function activateVersion(ctx: Context, id: string) {
       versionId: id,
       supersededVersionId: document.activeVersionId,
     });
+    if (
+      ctx.config.VISUAL_PROCESSING_ENABLED &&
+      version.contentType === "application/pdf" &&
+      links.length
+    ) {
+      const { enqueueDiscovery } = await import("./visual-pipeline");
+      await enqueueDiscovery(tx, id);
+    }
     return {
       documentId: version.documentId,
       activeVersionId: id,

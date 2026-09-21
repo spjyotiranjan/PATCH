@@ -7,6 +7,7 @@ import { withDatabaseTransaction } from "@/lib/database/mongodb";
 import { audit, fail, fingerprint, oid, view, type Context } from "./context";
 import type { Schema } from "./models";
 import { assignedVersionIds, resolveManifest, validateAnswer } from "./scope";
+import { prepareVisualChat } from "./visual-chat";
 
 export const turnSchema = z
   .object({
@@ -97,6 +98,9 @@ function safeUnavailable(
     },
     answer: { summary: null, steps: [] },
     citations: [],
+    visualEvidenceState: request.visualSelection ? "UNAVAILABLE" : "TEXT_ONLY",
+    visualCitations: [],
+    visualObservations: [],
     warnings: [
       "Verified guidance is unavailable. Consult approved sources and the responsible reviewer.",
     ],
@@ -166,7 +170,10 @@ export async function submitTurn(
             { role: "user" as const, content: t.question },
             {
               role: "assistant" as const,
-              content: (t.result?.answer.steps ?? [])
+              content: [
+                ...(t.result?.answer.steps ?? []),
+                ...(t.result?.visualObservations ?? []),
+              ]
                 .map((s) => s.text)
                 .join("\n")
                 .slice(0, 10000),
@@ -206,6 +213,18 @@ export async function submitTurn(
   const request = prepared.request!;
   let result: Schema["QuestionResult"];
   try {
+    // Private source descriptors are attached only after authorized relevance selection.
+    try {
+      await prepareVisualChat(ctx, request);
+    } catch {
+      request.visualSelection = {
+        requestId: request.requestId,
+        state: "UNAVAILABLE",
+        selected: [],
+        visualRequired: false,
+      };
+      request.visualSources = [];
+    }
     result = await askAiSocket(ctx.config, request, signal);
     await validateAnswer(ctx, result, request);
   } catch {

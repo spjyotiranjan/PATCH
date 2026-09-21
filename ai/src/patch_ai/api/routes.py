@@ -32,10 +32,25 @@ from patch_ai.schemas.contracts import (
     RevalidationResult,
     VisualDescribeRequest,
     VisualDescribeResult,
+    VisualDiscoverRequest,
+    VisualDiscoverResult,
+    VisualDocumentRequest,
+    VisualIndexRequest,
+    VisualIndexResult,
     VisualRenderRequest,
     VisualRenderResult,
+    VisualSearchResult,
+    VisualTriageResult,
 )
-from patch_ai.services import answering, drafting, ingestion, visual_assets, visual_understanding
+from patch_ai.services import (
+    answering,
+    drafting,
+    ingestion,
+    visual_assets,
+    visual_ingestion,
+    visual_retrieval,
+    visual_understanding,
+)
 
 router = APIRouter()
 
@@ -64,6 +79,72 @@ CONTRACT_ERRORS: dict[int | str, dict[str, Any]] = {
 async def health() -> HealthStatus:
     """Process liveness. This endpoint intentionally does not inspect dependencies."""
     return HealthStatus()
+
+
+@router.post(
+    "/v1/visual-assets/triage",
+    response_model=VisualTriageResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def triage_visuals(request: VisualDocumentRequest, http: Request) -> VisualTriageResult:
+    return await run_workflow(http, visual_ingestion.triage, request, http.app.state.settings)
+
+
+@router.post(
+    "/v1/visual-assets/discover",
+    response_model=VisualDiscoverResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def discover_visuals(request: VisualDiscoverRequest, http: Request) -> VisualDiscoverResult:
+    return await run_workflow(
+        http, visual_ingestion.discover, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/index",
+    response_model=VisualIndexResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def index_visual(request: VisualIndexRequest, http: Request) -> VisualIndexResult:
+    return await run_workflow(
+        http, visual_ingestion.index, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/search",
+    response_model=VisualSearchResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def search_visuals(request: QuestionRequest, http: Request) -> VisualSearchResult:
+    return await run_workflow(
+        http, visual_retrieval.search, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/delete-vectors",
+    response_model=DeleteVectorsResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def delete_visuals(request: DeleteVectorsRequest, http: Request) -> DeleteVectorsResult:
+    try:
+        await run_workflow(
+            http,
+            http.app.state.providers.visual_delete,
+            visual_ingestion.delete_filter(
+                request.tenant_id, request.document_version_id, http.app.state.settings
+            ),
+        )
+        return DeleteVectorsResult(request_id=request.request_id, status="deleted")
+    except Exception:
+        return DeleteVectorsResult(request_id=request.request_id, status="failed")
 
 
 @router.get(

@@ -47,11 +47,13 @@ export async function withDatabaseTransaction<T>(
   const client = getMongoClient(config);
   const database = client.db(config.MONGODB_DB_NAME);
   const session = client.startSession();
-  let result: T | undefined;
+  let result: { value: T } | undefined;
 
   try {
     await session.withTransaction(async () => {
-      result = await operation(database, session);
+      // A successful mutation may return void. Track completion separately
+      // from its value so a committed transaction is not reported as failed.
+      result = { value: await operation(database, session) };
     });
   } finally {
     await session.endSession();
@@ -60,5 +62,5 @@ export async function withDatabaseTransaction<T>(
   if (result === undefined) {
     throw new Error("Database transaction completed without a result.");
   }
-  return result;
+  return result.value;
 }

@@ -7,10 +7,11 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from PIL import Image, ImageChops
 
+from patch_ai.adapters.ocr_layout import transcribe
 from patch_ai.api.budget import remaining_seconds
 from patch_ai.config import Settings
 
@@ -53,7 +54,7 @@ def available(settings: Settings) -> bool:
         return False
 
 
-def image_text(image: Image.Image, settings: Settings) -> str:
+def image_text(image: Image.Image, settings: Settings, *, supplemental_labels: bool = False) -> str:
     import pytesseract  # type: ignore[import-untyped]
 
     if image.width * image.height > settings.ocr_max_image_pixels:
@@ -67,7 +68,7 @@ def image_text(image: Image.Image, settings: Settings) -> str:
         pytesseract.pytesseract.tesseract_cmd = executable(settings)
         deadline = time.monotonic() + settings.ocr_timeout_seconds
 
-        def recognize(candidate: Image.Image) -> str:
+        def recognize(candidate: Image.Image, config: str = "") -> str:
             timeout = min(
                 remaining_seconds(settings.ocr_timeout_seconds), deadline - time.monotonic()
             )
@@ -77,30 +78,59 @@ def image_text(image: Image.Image, settings: Settings) -> str:
                 pytesseract.image_to_string(
                     candidate,
                     lang=settings.ocr_languages,
+                    config=config,
                     timeout=timeout,  # pyright: ignore[reportArgumentType]
                 )
             ).strip()
 
-        text = recognize(image)
+        def recognize_words(candidate: Image.Image, config: str) -> dict[str, Any]:
+            timeout = min(
+                remaining_seconds(settings.ocr_timeout_seconds), deadline - time.monotonic()
+            )
+            if timeout <= 0:
+                raise TimeoutError("OCR_TIMEOUT")
+            return cast(
+                dict[str, Any],
+                pytesseract.image_to_data(
+                    candidate,
+                    lang=settings.ocr_languages,
+                    config=config,
+                    output_type=pytesseract.Output.DICT,
+                    timeout=timeout,  # pyright: ignore[reportArgumentType]
+                ),
+            )
+
+        text = (
+            transcribe(image, recognize_words, settings.ocr_max_image_pixels)
+            if supplemental_labels
+            else recognize(image)
+        )
+
+        def append_reading(extra: str) -> None:
+            nonlocal text
+            known = {" ".join(line.split()).casefold() for line in text.splitlines()}
+            additions = []
+            for line in extra.splitlines():
+                normalized = " ".join(line.split()).casefold()
+                if normalized and normalized not in known:
+                    additions.append(line)
+                    known.add(normalized)
+            if additions:
+                text = "\n\n".join([text, "\n".join(additions)]).strip()
+
         # A colour warning on a dark panel can be missed by Tesseract's default
         # grayscale conversion. A bounded red-channel pass recovers additional
         # glyphs without replacing the primary transcription or guessing values.
         # Novel/ambiguous readings remain visible for mandatory source review.
+        if supplemental_labels:
+            return text
         with image.convert("RGB") as rgb:
             red, green, blue = rgb.split()
             try:
                 with ImageChops.difference(red, green) as difference:
                     coloured = difference.getbbox() is not None
                 if coloured:
-                    extra = recognize(red)
-                    known = {" ".join(line.split()).casefold() for line in text.splitlines()}
-                    additions = [
-                        line
-                        for line in extra.splitlines()
-                        if line.strip() and " ".join(line.split()).casefold() not in known
-                    ]
-                    if additions:
-                        text = "\n\n".join([text, "\n".join(additions)]).strip()
+                    append_reading(recognize(red))
             finally:
                 red.close()
                 green.close()

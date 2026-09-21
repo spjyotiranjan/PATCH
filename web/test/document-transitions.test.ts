@@ -59,6 +59,7 @@ beforeEach(() => {
   runtime.db = db;
   ctx = {
     db,
+    config: { VISUAL_PROCESSING_ENABLED: false },
     actor: { userId, tenantId: "test" },
     requestId: "test-request",
   } as Context;

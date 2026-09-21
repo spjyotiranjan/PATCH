@@ -22,13 +22,20 @@ This hierarchy improves focus only when measured. The system always retains a st
 
 ## Source chunk record
 
-Phase 7's initial visual asset foundation preserves explicit PDF pages/regions as
-private version-bound PNGs. Rendering does not establish visual understanding,
-model evidence, OCR correctness or vector-index readiness. These assets are not
-currently supplied to the answering graph and cannot support Chat claims. The
-future visual retrieval branch must extend scope/citation validation and receive
-independent image-understanding evaluation before use as evidence. Current
-`SOURCE_CHUNK` and `ENTITY_PROFILE` filters/citation rules remain in force.
+Mixed-image OCR pipeline 4 retains approximate word positions in whitespace and
+may replace a weak label only after two confident crop readings agree. This is
+reviewable recognition, not measured correctness or inferred chart relationships.
+Do not turn aligned characters alone into physical instructions. Visual meaning
+still follows the same-turn pixel verification boundary below. Changed parsing
+requires new immutable reviewed versions, not mutation of historical source text.
+
+Phase 7 preserves PDF pages/regions as private version-bound PNGs and separately
+indexes verified descriptions. Rendering or descriptor matching alone establishes
+no claim. Opt-in Chat inspects exact authorized pixels in the current turn and
+independently verifies factual observations before returning visual citations.
+These observations cannot replace source-chunk support for operating/safety steps.
+Current `SOURCE_CHUNK` and `ENTITY_PROFILE` filters/citation rules remain in force.
+Representative image-understanding quality still requires independent review.
 
 ```text
 recordType = SOURCE_CHUNK
@@ -170,6 +177,10 @@ document facts. Source text cannot override approval/access metadata. A fixture
 disclaimer or old publication date alone does not make an active source outdated;
 an explicit applicable expiry/supersession statement can. Never upgrade a model's
 negative evidence state merely because retrieval returned a chunk.
+The verifier's conflict flag requires incompatible applicable source facts. A
+draft's unsupported claim, OCR layout ambiguity or an earlier answer's uncertainty
+is an insufficiency, not a second conflicting source. Reject unsupported claims
+without manufacturing a source disagreement; never let history override current evidence.
 
 Generation and revalidation use the same criticality rubric, assessed from the
 Project purpose and actual unchanged instructions. Do not hard-code HIGH for
@@ -276,6 +287,18 @@ Raw source, history, question, model and signed URL content is excluded from
 telemetry. Metadata-only spans describe query/filter counts, graph stage,
 fallback, timings and validation outcome. Raw LangSmith callbacks are disabled.
 
+Visual observation generation receives the actual pixels, current question,
+authorized image bindings and bounded history for reference resolution. Do not
+feed the generated text answer back as pixel evidence: it can contain nonvisual
+facts and text citation IDs. Independent pixel verification may compare the
+separately grounded text for real contradictions. Missing OCR detail or a text
+baseline's inability to see an arrow is not contradictory source evidence;
+genuine contradictory facts still fail closed. No visual result upgrades an
+incomplete text baseline or supplies physical operating authority.
+Relevance classification uses bounded per-request candidate indices. Map these
+back to authorized asset IDs in code; reject missing, duplicate or foreign indices.
+The model must not copy opaque, near-identical database IDs to bind a descriptor.
+
 ## Required test cases
 
 - A question for Equipment A cannot cite a document linked only to inaccessible Equipment B.
@@ -300,17 +323,17 @@ Verified visual descriptions are untrusted retrieval aids, not new approved fact
 The describe workflow checks actual derivative pixels twice using separate model
 calls, rejects unsupported descriptions, and retains uncertainty about illegible
 labels and ambiguous connections. This cannot guarantee perfect image perception.
-No generated description enters ordinary source chunks, procedures or Chat evidence
-in the current milestone. Future visual answers must inspect retrieved pixels and
-validate exact asset/version/checksum authorization; a description alone cannot
-justify a pixel-only claim. Source text embedded in images cannot grant authority.
+No generated description enters ordinary source chunks, procedures or Chat evidence.
+Visual answers inspect retrieved pixels and validate exact asset/version/checksum
+authorization; a description alone cannot justify a pixel-only claim. Source text
+embedded in images cannot grant authority.
 
-## Phase 7 planned visual relevance and evidence controls
+## Phase 7 implemented visual relevance and evidence controls
 
 - Text and visual-description vector scores are not comparable across namespaces.
-  Future retrieval filters each namespace independently and uses bounded rank-based
+  Retrieval filters each namespace independently and uses bounded rank-based
   fusion rather than raw-score arithmetic, with deterministic ties for auditability.
-  Text/profile vectors use configured `PINECONE_NAMESPACE`; future visual-description
+  Text/profile vectors use configured `PINECONE_NAMESPACE`; visual-description
   vectors use configured `PINECONE_VISUAL_NAMESPACE`. Deployment maps them to
   `{environment}` and `visual-{environment}`. Namespace names never come from
   request or model content.
@@ -325,6 +348,11 @@ justify a pixel-only claim. Source text embedded in images cannot grant authorit
 - A visual may clarify a text-grounded answer automatically even if a user does not
   ask for an image. It is not attached merely because it was retrieved: positive
   relevance and verified material support are required.
+  The gate compares shortlisted descriptors with at most four current scoped
+  text excerpts of 2,000 characters each. These remain untrusted relevance hints;
+  they do not bypass the answer verifier or become new citations. A redundant
+  image of already-sufficient text is not REQUIRED or HELPFUL merely because it
+  matches the topic. Prior image requests are context, not continuing instructions.
 - For physical action, operating values, safety isolation, or procedure claims, a
   diagram does not replace applicable approved source chunks or the existing safety
   rubric. Distinguish visible labels/connections from inferred operation.

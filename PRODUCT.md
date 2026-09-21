@@ -34,6 +34,7 @@ P.A.T.C.H. combines canonical document/version management with an authorization-
 - Documents can be added as a new logical document or as a new version of an existing document from Equipment and Project document managers.
 - Equipment and Project creation reuse the same ingestion workflow and permit the document step to be skipped.
 - Cloudflare R2 stores immutable original versions; MongoDB is the product system of record; Pinecone stores derived source-chunk vectors and AI routing-profile vectors.
+- The backend-only visual extension preserves exact private PDF page/region PNGs and separate visual-description vectors. A relevant image can support a factual Chat observation only after current authorization and same-turn pixel verification; the exact image remains retrievable through Web. Descriptors/OCR are not substitutes for pixels, and images cannot replace approved source support for operational/safety steps.
 - Next.js is the UI and product backend. Python FastAPI owns ingestion, retrieval, LangGraph/LangChain orchestration, OpenAI calls, evidence assessment, citations, and AI drafts.
 - AI procedure output carries source citations and a `LOW | MODERATE | HIGH | SEVERE` review-need classification derived from coverage, conflicts, freshness, applicability, and hardware/safety criticality. Every level still requires human review; severe evidence gaps block publication.
 - An Equipment's creator is its owner. The owner may mutate it and approve or reject Equipment-scoped manage-access requests; approved managers may mutate that Equipment. This access never grants Project membership or introduces a third Project role.
@@ -55,7 +56,7 @@ No real customer, performance, downtime-reduction, or retrieval-quality claims h
 
 1. Canonical sources and immutable versions before AI convenience.
 2. Current authorization and active-version resolution on every retrieval.
-3. Entity profiles route retrieval; exact source passages prove answers.
+3. Entity profiles and visual descriptors route retrieval; exact source passages and verified current pixels support their respective cited claims.
 4. Project work stays in Project context, including maintenance logs.
 5. Human review owns controlled records and safety decisions.
 

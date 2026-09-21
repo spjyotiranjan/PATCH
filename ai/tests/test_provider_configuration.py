@@ -92,12 +92,14 @@ def test_model_and_reasoning_selection_come_from_settings(
         def __init__(self, **kwargs: Any) -> None:
             calls.append(kwargs)
 
-        def with_structured_output(self, schema: type[BaseModel], *, method: str) -> "FakeModel":
-            assert schema is Output and method == "json_schema"
+        def with_structured_output(
+            self, schema: type[BaseModel], *, method: str, include_raw: bool
+        ) -> "FakeModel":
+            assert schema is Output and method == "json_schema" and include_raw
             return self
 
-        def invoke(self, *args: Any, **kwargs: Any) -> Output:
-            return Output(value="fixture")
+        def invoke(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            return {"parsed": Output(value="fixture"), "raw": None, "parsing_error": None}
 
     monkeypatch.setattr("patch_ai.adapters.providers.ChatOpenAI", FakeModel)
     settings = Settings(
@@ -130,9 +132,9 @@ def test_images_use_bounded_high_detail_content_blocks(monkeypatch: pytest.Monke
         def with_structured_output(self, *args: Any, **kwargs: Any) -> "FakeModel":
             return self
 
-        def invoke(self, messages: Any, **kwargs: Any) -> Output:
+        def invoke(self, messages: Any, **kwargs: Any) -> dict[str, Any]:
             captured.append(messages)
-            return Output(value="fixture")
+            return {"parsed": Output(value="fixture"), "raw": None, "parsing_error": None}
 
     monkeypatch.setattr("patch_ai.adapters.providers.ChatOpenAI", FakeModel)
     provider = Providers(Settings(_env_file=None))  # pyright: ignore[reportCallIssue]
@@ -144,3 +146,21 @@ def test_images_use_bounded_high_detail_content_blocks(monkeypatch: pytest.Monke
     with pytest.raises(ValueError, match="VISUAL_MODEL_INPUT_LIMIT"):
         REAL_MODEL(provider, Output, "system", "describe", images=(b"x",) * 5)
     assert len(captured) == 1
+
+
+def test_vector_store_uses_explicit_distinct_namespaces(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr("patch_ai.adapters.providers.OpenAIEmbeddings", lambda **kwargs: object())
+    monkeypatch.setattr(
+        "patch_ai.adapters.providers.PineconeVectorStore", lambda **kwargs: calls.append(kwargs)
+    )
+    settings = Settings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]
+        app_env="staging",
+        pinecone_namespace="legacy-text",
+        pinecone_visual_namespace="isolated-visual",
+    )
+    provider = Providers(settings)
+    provider.store()
+    provider.store(visual=True)
+    assert [call["namespace"] for call in calls] == ["legacy-text", "isolated-visual"]

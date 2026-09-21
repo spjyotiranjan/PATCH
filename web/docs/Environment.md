@@ -73,6 +73,12 @@ Follow [Setup_Guide.md](../../Setup_Guide.md) for the complete local setup proce
 
 ## Ownership
 
+Readiness probes have a five-second per-service deadline and run in parallel.
+A timed-out unresolved native probe is reused until it settles; it is not silently
+cancelled or retried on every readiness request. AI readiness caps its request
+timeout at five seconds with no retry; ordinary workflow limits remain unchanged.
+These are operational bounds, not new environment settings.
+
 Phase 7 asset foundation adds Web-only `VISUAL_RENDER_DPI` (default 144; integer
 72–200), persisted into each queued asset request and sent through the signed render
 contract. AI uses it for the existing PDFium renderer with hard caps of four million
@@ -130,42 +136,55 @@ without wildcard hosts; a public bucket or custom public domain is not required.
   remain in `schemaMigrations`; never remove a marker to force a retry.
 - Production and staging have no seeded user credentials. Accounts are created only through the audited sign-up API. Automated-test fixtures must never be promoted into another environment.
 - Hierarchical routing uses the committed `ENTITY_PROFILE_*` and `STRUCTURAL_FALLBACK_*` limits in `ai/.env.example`; do not add phase-local hidden tuning variables. `MAINTENANCE_LOG_INDEXING_ENABLED` remains false until the Project-log evidence policy and evaluation gate approve it.
-## Phase 7 visual description configuration
+## Phase 7 configuration (implemented, opt-in)
 
-Explicit visual-description jobs reuse AI `OPENAI_ANSWER_MODEL`,
-`OPENAI_ANSWER_REASONING_EFFORT`, `OPENAI_COMPLEX_REASONING_MODEL`, and
-`OPENAI_COMPLEX_REASONING_EFFORT`. Both selected models must support image inputs
-and structured output. No additional environment variable is required. Existing
-source-host restrictions, service authentication and workflow deadlines apply.
-Rendering does not automatically request descriptions; each explicit description
-attempt can incur two vision calls. No image embedding/index is written yet.
+Web owns original/derivative R2 storage, authorization, DPI, jobs and quotas.
+AI owns parsing, vision, embeddings and vector namespaces. No new credentials,
+packages, separate vector index or Web provider SDK is required.
 
-## Phase 7 planned discovery and retrieval configuration
+| Owner | Setting | Default / validated bounds |
+| --- | --- | --- |
+| Web | `VISUAL_PROCESSING_ENABLED` | `false`; enables discovery on future linked PDF activations |
+| Web + AI | `VISUAL_RETRIEVAL_ENABLED` | `false` in both; enable both for visual Chat |
+| Web | `VISUAL_RENDER_DPI` | 144; integer 72–200 |
+| AI | `PINECONE_VISUAL_NAMESPACE` | `visual-development`; must differ from text namespace |
+| AI | `VISUAL_CANDIDATE_PAGES` | 12; 1–12 |
+| AI | `VISUAL_REGIONS_PER_PAGE` | 4; 1–4 |
+| AI | `VISUAL_PREVIEW_DPI` | 72; 72–100 |
+| AI | `VISUAL_CANDIDATE_COUNT` | 20; 1–50 |
+| AI | `VISUAL_GATE_LIMIT` | 6; 1–10 |
+| AI | `VISUAL_FINAL_LIMIT` | 3; 1–3 |
+| AI | `VISUAL_SEARCH_TIMEOUT_SECONDS` | 15; 1–30; Web search has a 20-second outer bound |
 
-Automatic discovery, visual indexing and visual Chat retrieval are not enabled yet.
-Before implementation, add explicit AI-owned validated settings for a feature flag,
-candidate-page and region/asset quotas, preview
-DPI/pixel limits, fused-search shortlist, relevance-gate limit and visual-query
-timeout. Use documented safe defaults and explicit enablement; do not derive a
-namespace from request/model content or accept an arbitrary namespace override.
-Deployment configuration must set the exact documented namespace values.
-Web owns renderer/output and durable-job limits only; it never receives
-OpenAI/Pinecone credentials.
+Hard caps: 500 PDF pages, 2 MB decoded page content for triage, four million
+rendered full-page pixels, 4096 pixels/output side, 2 MB PNG, 48 automatic/100 total
+assets/version, 100 manifest assets, three final citations and six observations.
+The pixel-answer sub-budget is 45 seconds within the request deadline, retaining
+a two-second fallback reserve. Existing source-download limits and five-attempt
+durable-job policy apply. Increasing settings cannot bypass contract limits.
 
-When visual indexing is implemented, add `PINECONE_VISUAL_NAMESPACE` as a separate
-AI-owned setting. Map it to `visual-{APP_ENV}` by deployment convention—for example,
-`visual-development` locally and `visual-staging` in staging. The runtime must use
-the exact configured value; it must not synthesize or accept a namespace from a
-request/model. It stays distinct from `PINECONE_NAMESPACE`, uses dimensions
-compatible with the configured text embedding model, and is segregated per
-environment. Its vectors represent verified description text, not raw-image
-embeddings. Existing derivatives remain accessible with visual retrieval disabled.
+The configured routing model/low effort detects regions and gates relevance;
+answer model/medium effort describes images and drafts factual observations;
+complex model/high effort verifies both. All three must support image inputs
+where used and structured output. The existing embedding model embeds verified
+description text, **not native image pixels**. Source URLs/pixels/credentials
+never enter vectors, persisted Chat or telemetry.
 
-| Deployment `APP_ENV` | Current text/profile setting | Planned visual setting |
+| `APP_ENV` convention | Text/profile namespace | Visual-description namespace |
 | --- | --- | --- |
 | `development` | `PINECONE_NAMESPACE=development` | `PINECONE_VISUAL_NAMESPACE=visual-development` |
 | `staging` | `PINECONE_NAMESPACE=staging` | `PINECONE_VISUAL_NAMESPACE=visual-staging` |
 | `production` | `PINECONE_NAMESPACE=production` | `PINECONE_VISUAL_NAMESPACE=visual-production` |
 
-These are deployment mappings, not runtime concatenation. `APP_ENV` identifies the
-service environment; each Pinecone namespace comes from its own explicit setting.
+These are explicit configuration mappings, not runtime concatenation. `APP_ENV`
+does not override either namespace. Both use the existing configured index and
+embedding dimensions. The first successful upsert creates an absent namespace;
+no manual namespace creation or text-vector migration is required. A dimension
+mismatch returns index failure: do not enable retrieval until a small index test
+succeeds. Changing embedding dimensions requires a compatible index and rebuilt
+projections; never silently mix models or move the existing text namespace.
+
+Flags control automatic activation and Chat, not explicit owner-requested discovery,
+description/index jobs or recovery. Existing PNG source access remains available
+with retrieval disabled. Disable the flags and stop worker dispatch before rollback;
+retain additive records, source objects and migrations. See `Setup_Guide.md`.

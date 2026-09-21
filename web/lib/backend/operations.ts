@@ -45,26 +45,52 @@ export async function retryJob(ctx: Context, jobId: string, reason: string) {
       { returnDocument: "after", session },
     );
     if (!job) fail("DEAD_LETTER_JOB_REQUIRED", 409);
-    if (["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind)) {
+    if (
+      ["VISUAL_RENDER", "VISUAL_DESCRIBE", "VISUAL_INDEX"].includes(job.kind)
+    ) {
       await db.collection("visualSourceAssets").updateOne(
         {
           _id: oid(job.payload.assetId),
           tenantId: job.tenantId,
+          ...(job.kind === "VISUAL_INDEX"
+            ? {
+                $or: [
+                  { indexGeneration: job.payload.indexGeneration ?? 0 },
+                  ...((job.payload.indexGeneration ?? 0) === 0
+                    ? [{ indexGeneration: { $exists: false } }]
+                    : []),
+                ],
+              }
+            : {}),
           ...(job.kind === "VISUAL_RENDER"
             ? { state: "FAILED" }
-            : { descriptionState: "FAILED" }),
+            : job.kind === "VISUAL_DESCRIBE"
+              ? { descriptionState: "FAILED" }
+              : { indexState: "FAILED" }),
         },
         {
           $set: {
             ...(job.kind === "VISUAL_RENDER"
               ? { state: "QUEUED" }
-              : { descriptionState: "QUEUED" }),
+              : job.kind === "VISUAL_DESCRIBE"
+                ? { descriptionState: "QUEUED" }
+                : { indexState: "QUEUED" }),
             updatedAt: new Date(),
           },
         },
         { session },
       );
     }
+    if (["VISUAL_TRIAGE", "VISUAL_DISCOVER"].includes(job.kind))
+      await db.collection("visualDiscovery").updateOne(
+        { _id: oid(job.payload.versionId), tenantId: job.tenantId },
+        {
+          $set: {
+            status: job.kind === "VISUAL_TRIAGE" ? "QUEUED" : "PROCESSING",
+          },
+        },
+        { session },
+      );
     await audit(
       {
         ...ctx,

@@ -23,6 +23,12 @@ inject isolated synthetic providers and never use real maintenance instructions.
 For no-UI acceptance, follow
 [Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
 
+For a fresh scenario covering all implemented backend modules including Phase 7,
+use [UI-less test pack 2](Manual%20Testing/ui-less-test-2/README.md). It supplies
+multimodal PDFs, immutable revision pairs, OCR/visual answer keys, manual Postman
+templates and a blank acceptance report. These resources do not imply a live pass;
+follow the pack's paid-work, human-review and private-evidence precautions.
+
 ## 2. Clone and install dependencies
 
 From a PowerShell terminal:
@@ -209,6 +215,16 @@ embeddings or delete originals as part of reindexing.
 
 ### Supported document parsing and OCR
 
+Parser/index pipeline 4 (16 September 2026) preserves embedded-image OCR word
+positions in a monospace text layout. Low-confidence labels receive bounded padded
+crop re-reading; replacements require two confident agreeing readings. The colour
+pass supplements non-overlapping text, avoiding conflicting duplicates. All OCR
+passes share the existing timeout; native text and full-page scan behavior remain
+unchanged. Positions are not inferred chart data or operating authority: Phase 7
+still verifies actual pixels for visual claims. For previously extracted sources,
+upload a new immutable version and review again; never rewrite old extraction.
+See the parser decision for exact bounds and rollback.
+
 Supported MIME types are PDF, UTF-8 plain text, Markdown and DOCX. Keep both
 templates' MIME lists and byte limits aligned (default 50 MiB). Markdown is
 treated as text; no HTML is executed. Text/DOCX citations identify numbered text
@@ -248,7 +264,7 @@ blocks, not printed pages. PDF citations identify one-based source pages.
   original, approve, dispatch indexing and activation, and ask a cited question.
   A ready OCR runtime does not prove every scan is legible. Readiness returns only
   aggregate status; a missing executable/language is logged as safe service `ocr`.
-- Parser pipeline 2 applies to newly processed sources. For already-reviewed or
+- Parser pipeline 4 applies to newly processed sources. For already-reviewed or
   active sources, upload a new immutable version and review it again; do not rewrite
   retained extraction/citations in place. Failed never-approved OCR jobs can use
   the reasoned operator retry after fixing the prerequisite. Old active versions
@@ -350,6 +366,13 @@ Do not call AI `/readiness` directly from a browser. It is intentionally private
 
 ### Verify Phase 1 account and UI readiness
 
+Readiness dependency probes run in parallel with five-second deadlines. Unresolved
+native DNS/storage probes may continue internally and are shared until they settle;
+repeated HTTP checks do not launch duplicate probes. AI readiness has no retry and
+a five-second maximum timeout. Workflow timeouts are unchanged. If an explicitly
+configured DNS resolver becomes unreachable, verify system DNS before deliberately
+clearing the optional override and restarting; there is no automatic resolver switch.
+
 1. Open <http://localhost:3000/sign-up>. Create a development account using exactly Name, Email, Password, and Confirm password. There are no social-login, SSO, or passwordless-link options.
 2. Sign out from Settings, then sign in at <http://localhost:3000/sign-in> with the same email and password. Opening `/`, `/equipments`, `/projects`, `/documents`, `/chat`, or `/settings` without a session must redirect to sign-in without exposing protected content.
 3. Confirm each authenticated route uses the same P.A.T.C.H. sidebar and title bar. The sidebar contains Home, Equipments, Projects, Documents, Chat, Settings, and Help & support; it never contains a top-level Maintenance logs item.
@@ -384,41 +407,96 @@ Owners approve or reject access through the nested request-decision routes docum
 
 ## 7. Testing and quality commands
 
-### Phase 7 visual asset foundation (in progress)
+### Phase 7: visual discovery, indexing and Chat
 
-Update both services from the same working tree, export AI OpenAPI, regenerate Web
-types using the commands below, and restart Web, AI and the worker. Existing packages
-are sufficient. Web automatically applies additive migration `0004_visual_assets`;
-do not remove its marker or indexes to retry setup. No new credentials or AI model
-calls are needed for this initial milestone.
+Backend code and contracts are implemented; representative live visual-quality/cost
+acceptance remains open. Start small; do not bulk-process historic documents.
+No new dependencies or credentials are needed. Update both services together,
+export OpenAPI/regenerate Web types with the commands below, and restart AI, Web
+and the worker. Additive migrations `0004_visual_assets` and
+`0005_visual_retrieval` apply automatically; never delete their markers to retry.
 
-Web `VISUAL_RENDER_DPI` defaults to 144 (72–200). New asset requests retain that DPI
-even if configuration later changes. AI limits full-page rendering to four million
-pixels before cropping, output dimensions to 4096 per side, and PNG bytes to 2 MB.
-An oversized original page can therefore fail even for a small requested crop;
-requesting a lower DPI creates a distinct asset selection. Crops use top-left
-normalized bounds on the rotated display page, rounded outward to pixel boundaries.
-The immutable PDF remains available for full resolution source inspection.
+The relevance gate reuses up to four current retrieved text excerpts to identify
+redundant image attachments. Restart AI after updating this logic; no reindex,
+new setting or schema migration is needed. Compare a text-only factual lookup
+with a genuine diagram/shape question, including after a previous image request.
+This is a relevance optimization, not a guarantee of model accuracy.
 
-Use an already approved, indexed, current PDF in Web Swagger. POST a page/crop to
-`/api/document-versions/{versionId}/visual-assets`, poll GET on the same path, then
-open `/api/visual-assets/{assetId}/source` after state becomes `READY`. The worker
-stores private derivative bytes in R2; the source endpoint returns an authorized
-URL expiring after at most 300 seconds. A URL already issued cannot be revoked
-before expiry; later source requests recheck all current permissions/version links.
-Failures retry five times before dead-letter; an audited operator retry resets the
-asset to `QUEUED`. Rendering failure does not change original approval/activation.
-Follow [Phase 7 visual testing](Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
-for exact bodies, failure tests and acceptance limits. Automatic figure selection,
-visual understanding/vector indexing and image citations in Chat are not yet enabled.
+The September visual follow-up also separates pixel generation from the text
+answer and maps per-request relevance indices back to authorized image IDs in code.
+Restart AI; no reindex or environment change is required. Fixed-enum
+`visual_gate.*` and `visual_pixels.*` diagnostics distinguish relevance, support,
+safety and citation rejection without logging prompts, source text or signed URLs.
+Missing OCR detail is not automatically a conflict with visible pixels, but real
+source contradictions and unsupported observations still fail closed.
 
-Upgrade/rollback: stop worker dispatch before switching service versions and keep
-OpenAPI/types aligned. Retain `visualSourceAssets`, original versions and derivative
-objects when rolling back; prior code ignores the new collection. Do not dispatch
-`VISUAL_RENDER` jobs through an older worker. Storage uses content-addressed keys:
-interrupted/stale workers can leave an unreferenced derivative; retain these until
-a verified inventory supports cleanup. No destructive cleanup runs automatically.
-No retained text extraction or citations are rewritten by this milestone.
+For an interrupted visual-discovery request, inspect its GET status before retrying:
+the outbox request may already have committed. The transaction helper accepts
+successful mutations without a return value. Repeating discovery is idempotent
+and does not create a second job for the same source/pipeline version.
+Verified image observations may accompany an incomplete text baseline; inspect
+both `status` and `visualEvidenceState` and retain the evidence warnings.
+
+1. Keep the existing AI `PINECONE_NAMESPACE=development`. Add
+   `PINECONE_VISUAL_NAMESPACE=visual-development` to `ai/.env.local`.
+   These explicit settings must differ; neither is calculated from `APP_ENV`.
+   The existing Pinecone index and configured embedding dimensions are reused.
+   A namespace is created on its first successful upsert, not at service startup.
+2. Confirm configured routing, answering and complex-verification models support
+   image inputs/structured outputs. Existing low/medium/high effort settings apply.
+   OCR/Tesseract remains necessary for text extraction from scans; it does not
+   replace image inspection or asset preservation.
+3. Initially leave `VISUAL_PROCESSING_ENABLED=false` in Web. Use one already
+   approved/indexed/active linked PDF and manually POST `{}` to
+   `/api/document-versions/{versionId}/visual-discovery` as its owner/manager.
+   This explicit request can incur paid calls even with automatic processing off.
+4. Run the worker. Poll GET on that discovery path and the version's
+   `/visual-assets` path. Jobs perform local triage, preview detection, render,
+   description/verification and indexing. Expect at least one meaningful figure
+   to reach `state: READY`, `descriptionState: READY`, `indexState: READY`.
+   No-figure pages may legitimately create no assets. Inspect `partial`,
+   `scannedPages`, `candidatePages`, `detectionStatus` and end-to-end `status`;
+   detection completion alone is not index completion.
+5. GET `/api/visual-assets/{assetId}/source`, open the exact PNG and compare its
+   page/crop/labels with the immutable original. URLs expire within 300 seconds;
+   already-issued URLs remain valid until expiry. No generated/redrawn image is used.
+6. If indexing fails, inspect the safe job state and local service console.
+   Verify the configured embedding model matches the index dimensions; a mismatched
+   upsert fails explicitly and does not mark the asset indexed. Fix the cause,
+   then use the operator's audited retry—not new duplicate asset requests.
+7. Enable `VISUAL_RETRIEVAL_ENABLED=true` in **both** local environment files and
+   restart both services. Chat uses existing REST or raw WebSocket endpoints.
+   It may now return `visualObservations` linked to exact `visualCitations`.
+   Test relevant, irrelevant and required-image questions using the matrix below.
+   Do not add URLs/bytes to a browser request or bypass Web authorization.
+8. Only after reviewing a small representative set, optionally set Web
+   `VISUAL_PROCESSING_ENABLED=true` to enqueue future linked PDF activations.
+   Existing documents still require explicit discovery; no historical bulk job runs.
+
+Safe defaults/caps and ownership are listed in
+[Environment.md](web/docs/Environment.md#phase-7-configuration-implemented-opt-in).
+Web render DPI is 144 (72–200); AI caps full-page allocation at four million
+pixels before cropping, each output side at 4096, and PNGs at 2 MB. An oversized
+source may fail even for a small crop; a lower DPI creates a distinct selection.
+Discovery uses at most 12 page previews/four regions per page; per version at most
+48 automatic and 100 total assets. Search uses up to 100 authorized descriptors,
+six gate candidates and three final images. A cap reports partial coverage, not a
+guarantee that every diagram was found. Manual render → describe remains available
+for a page/region missed by automatic discovery.
+
+**Recovery/rollback:** Stop worker dispatch before switching service versions.
+Disable both visual flags for the text-only path, but note that flags do not cancel
+already-requested jobs. Do not send any `VISUAL_*` job to an older worker.
+Retain originals, derivatives, visual records and migration indexes. Repair
+disables ineligible projections and deletes only scoped visual vectors; restoring
+eligibility queues a new index generation. R2 derivative/original retention is
+unchanged and no destructive object cleanup runs automatically. Changing embedding
+models/dimensions requires compatible index planning and projection rebuilds; do
+not rename the existing text namespace as an implicit migration.
+
+Follow [Phase 7 REST/WebSocket manual tests](Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
+for exact payloads, authorization/outage checks, cost accounting and the
+representative acceptance record. The feature UI is deliberately untouched.
 
 Run these before handing off a phase implementation:
 
@@ -537,12 +615,42 @@ This reconciliation is part of the phase definition of done. A phase may not be 
 
 ### Reconciliation record
 
+- **Pack 2 OCR/publication/visual repair (16-18 September 2026):** Pipeline 4 fixes the
+  fixture chart's C/Cc recognition and preserves column alignment. Both manual
+  revisions and all ten fixture pages passed local parsing. A new unchanged-byte
+  revision-1 upload passed hosted extraction comparison, conditional source review,
+  indexing and activation; the faulty older extractions remain unapproved. The
+  user-reviewed digital-only procedure was published unchanged, exported/indexed,
+  executed through normal checklist/log APIs, and verified across the actual next
+  daily period without changing history. AI 155 tests plus lint/format/type gates
+  and synthetic evaluation, and Web 117 tests/lint/typecheck pass. New visual
+  targeted retests passed current diagram arrows, marker/follow-up and tallest-bar
+  chart observations, with exact stored REST/WebSocket replay. Shared Equipment/
+  Project links retained one source and visual set. Full revision/lifecycle visual
+  acceptance is still in progress; no UI, SME or automatic-rollout sign-off.
+
+- **Pack 2 acceptance repairs (15–16 September 2026, in progress):** Bounded
+  readiness waits, repaired successful void-transaction handling, added pipeline-3
+  mixed-image OCR, and made the visual gate compare bounded current text context.
+  Real scan ingestion, exact PNG description/indexing/Chat, source authorization,
+  REST/socket replay, Project scope, log drafts, open-socket access revocation and
+  whole-AI outage source availability were exercised. Web build/lint/typecheck and
+  117 tests, AI lint/format/types and 138 tests, and synthetic evaluation pass;
+  production dependency audit reported zero vulnerabilities. Chart OCR ambiguity,
+  manual revision/visual lifecycle, human publication/execution and representative
+  quality/cost acceptance remain open. Temporary evidence is outside the repo;
+  local environment files, UI and synchronized phase statuses are unchanged.
+  The subsequent **full** npm audit reported two high-severity development-tooling
+  findings in the Redocly/js-yaml chain. Remediation remains pending: npm's dry-run
+  stopped with `EALLOWREMOTE`. Obtain an authorized package update rather than
+  bypassing that restriction; rerun generation and full audit afterward. The clean
+  production-only audit does not establish a clean development dependency tree.
+
 - **Phase 7 namespace convention (9 September 2026, in progress):** Existing
   text/profile vectors continue using environment-controlled
-  `PINECONE_NAMESPACE=development`, so local data requires no migration. The future
-  visual store will use the separately configured
-  `PINECONE_VISUAL_NAMESPACE=visual-development`. Visual namespace code and template
-  configuration remain pending until visual indexing is implemented.
+  `PINECONE_NAMESPACE=development`, so local data requires no migration. The planned
+  separate `PINECONE_VISUAL_NAMESPACE=visual-development` setting was subsequently
+  implemented in the 14 September completion work described above.
 
 - **Phase 7 asset foundation (8 September 2026, in progress):** Added the signed
   visual render contract, generated types, additive visual-asset migration, DPI
@@ -550,7 +658,8 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   Verification: 97 Web and 89 AI tests, including real loopback signed PNG rendering;
   lint/type checks, production Web build and synthetic evaluation passed. npm audit
   reported zero vulnerabilities. Hosted R2 visual acceptance has not been executed;
-  automatic visual retrieval/understanding and Chat citations remain pending.
+  automatic visual retrieval/understanding and Chat citations were pending at this
+  milestone and are now implemented; representative live acceptance remains open.
 
 - **Acceptance repairs (8 September 2026):** Installed/verified Tesseract 5.5.3;
   locked pypdfium2 full-page rendering, added configurable OCR discovery/languages
@@ -584,56 +693,27 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   See the dated manual-test record for deliberately unrun ground-test scenarios.
   Global phase status remains open for UI integration and representative/SME
   acceptance; synthetic fixtures do not certify real maintenance guidance.
-# Phase 7 visual-description addendum
+## Phase 7 verification record (14 September 2026)
 
-Automated verification for this milestone: 99 AI tests and 101 Web tests passed,
-including the real loopback service suite. Web production build, lint/typecheck,
-AI Ruff, mypy and Pyright passed. No paid/hosted vision acceptance was run.
+The foundation and description-only milestones below in the historical change log
+are superseded by the implemented Phase 7 setup section above. Current backend
+coverage includes automatic candidate discovery, separate descriptor indexing,
+rank fusion/relevance selection, same-turn pixel verification, exact Chat citations
+and lifecycle recovery. No direct dependencies changed.
 
-### Phase 7 future discovery and retrieval gate
+Verification: 111 Web tests and 135 AI tests pass, including the real signed
+REST/WebSocket loopback case. Web lint/typecheck/build and AI Ruff/format/mypy/
+Pyright pass; 15 paired baseline/hierarchical cases pass synthetic evaluation guards.
+The npm production-dependency audit reports zero vulnerabilities.
 
-Automatic figure discovery, visual-description indexing and Chat visual retrieval
-are deliberately not enabled. Do not set speculative environment variables or
-bulk-process historical documents. Before enabling the next milestone, reconcile
-both implementation documents, the API contract, environment templates and this
-guide; create the separate visual namespace; run migrations; verify embedding
-dimension compatibility; and begin with a small reviewed representative fixture set.
-
-When visual indexing is implemented, configure both values explicitly:
-
-```dotenv
-PINECONE_NAMESPACE=development
-PINECONE_VISUAL_NAMESPACE=visual-development
-```
-
-Use the mapping `{environment}` for text/profile and `visual-{environment}` for
-visual descriptions. `APP_ENV=development` identifies the service environment but
-does not synthesize either Pinecone setting. The current text namespace remains
-`development`, so this configuration reconciliation requires no vector migration.
-
-Record candidate-page/region counts, false positives, indexed descriptions, visual
-relevance decisions, pixel-grounded citations, authorization/revocation behavior,
-latency and actual provider cost. Compare every result with the existing text-only
-baseline. A visual failure may leave a text-supported answer usable, but a
-diagram-dependent answer must return an explicit incomplete/unavailable evidence
-state. Never store raw pixels/URLs in Pinecone or Chat history, call descriptor
-vectors raw-image embeddings, or start historical bulk enrichment before reviewed
-quality and cost thresholds are accepted.
-
-After restarting Web, its worker, and AI with the updated code, use the existing
-login and worker setup to render a visual asset first. Wait until its `state` is
-`READY`. In Web Swagger send `POST /api/visual-assets/{assetId}/describe` with `{}`
-as the document owner or approved manager. Poll the document-version visual-assets
-list: `descriptionState` moves from `QUEUED` to `READY`, with a bounded `description`.
-This is an explicit paid operation: normally two vision calls per attempt, with
-the existing maximum five job attempts. Model/effort configuration is reused from
-AI's answer and complex-verification settings; both models must accept images.
-No new dependency, environment setting, database migration or UI is required.
-
-If the job dead-letters, the description becomes `FAILED` but the PNG remains
-`READY`. Diagnose service/provider configuration and use the existing documented
-operator retry with a reason; do not repeatedly submit new assets. Old assets
-default to `NOT_REQUESTED`. Rollback can stop description jobs and leave the
-additive fields intact; do not delete originals or derivatives. Descriptions are
-not yet indexed or used in Chat. See the Phase 7 manual-test document for visual
-inspection and authorization cases. Live model accuracy is not yet accepted.
+Automated Web/AI checks and the signed loopback REST/socket test are the code and
+transport evidence; they do not establish hosted Mongo transaction behavior, actual
+provider diagram perception, representative legibility or acceptable provider cost.
+The follow-up local service check passed aggregate Web readiness, installed OCR,
+live OpenAPI equality and unsigned/unauthenticated denial on the new routes.
+The first sandboxed probe could not access OCR/hosted services; repeating outside
+the sandbox passed without changing local configuration. Two pre-existing EXTRACT
+dead letters were observed and left untouched; no active jobs were dispatched.
+No paid visual-provider acceptance or historical bulk enrichment was performed.
+Record a real representative run in the Phase 7 manual guide before accepting
+automatic rollout; keep the default flags off until that review.

@@ -62,6 +62,54 @@ export const answerSchema = z.object({
   citations: z.array(citationSchema).max(50).default([]),
   warnings: z.array(z.string().max(1000)).max(20).default([]),
   followUpAllowed: z.boolean(),
+  visualEvidenceState: z
+    .enum(["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"])
+    .default("TEXT_ONLY"),
+  visualCitations: z
+    .array(
+      z
+        .object({
+          id: z.string().min(1).max(200),
+          assetId: z.string().regex(/^[a-f0-9]{24}$/),
+          documentId: z.string(),
+          documentVersionId: z.string(),
+          page: z.number().int().min(1).max(500),
+          bounds: z
+            .object({
+              left: z.number().min(0).max(1),
+              top: z.number().min(0).max(1),
+              right: z.number().min(0).max(1),
+              bottom: z.number().min(0).max(1),
+            })
+            .strict(),
+          sha256: z.string().regex(/^[a-f0-9]{64}$/),
+          descriptionFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+          visualClass: z.enum([
+            "SCHEMATIC",
+            "DIAGRAM",
+            "CHART",
+            "TABLE",
+            "PHOTO",
+            "SCREENSHOT",
+            "OTHER",
+          ]),
+          relevanceRole: z.enum(["REQUIRED", "HELPFUL"]),
+        })
+        .strict(),
+    )
+    .max(3)
+    .default([]),
+  visualObservations: z
+    .array(
+      z
+        .object({
+          text: z.string().min(1).max(2000),
+          visualCitationIds: z.array(z.string()).min(1).max(3),
+        })
+        .strict(),
+    )
+    .max(6)
+    .default([]),
 });
 
 export function askAiSocket(

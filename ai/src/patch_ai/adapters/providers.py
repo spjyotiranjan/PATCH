@@ -1,4 +1,5 @@
 import base64
+import logging
 from typing import Any, TypeVar
 
 from langchain_core.documents import Document
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 
 from patch_ai.api.budget import remaining_seconds
 from patch_ai.config import Settings
-from patch_ai.observability import stage
+from patch_ai.observability import log_event, stage
 
 Model = TypeVar("Model", bound=BaseModel)
 
@@ -61,14 +62,38 @@ class Providers:
                     },
                 }
             )
-        with stage("model", outputSchema=schema.__name__, routing=routing):
-            result = llm.with_structured_output(schema, method="json_schema").invoke(
+        with stage(
+            "model",
+            outputSchema=schema.__name__,
+            routing=routing,
+            imageCount=len(images),
+            imageBytes=sum(map(len, images)),
+            inputCharacters=len(system) + len(data),
+        ):
+            result = llm.with_structured_output(
+                schema, method="json_schema", include_raw=True
+            ).invoke(
                 [SystemMessage(content=system), HumanMessage(content=content if images else data)],
                 config={"callbacks": [], "metadata": {"workflow": "bounded-generation"}},
             )
-        return schema.model_validate(result)
+        # Raw messages stay transient. Export only numeric usage, never content,
+        # reasoning, URLs or provider errors. Units here are provider-reported tokens.
+        if not isinstance(result, dict):
+            raise ValueError("MODEL_RESPONSE_INVALID")
+        usage = getattr(result.get("raw"), "usage_metadata", None) or {}
+        log_event(
+            logging.INFO,
+            "patch_ai.model_usage",
+            outputSchema=schema.__name__,
+            inputUnits=usage.get("input_tokens"),
+            outputUnits=usage.get("output_tokens"),
+            cachedInputUnits=(usage.get("input_token_details") or {}).get("cache_read", 0),
+        )
+        if result.get("parsing_error") or result.get("parsed") is None:
+            raise ValueError("MODEL_RESPONSE_INVALID")
+        return schema.model_validate(result["parsed"])
 
-    def store(self) -> PineconeVectorStore:
+    def store(self, *, visual: bool = False) -> PineconeVectorStore:
         embeddings = OpenAIEmbeddings(
             model=self.settings.openai_embedding_model,
             api_key=self.settings.openai_api_key,
@@ -79,7 +104,9 @@ class Providers:
             index_name=self.settings.pinecone_index_name,
             embedding=embeddings,
             pinecone_api_key=self.settings.pinecone_api_key.get_secret_value(),
-            namespace=self.settings.pinecone_namespace,
+            namespace=self.settings.pinecone_visual_namespace
+            if visual
+            else self.settings.pinecone_namespace,
         )
 
     def upsert(self, documents: list[Document], ids: list[str]) -> None:
@@ -111,3 +138,25 @@ class Providers:
             raise ValueError("FILTER_REQUIRED")
         with stage("vector_delete", filterClauseCount=len(filters["$and"])):
             self.store().delete(filter=filters, timeout=remaining_seconds(30))
+
+    def visual_upsert(self, document: Document, vector_id: str) -> None:
+        with stage("visual_vector_upsert", recordCount=1):
+            # Pinecone rejects a dimension mismatch before accepting the vector.
+            self.store(visual=True).add_documents(
+                [document], ids=[vector_id], async_req=False, timeout=remaining_seconds(30)
+            )
+
+    def visual_search(
+        self, query: str, filters: dict[str, Any], count: int
+    ) -> list[tuple[Document, float]]:
+        if not filters.get("$and"):
+            raise ValueError("FILTER_REQUIRED")
+        with stage("visual_vector_query", candidateCount=count):
+            return self.store(visual=True).similarity_search_with_score(
+                query, k=count, filter=filters, timeout=remaining_seconds(15)
+            )
+
+    def visual_delete(self, filters: dict[str, Any]) -> None:
+        if not filters.get("$and"):
+            raise ValueError("FILTER_REQUIRED")
+        self.store(visual=True).delete(filter=filters, timeout=remaining_seconds(30))

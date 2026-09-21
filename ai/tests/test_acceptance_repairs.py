@@ -38,7 +38,13 @@ def test_scanned_pdf_uses_full_page_render_and_physical_anchor(
 
 
 def test_mixed_native_page_does_not_drop_raster_labels(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(ocr, "image_text", lambda image, settings: "RASTER-ONLY observation")
+    def recognize(
+        image: Image.Image, settings: Settings, *, supplemental_labels: bool = False
+    ) -> str:
+        assert supplemental_labels
+        return "RASTER-ONLY observation"
+
+    monkeypatch.setattr(ocr, "image_text", recognize)
     pages = VerifiedSourceLoader(
         (PACK / "04_Multimodal_Control_Loop_Diagnostic.pdf").read_bytes(), "application/pdf"
     ).load()
@@ -104,6 +110,77 @@ def test_readiness_requires_every_requested_language(monkeypatch: pytest.MonkeyP
     assert not check_ocr_available(Settings(ocr_languages="eng+deu"))
 
 
+def test_embedded_label_pass_uses_word_geometry_and_shared_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pytesseract
+
+    monkeypatch.setattr(ocr, "executable", lambda settings: "test-ocr")
+    calls = []
+
+    def recognize(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return {
+            "text": ["LABEL-X"],
+            "conf": [96],
+            "left": [1],
+            "top": [1],
+            "width": [28],
+            "height": [10],
+        }
+
+    monkeypatch.setattr(pytesseract, "image_to_data", recognize)
+    with Image.new("RGB", (32, 32), color="white") as image:
+        text = ocr.image_text(image, Settings(), supplemental_labels=True)
+    assert text.strip() == "LABEL-X"
+    assert [c["config"] for c in calls] == ["--psm 6"]
+    assert 0 < calls[0]["timeout"] <= Settings().ocr_timeout_seconds
+
+
+def test_supplemental_ocr_timeout_does_not_return_partial_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pytesseract
+
+    previous = pytesseract.pytesseract.tesseract_cmd
+    monkeypatch.setattr(ocr, "executable", lambda settings: "test-ocr")
+
+    def recognize(*args: Any, **kwargs: Any) -> str:
+        if kwargs["config"]:
+            raise RuntimeError("OCR timeout")
+        return "Primary text"
+
+    monkeypatch.setattr(pytesseract, "image_to_data", recognize)
+    with Image.new("RGB", (32, 32)) as image, pytest.raises(RuntimeError, match="OCR timeout"):
+        ocr.image_text(image, Settings(), supplemental_labels=True)
+    assert pytesseract.pytesseract.tesseract_cmd == previous
+    assert not ocr._ocr_lock.locked()
+
+
+def test_label_retry_shares_deadline_and_restores_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    import pytesseract
+
+    previous = pytesseract.pytesseract.tesseract_cmd
+    monkeypatch.setattr(ocr, "executable", lambda _: "test-ocr")
+    times = iter([0.0, 1.0, 2.0, 16.0])
+    monkeypatch.setattr(ocr.time, "monotonic", lambda: next(times))
+    calls = []
+
+    def recognize(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return {"text": ["X"], "conf": [48], "left": [1], "top": [1], "width": [10], "height": [10]}
+
+    monkeypatch.setattr(pytesseract, "image_to_data", recognize)
+    with (
+        Image.new("RGB", (32, 32), "white") as image,
+        pytest.raises(TimeoutError, match="OCR_TIMEOUT"),
+    ):
+        ocr.image_text(image, Settings(), supplemental_labels=True)
+    assert [c["timeout"] for c in calls] == [14, 13]
+    assert pytesseract.pytesseract.tesseract_cmd == previous
+    assert not ocr._ocr_lock.locked()
+
+
 def test_readiness_includes_missing_ocr_without_exposing_details(
     client: Any,
     monkeypatch: pytest.MonkeyPatch,
@@ -133,6 +210,8 @@ class ContextProviders(FixtureProviders):
             assert payload["question"]
             assert "document-fact lookup" in system
             assert "not plant safety certification" in system
+            assert "not a generated draft error" in system
+            assert "History is only reference-resolution context" in system
             assert all(
                 s["currentVersion"] and s["approvalState"] == "APPROVED" for s in payload["sources"]
             )

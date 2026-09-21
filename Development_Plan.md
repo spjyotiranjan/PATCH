@@ -15,14 +15,16 @@ extension, specified in the two backend implementation documents. It does not
 change the six synchronized product phases, their current status, or the future
 UI integration gate.
 
-Its remaining implementation is staged: bounded local candidate-page triage,
+Its implemented backend pipeline is staged: bounded local candidate-page triage,
 low-cost proposed-region detection, immutable derivative rendering and verified
 descriptions, isolated visual-description indexing, authorized rank-fused text and
 visual retrieval, relevance gating, same-turn pixel grounding, and validated exact
 visual citations. The detailed Web/AI contracts, limits, safety rules, costs and
 acceptance criteria are authoritative in the two Phase 7 implementation sections;
-this plan does not enable the capability or add a seventh synchronized product phase.
-Existing text/profile vectors use configured `PINECONE_NAMESPACE`; the future
+this plan does not enable automatic rollout or add a seventh synchronized product phase.
+Implementation is delivered (14 September 2026); representative visual-quality/cost
+acceptance remains open. See both backend documents and the Phase 7 manual matrix.
+Existing text/profile vectors use configured `PINECONE_NAMESPACE`; the
 visual-description store uses separate `PINECONE_VISUAL_NAMESPACE`. Deployments map
 the values to `{environment}` and `visual-{environment}` respectively.
 

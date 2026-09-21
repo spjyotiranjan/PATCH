@@ -180,6 +180,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/visual-assets/delete-vectors": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Delete Visuals */
+    post: operations["delete_visuals_v1_visual_assets_delete_vectors_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/visual-assets/describe": {
     parameters: {
       query?: never;
@@ -197,6 +214,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/visual-assets/discover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Discover Visuals */
+    post: operations["discover_visuals_v1_visual_assets_discover_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/visual-assets/index": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Index Visual */
+    post: operations["index_visual_v1_visual_assets_index_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/visual-assets/render": {
     parameters: {
       query?: never;
@@ -208,6 +259,40 @@ export interface paths {
     put?: never;
     /** Render Visual Asset */
     post: operations["render_visual_asset_v1_visual_assets_render_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/visual-assets/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search Visuals */
+    post: operations["search_visuals_v1_visual_assets_search_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/visual-assets/triage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Triage Visuals */
+    post: operations["triage_visuals_v1_visual_assets_triage_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -858,6 +943,13 @@ export interface components {
       requestId: string;
       retrievalPolicy: components["schemas"]["RetrievalPolicy"];
       retrievalScopeManifest: components["schemas"]["RetrievalScopeManifest"];
+      /** Visualscopemanifest */
+      visualScopeManifest?: components["schemas"]["VisualScopeEntry"][];
+      /** Visualscopepartial */
+      visualScopePartial?: boolean;
+      visualSelection?: components["schemas"]["VisualSearchResult"] | null;
+      /** Visualsources */
+      visualSources?: components["schemas"]["VisualDescribeRequest"][];
     };
     /** QuestionResult */
     QuestionResult: {
@@ -881,6 +973,15 @@ export interface components {
         "approved" | "incomplete" | "conflicting" | "outdated" | "unavailable";
       /** Turnid */
       turnId: string;
+      /** Visualcitations */
+      visualCitations?: components["schemas"]["VisualCitation"][];
+      /**
+       * Visualevidencestate
+       * @enum {string}
+       */
+      visualEvidenceState?: "TEXT_ONLY" | "AVAILABLE" | "UNAVAILABLE";
+      /** Visualobservations */
+      visualObservations?: components["schemas"]["VisualObservation"][];
       /** Warnings */
       warnings?: string[];
     };
@@ -1134,6 +1235,41 @@ export interface components {
        */
       top: number;
     };
+    /** VisualCitation */
+    VisualCitation: {
+      /** Assetid */
+      assetId: string;
+      bounds: components["schemas"]["VisualBounds"];
+      /** Descriptionfingerprint */
+      descriptionFingerprint: string;
+      /** Documentid */
+      documentId: string;
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Id */
+      id: string;
+      /** Page */
+      page: number;
+      /**
+       * Relevancerole
+       * @enum {string}
+       */
+      relevanceRole: "REQUIRED" | "HELPFUL";
+      /** Sha256 */
+      sha256: string;
+      /**
+       * Visualclass
+       * @enum {string}
+       */
+      visualClass:
+        | "SCHEMATIC"
+        | "DIAGRAM"
+        | "CHART"
+        | "TABLE"
+        | "PHOTO"
+        | "SCREENSHOT"
+        | "OTHER";
+    };
     /** VisualDescribeRequest */
     VisualDescribeRequest: {
       /**
@@ -1193,6 +1329,179 @@ export interface components {
       /** Uncertainties */
       uncertainties: string[];
     };
+    /** VisualDiscoverRequest */
+    VisualDiscoverRequest: {
+      /**
+       * Approvalstate
+       * @constant
+       */
+      approvalState: "APPROVED";
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /** Documentid */
+      documentId: string;
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Page */
+      page: number;
+      /**
+       * Pipelineversion
+       * @default visual-discovery-v1
+       * @constant
+       */
+      pipelineVersion: "visual-discovery-v1";
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      sourceFile: components["schemas"]["SourceFile"];
+      /** Tenantid */
+      tenantId: string;
+    };
+    /** VisualDiscoverResult */
+    VisualDiscoverResult: {
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Originalsha256 */
+      originalSha256: string;
+      /** Page */
+      page: number;
+      /** Regions */
+      regions?: components["schemas"]["VisualRegion"][];
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "complete" | "partial" | "failed";
+    };
+    /** VisualDocumentRequest */
+    VisualDocumentRequest: {
+      /**
+       * Approvalstate
+       * @constant
+       */
+      approvalState: "APPROVED";
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      /** Documentid */
+      documentId: string;
+      /** Documentversionid */
+      documentVersionId: string;
+      /**
+       * Pipelineversion
+       * @default visual-discovery-v1
+       * @constant
+       */
+      pipelineVersion: "visual-discovery-v1";
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      sourceFile: components["schemas"]["SourceFile"];
+      /** Tenantid */
+      tenantId: string;
+    };
+    /** VisualIndexRequest */
+    VisualIndexRequest: {
+      /**
+       * Approvalstate
+       * @constant
+       */
+      approvalState: "APPROVED";
+      asset: components["schemas"]["VisualSourceAsset"];
+      /**
+       * Confidence
+       * @default 1
+       */
+      confidence: number;
+      /**
+       * Contractversion
+       * @constant
+       */
+      contractVersion: "v1";
+      description: components["schemas"]["VisualDescription"];
+      /** Descriptionfingerprint */
+      descriptionFingerprint: string;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /** Tenantid */
+      tenantId: string;
+      /**
+       * Visualclass
+       * @default OTHER
+       * @enum {string}
+       */
+      visualClass:
+        | "SCHEMATIC"
+        | "DIAGRAM"
+        | "CHART"
+        | "TABLE"
+        | "PHOTO"
+        | "SCREENSHOT"
+        | "OTHER";
+    };
+    /** VisualIndexResult */
+    VisualIndexResult: {
+      /** Assetid */
+      assetId: string;
+      /** Descriptionfingerprint */
+      descriptionFingerprint: string;
+      /** Embeddingmodel */
+      embeddingModel: string;
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "indexed" | "failed";
+    };
+    /** VisualObservation */
+    VisualObservation: {
+      /** Text */
+      text: string;
+      /** Visualcitationids */
+      visualCitationIds: string[];
+    };
+    /** VisualRegion */
+    VisualRegion: {
+      bounds: components["schemas"]["VisualBounds"];
+      /** Confidence */
+      confidence: number;
+      /** Uncertainty */
+      uncertainty: string;
+      /**
+       * Visualclass
+       * @enum {string}
+       */
+      visualClass:
+        | "SCHEMATIC"
+        | "DIAGRAM"
+        | "CHART"
+        | "TABLE"
+        | "PHOTO"
+        | "SCREENSHOT"
+        | "OTHER";
+    };
     /** VisualRenderRequest */
     VisualRenderRequest: {
       /**
@@ -1249,6 +1558,62 @@ export interface components {
        */
       status: "rendered" | "failed";
     };
+    /** VisualScopeEntry */
+    VisualScopeEntry: {
+      asset: components["schemas"]["VisualSourceAsset"];
+      /**
+       * Confidence
+       * @default 1
+       */
+      confidence: number;
+      /** Descriptionfingerprint */
+      descriptionFingerprint: string;
+      /** Embeddingmodel */
+      embeddingModel: string;
+      /**
+       * Visualclass
+       * @default OTHER
+       * @enum {string}
+       */
+      visualClass:
+        | "SCHEMATIC"
+        | "DIAGRAM"
+        | "CHART"
+        | "TABLE"
+        | "PHOTO"
+        | "SCREENSHOT"
+        | "OTHER";
+    };
+    /** VisualSearchResult */
+    VisualSearchResult: {
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /** Selected */
+      selected?: components["schemas"]["VisualSelection"][];
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "TEXT_ONLY" | "AVAILABLE" | "UNAVAILABLE";
+      /**
+       * Visualrequired
+       * @default false
+       */
+      visualRequired: boolean;
+    };
+    /** VisualSelection */
+    VisualSelection: {
+      /** Assetid */
+      assetId: string;
+      /**
+       * Relevancerole
+       * @enum {string}
+       */
+      relevanceRole: "REQUIRED" | "HELPFUL";
+    };
     /** VisualSourceAsset */
     VisualSourceAsset: {
       /** Assetid */
@@ -1284,6 +1649,35 @@ export interface components {
       sha256: string;
       /** Width */
       width: number;
+    };
+    /** VisualTriageResult */
+    VisualTriageResult: {
+      /** Documentversionid */
+      documentVersionId: string;
+      /** Originalsha256 */
+      originalSha256: string;
+      /** Pages */
+      pages?: number[];
+      /**
+       * Requestid
+       * Format: uuid
+       */
+      requestId: string;
+      /**
+       * Scannedpages
+       * @default 0
+       */
+      scannedPages: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "complete" | "partial" | "failed";
+      /**
+       * Totalpages
+       * @default 0
+       */
+      totalPages: number;
     };
   };
   responses: never;
@@ -2012,6 +2406,84 @@ export interface operations {
       };
     };
   };
+  delete_visuals_v1_visual_assets_delete_vectors_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeleteVectorsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeleteVectorsResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
   describe_visual_asset_v1_visual_assets_describe_post: {
     parameters: {
       query?: never;
@@ -2090,6 +2562,162 @@ export interface operations {
       };
     };
   };
+  discover_visuals_v1_visual_assets_discover_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VisualDiscoverRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualDiscoverResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  index_visual_v1_visual_assets_index_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VisualIndexRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualIndexResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
   render_visual_asset_v1_visual_assets_render_post: {
     parameters: {
       query?: never;
@@ -2110,6 +2738,162 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VisualRenderResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  search_visuals_v1_visual_assets_search_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QuestionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualSearchResult"];
+        };
+      };
+      /** @description Request correlation mismatch. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication failed. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request ID replay detected. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Request schema validation failed. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Unexpected internal failure. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+      /** @description Service authentication unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiErrorResponse"];
+        };
+      };
+    };
+  };
+  triage_visuals_v1_visual_assets_triage_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VisualDocumentRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VisualTriageResult"];
         };
       };
       /** @description Request correlation mismatch. */

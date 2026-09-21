@@ -38,6 +38,12 @@ QUESTION_EVIDENCE_RULES = (
     "publication date alone is not outdated evidence for a question about document content. "
     "Explicit applicable expiry/supersession or lack of current governing evidence for "
     "requested operations must still be respected. Do not invent visual/pixel-only facts. "
+    "Source conflicts mean mutually incompatible facts in applicable current source evidence, "
+    "not a generated draft error, an earlier answer's uncertainty, or absent visual detail. "
+    "History is only reference-resolution context; it cannot create an evidence conflict. "
+    "OCR reading order is not chart height, arrow direction or a numeric-label association; "
+    "when text alone cannot establish a visual relationship, report incomplete instead of "
+    "inventing either the relationship or a source conflict. "
 )
 
 
@@ -55,7 +61,9 @@ class GroundedDraft(ApiModel):
 
 class EvidenceVerification(ApiModel):
     supported: bool
-    conflict: bool
+    conflict: bool = Field(
+        description="Current applicable sources disagree; not missing detail or a draft error."
+    )
     missing_mandatory_safety_evidence: bool
 
 
@@ -428,6 +436,9 @@ def answer(request: QuestionRequest, settings: Settings, providers: Providers) -
     graph.add_edge("filtered_retrieve_rerank", "grade_generate_verify")
     graph.add_edge("grade_generate_verify", END)
     try:
-        return QuestionResult.model_validate(graph.compile().invoke({})["result"])
+        from patch_ai.services.visual_retrieval import enrich
+
+        result = QuestionResult.model_validate(graph.compile().invoke({})["result"])
+        return enrich(request, result, settings, providers)
     except Exception:
         return unavailable(request)

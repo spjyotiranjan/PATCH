@@ -189,6 +189,109 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
     });
     await expect(askAiSocket(config, body)).rejects.toThrow("AI_UNAVAILABLE");
   });
+  it("indexes and selects a descriptor over REST then grounds exact pixels over WebSocket", async () => {
+    // Deterministic Pillow fixture bytes; no hosted models, vectors or R2.
+    const bytes = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAIUlEQVR4nGP8z0AaYCJRPcOoBmIAE1GqkMCoBmIAyaEEAEAuAR9UPEsJAAAAAElFTkSuQmCC",
+      "base64",
+    );
+    const asset: Schema["VisualSourceAsset"] = {
+      assetId: "a".repeat(24),
+      documentId: "b".repeat(24),
+      documentVersionId: "c".repeat(24),
+      page: 1,
+      bounds: { left: 0, top: 0, right: 1, bottom: 1 },
+      originalSha256: "a".repeat(64),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      byteCount: bytes.length,
+      width: 16,
+      height: 16,
+      contentType: "image/png",
+      renderDpi: 144,
+      rendererVersion: "pdfium-png-v1",
+    };
+    const description: Schema["VisualDescription"] = {
+      descriptionVersion: "vision-description-v1",
+      summary: "A red square.",
+      labels: [],
+      relationships: [],
+      uncertainties: [],
+    };
+    const hash = createHash("sha256")
+      .update(JSON.stringify(description))
+      .digest("hex");
+    const client = createAiServiceClient(config);
+    const index = await client.POST("/v1/visual-assets/index", {
+      body: {
+        requestId: randomUUID(),
+        contractVersion: "v1",
+        tenantId: "fixture",
+        approvalState: "APPROVED",
+        asset,
+        description,
+        descriptionFingerprint: hash,
+        visualClass: "DIAGRAM",
+        confidence: 1,
+      },
+    });
+    expect(index.data?.status).toBe("indexed");
+    const body = question();
+    body.question = "visual-transport-fixture";
+    body.retrievalScopeManifest.allowedDocumentVersions = [
+      {
+        documentId: asset.documentId,
+        documentVersionId: asset.documentVersionId,
+        inclusionPaths: ["PERSONAL"],
+      },
+    ];
+    body.visualScopeManifest = [
+      {
+        asset,
+        descriptionFingerprint: hash,
+        embeddingModel: "text-embedding-3-large",
+        visualClass: "DIAGRAM",
+        confidence: 1,
+      },
+    ];
+    const selection = await client.POST("/v1/visual-assets/search", {
+      body: { ...body, requestId: randomUUID() },
+    });
+    expect(selection.data?.state).toBe("AVAILABLE");
+    body.visualSelection = selection.data!;
+    body.visualSources = [
+      {
+        requestId: body.requestId,
+        contractVersion: "v1",
+        tenantId: "fixture",
+        approvalState: "APPROVED",
+        asset,
+        sourceFile: {
+          url: "https://fixture.invalid/phase7.png",
+          contentType: "image/png",
+          sha256: asset.sha256,
+        },
+      },
+    ];
+    const result = await askAiSocket(config, body);
+    expect(result).toMatchObject({
+      status: "incomplete",
+      visualEvidenceState: "AVAILABLE",
+      visualCitations: [
+        {
+          assetId: asset.assetId,
+          sha256: asset.sha256,
+          descriptionFingerprint: hash,
+        },
+      ],
+      visualObservations: [
+        {
+          text: "A red square is visible.",
+          visualCitationIds: [`visual-${asset.assetId}`],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toMatch(/https:|base64|objectKey/);
+  });
   it("rejects wrong-secret and pre-aborted socket calls safely", async () => {
     await expect(
       askAiSocket(

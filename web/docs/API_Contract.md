@@ -1,6 +1,52 @@
 # Web-to-AI API Contract
 
-### Phase 7 visual understanding extension (in progress)
+## Phase 7 backend contract (14 September 2026)
+
+AI owns
+local PDF triage and proposed-region detection; Web owns authorization, quotas,
+job fencing, deduplication and storage. No browser supplies a service source URL.
+
+- Signed `/v1/visual-assets/triage` receives an approved immutable PDF and returns
+  up to 12 candidate page numbers, scanned/total counts and explicit partial state.
+Local image/XObject, drawing and caption signals incur no model call.
+- Signed `/v1/visual-assets/discover` receives that PDF and one shortlisted page;
+  AI renders its bounded preview internally, verifies the parent checksum and
+  proposes up to four regions. Web validates/deduplicates them before rendering.
+- Signed `/v1/visual-assets/index` embeds one verified description with immutable
+  asset metadata and description fingerprint into `PINECONE_VISUAL_NAMESPACE`.
+  `/v1/visual-assets/delete-vectors` deletes only the specified tenant/version's
+  visual projections. Both namespaces are explicit configuration and must differ.
+- Web `POST /api/document-versions/{versionId}/visual-discovery` starts idempotent
+  enrichment; GET returns discovery counts/state. Activation can automatically
+  enqueue it when `VISUAL_PROCESSING_ENABLED=true`. Existing documents require
+  explicit opt-in. Up to 48 automatic assets and 100 total assets/version apply.
+- Web `POST /api/visual-assets/{assetId}/index` queues idempotent indexing; restoration creates a new rebuild generation.
+  Automatic regions chain render -> describe -> index in separate fenced jobs.
+- Before Chat, Web resolves up to 100 current indexed asset descriptors from the
+  assigned authorized versions. Signed `/v1/visual-assets/search` retrieves text
+  and visual candidates concurrently, fuses ranks and gates relevance. It returns
+  at most three selected asset IDs/roles, whether visual evidence is required,
+  and `TEXT_ONLY | AVAILABLE | UNAVAILABLE`, without URLs or descriptions.
+  Web then supplies URLs for only selected assets on the usual question request.
+  Selection and visual sources are transient and never stored in Chat history.
+  Internally the gate also receives bounded excerpts from the same scoped text
+  retrieval (four excerpts, 2,000 characters each) to avoid requiring images for
+  text-sufficient lookups. This does not change request/result schemas or grant
+  evidence authority to descriptors/history; selected images still require pixels.
+- Final REST/socket results include `visualEvidenceState`, `visualCitations`, and
+  `visualObservations` (bounded factual descriptions bound to exact visual citation
+  IDs). Observations are independently verified against same-turn pixels; physical
+  actions and operating/safety instructions still require the existing text steps
+  and citations. Web revalidates every asset's provenance, index fingerprint and
+  current access before persistence. A required visual failure makes an otherwise
+  approved result incomplete; optional failure preserves grounded text.
+
+AI settings bound triage pages (12), regions/page (4), preview DPI (72), visual
+candidates (20), relevance shortlist (6), final assets (3) and search timeout (15s).
+Bounds and hard contract caps are enforced even when provider output is malformed.
+Partial scope/discovery is visible and never presented as complete coverage.
+
+### Phase 7 verified visual descriptions
 
 Private `POST /v1/visual-assets/describe` accepts the usual signed correlation
 fields, `tenantId`, `approvalState: APPROVED`, immutable `asset`
@@ -19,40 +65,46 @@ Only its document owner/approved manager may request it. Asset projections add
 `description`. Derivatives remain accessible if description fails. Worker commits
 are lease-fenced and revalidate parent approval/currentness and checksum.
 Explicit requests incur up to two model calls per attempt; rendering alone does
-not invoke vision. Existing dead-letter retry applies. Search vectors and Chat
-visual evidence integration remain pending.
+not invoke vision. Existing dead-letter retry applies. Successful descriptions
+queue visual indexing; automatic discovery regions chain rendering and description.
 
-### Phase 7 planned discovery, visual retrieval, and answer extension
+### Phase 7 scope, state and citation invariants
 
-Before implementation, add signed `VisualDiscoverRequest` and `VisualIndexRequest`/
-result schemas, regenerate this artifact and Web types. Discovery receives only a
-current approved parent version/page, checksum-bound preview source, pipeline
-version and declared limits. It returns bounded proposed normalized regions, class,
-confidence and uncertainty; proposals are not citations and cannot authorize render.
-Indexing receives a ready verified asset and canonical verified description; no
-pixels, base64 or URLs enter Pinecone.
+`QuestionRequest.visualScopeManifest` (max 100) is a subset of the text manifest.
+Each entry holds `VisualSourceAsset`, description fingerprint, embedding model,
+class and confidence. `visualScopePartial` discloses bounded coverage.
+`visualSelection` holds a separately correlated `VisualSearchResult`;
+`visualSources` contains at most three approved, checksum-bound PNG requests.
+Selection/source IDs must be unique and inside the manifest; source tenant and
+complete asset metadata must match. AVAILABLE requires selected IDs; all other
+states require an empty selection. Neither API inputs nor models select namespaces.
 
-Namespace selection is never supplied by an API payload. AI reads the existing
-text/profile namespace from `PINECONE_NAMESPACE` and, when implemented, will read
-the visual-description namespace from `PINECONE_VISUAL_NAMESPACE`. Deployment maps
-them to `{environment}` and `visual-{environment}` respectively. Local values are
-therefore `development` and future `visual-development`.
+`QuestionResult.visualCitations` (max three) binds an ID to asset/document/version,
+page/bounds, derivative SHA, description fingerprint, class and REQUIRED/HELPFUL
+role. `visualObservations` (max six) holds factual text (max 2,000 characters) and
+one to three visual citation IDs. Every observation must cite actual inspected
+pixels and every returned citation must be used. Only AVAILABLE may carry these
+fields; outdated/conflicting/unavailable text results cannot carry visual claims.
+Text operational steps still use the existing source-chunk citation contract.
 
-`QuestionRequest` will add a bounded `visualScopeManifest`, a subset of the current
-authorized document-version manifest, plus transient AI-only source descriptors
-only for a shortlist. Reject duplicate asset IDs, parent/version/SHA mismatch,
-out-of-manifest assets, non-ready/non-indexed assets and empty/unfiltered visual
-queries. Web alone creates source URLs; browsers and persisted Chat turns never
-receive them.
+The text baseline's `status` is not upgraded by successful pixel verification.
+An image-only factual question can therefore have `status: incomplete`, empty
+text steps, and `visualEvidenceState: AVAILABLE` with verified observations.
+Consumers must inspect both evidence fields, display only their supported content,
+and retain warnings; AVAILABLE does not imply an approved operational answer.
 
-`QuestionResult` will add `visualEvidenceState: TEXT_ONLY | AVAILABLE |
-UNAVAILABLE` and separate bounded `visualCitations`. Each citation has stable asset
-ID, parent document/version, page, normalized bounds, derivative SHA, class and
-`relevanceRole: REQUIRED | HELPFUL`; never storage keys, URLs, image bytes, raw
-descriptions, rationales or model output. A visual citation is valid only if Web
-freshly validates it against the manifest and the exact asset was inspected in turn.
-An approved result may be `TEXT_ONLY`; unavailable required visuals produce an
-explicit evidence-limited result.
+Web re-resolves access, approval, active version, descriptor/index fingerprint,
+class/model and exact metadata before persistence. Source opening performs another
+authorization check. Responses/persisted history contain no R2 keys, URLs, base64,
+raw detector output or model reasoning. Signed sources live only within the turn.
+Required visual loss downgrades otherwise approved text to incomplete; optional
+loss preserves its text state. An explicit image-dependent question with no
+eligible asset is evidence-limited, not silently complete. A disabled visual
+feature retains the previous text-only path.
+
+All private endpoints remain HMAC-authenticated with the normal request/replay
+rules. Generated `ai/openapi.json` and `web/lib/ai/generated.ts` are authoritative
+for exact types; browser inputs cannot construct private manifests/source URLs.
 
 ## Mandatory contributor workflow
 
@@ -302,6 +354,13 @@ page anchors and lower extraction quality; no image regions or visual claims are
 added to citations. Parser changes require a newly reviewed immutable version for
 already-active sources, not an in-place change to retained citation text.
 
+Pipeline 4 (16 September 2026) preserves approximate embedded-image word positions
+as whitespace in `pages[].text`, with bounded consensus re-reading of weak labels.
+Render extraction review in monospace with whitespace preserved. This is OCR text,
+not a chart-data/relationship schema; extraction quality remains 0.6 and human
+review remains mandatory. Native text and whole-page scan processing are unchanged.
+No payload/schema change or reinterpretation of retained extraction is introduced.
+
 Phases 1–2 originally used deterministic contract stubs. Phases 3–6 routes now
 execute provider-backed workflows; test providers are injected only by tests.
 Failures return typed `failed`/`unavailable` results or the safe error envelope,
@@ -343,9 +402,8 @@ Web operations (session-authenticated; available in `/api/docs`):
   current manifest and issues an expiring derivative URL only for a ready asset.
 
 Rendering records no claim of OCR accuracy, model understanding or vector
-indexing. These assets do not yet enter Chat manifests/citations. Automatic region
-detection, image embeddings and verified visual answers remain subsequent Phase 7
-work. Revocation, archive, supersession and removal of a current inclusion path
+indexing by itself. Only verified/indexed assets enter the opt-in visual Chat
+path described above; descriptor embeddings are not native image embeddings. Revocation, archive, supersession and removal of a current inclusion path
 block subsequent visual reads even if a retained derivative still exists. Already
 issued signed URLs remain valid until their bounded expiry, as with original URLs.
 Original text ingestion and activation are unaffected by visual job failure.

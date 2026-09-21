@@ -30,10 +30,19 @@ def no_live_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     def unavailable(*args: Any, **kwargs: Any) -> Any:
         raise RuntimeError("TEST_PROVIDER_UNAVAILABLE")
 
-    for method in ("model", "search", "upsert", "delete"):
+    for method in (
+        "model",
+        "search",
+        "upsert",
+        "delete",
+        "visual_search",
+        "visual_upsert",
+        "visual_delete",
+    ):
         monkeypatch.setattr(Providers, method, unavailable)
     monkeypatch.setattr("patch_ai.services.ingestion.download_source", unavailable)
     monkeypatch.setattr("patch_ai.services.visual_assets.download_source", unavailable)
+    monkeypatch.setattr("patch_ai.services.visual_ingestion.download_source", unavailable)
     monkeypatch.setattr("patch_ai.adapters.visual_source.download_source", unavailable)
     monkeypatch.setattr("patch_ai.adapters.ocr.available", lambda settings: True)
 

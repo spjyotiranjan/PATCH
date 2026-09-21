@@ -13,6 +13,18 @@ import {
 } from "../lib/backend/visual-assets";
 import { runJobs } from "../lib/backend/jobs";
 import { retryJob } from "../lib/backend/operations";
+import {
+  requestDiscovery,
+  discoveryStatus,
+  commitRegions,
+  descriptorFingerprint,
+} from "../lib/backend/visual-pipeline";
+import {
+  prepareVisualChat,
+  validateVisualAnswer,
+} from "../lib/backend/visual-chat";
+import { repairVisuals, afterVisualDelete } from "../lib/backend/visual-repair";
+import type { Schema } from "../lib/backend/models";
 
 const runtime = vi.hoisted(() => ({
   memory: null as unknown,
@@ -337,4 +349,292 @@ it("marks dead letters failed and supports audited recovery without changing the
   expect((await runJobs(ctx, 1)).items[0].status).toBe("COMPLETED");
   expect((await visualAssetSource(ctx, asset.id)).asset.state).toBe("READY");
   expect(memory.data("documentVersions")[0].state).toBe("ACTIVE");
+});
+
+const description: Schema["VisualDescription"] = {
+  descriptionVersion: "vision-description-v1",
+  summary: "A diagram.",
+  labels: ["A", "B"],
+  relationships: ["A connects to B."],
+  uncertainties: [],
+};
+const region = {
+  bounds: { left: 0.1, top: 0.1, right: 0.9, bottom: 0.9 },
+  visualClass: "DIAGRAM" as const,
+  confidence: 0.9,
+  uncertainty: "",
+};
+function pipeline() {
+  const render = runtime.post.getMockImplementation()!;
+  runtime.post.mockImplementation(async (path, options) => {
+    const b = options.body;
+    const base = {
+      requestId: b.requestId,
+      documentVersionId: version,
+      originalSha256: sha,
+    };
+    if (path.endsWith("/triage"))
+      return {
+        data: {
+          ...base,
+          status: "complete",
+          pages: [1],
+          totalPages: 1,
+          scannedPages: 1,
+        },
+      };
+    if (path.endsWith("/discover"))
+      return {
+        data: {
+          ...base,
+          status: "complete",
+          page: 1,
+          regions: [region, region],
+        },
+      };
+    if (path.endsWith("/describe"))
+      return {
+        data: {
+          requestId: b.requestId,
+          assetId: b.asset.assetId,
+          sha256: b.asset.sha256,
+          status: "described",
+          description,
+          errors: [],
+        },
+      };
+    if (path.endsWith("/index"))
+      return {
+        data: {
+          requestId: b.requestId,
+          assetId: b.asset.assetId,
+          descriptionFingerprint: b.descriptionFingerprint,
+          status: "indexed",
+          embeddingModel: "text-embedding-3-large",
+        },
+      };
+    return render(path, options);
+  });
+}
+async function indexed() {
+  pipeline();
+  await requestDiscovery(ctx, version);
+  for (let i = 0; i < 5; i++)
+    expect((await runJobs(ctx, 1)).items[0].status).toBe("COMPLETED");
+  return (await listVisualAssets(ctx, version)).items[0];
+}
+it("reuses an undescribed manual page and finishes its enrichment during discovery", async () => {
+  const manual = await request();
+  await runJobs(ctx, 1);
+  pipeline();
+  await requestDiscovery(ctx, version);
+  for (let i = 0; i < 4; i++)
+    expect((await runJobs(ctx, 1)).items[0].status).toBe("COMPLETED");
+  const result = (await listVisualAssets(ctx, version)).items;
+  expect(result).toHaveLength(1);
+  expect(result[0]).toMatchObject({ id: manual.id, indexState: "READY" });
+  expect(runtime.store).toHaveBeenCalledOnce();
+});
+function visualQuestion(): Schema["QuestionRequest"] {
+  return {
+    requestId: randomUUID(),
+    contractVersion: "v1",
+    actor: { id: owner, tenantId: "test" },
+    chatSession: { id: "session" },
+    question: "How are A and B connected?",
+    assignedReferences: [],
+    retrievalPolicy: {
+      approvedOnly: true,
+      requireSourceLocation: true,
+      allowStructuralFallback: true,
+    },
+    retrievalScopeManifest: {
+      allowedDocumentVersions: [
+        {
+          documentId: doc,
+          documentVersionId: version,
+          inclusionPaths: ["PERSONAL"],
+        },
+      ],
+    },
+  };
+}
+it("completes discovery, deduplicated rendering, description and indexing through durable jobs", async () => {
+  const asset = await indexed();
+  expect(asset).toMatchObject({
+    state: "READY",
+    descriptionState: "READY",
+    indexState: "READY",
+    visualClass: "DIAGRAM",
+  });
+  expect(await discoveryStatus(ctx, version)).toMatchObject({
+    status: "COMPLETE",
+    assets: 1,
+    indexed: 1,
+  });
+  await requestDiscovery(ctx, version);
+  expect(memory.data("outboxEvents")).toHaveLength(5);
+  expect(runtime.store).toHaveBeenCalledOnce();
+});
+it("reports processing until automatic assets are indexed and partial detection at the quota", async () => {
+  pipeline();
+  await requestDiscovery(ctx, version);
+  await runJobs(ctx, 1);
+  await runJobs(ctx, 1);
+  expect(await discoveryStatus(ctx, version)).toMatchObject({
+    status: "PROCESSING",
+    detectionStatus: "COMPLETE",
+    indexed: 0,
+  });
+  memory.data("visualDiscovery")[0].completedPages = [];
+  memory.seed(
+    "visualSourceAssets",
+    Array.from({ length: 48 }, () => ({
+      _id: new ObjectId(),
+      tenantId: "test",
+      documentVersionId: version,
+      automatic: true,
+      page: 2,
+    })),
+  );
+  await commitRegions(ctx, version, {
+    requestId: randomUUID(),
+    documentVersionId: version,
+    originalSha256: sha,
+    status: "complete",
+    page: 1,
+    regions: [region],
+  });
+  expect(memory.data("visualSourceAssets")).toHaveLength(48);
+  expect(memory.data("visualDiscovery")[0]).toMatchObject({
+    status: "PARTIAL",
+    partial: true,
+  });
+});
+it.each(["fingerprint", "generation"])(
+  "fences an index response after concurrent %s changes",
+  async (change) => {
+    pipeline();
+    await requestDiscovery(ctx, version);
+    for (let i = 0; i < 4; i++) await runJobs(ctx, 1);
+    const post = runtime.post.getMockImplementation()!;
+    runtime.post.mockImplementation(async (...args) => {
+      const result = await post(...args);
+      if (change === "generation")
+        memory.data("visualSourceAssets")[0].indexGeneration = 1;
+      else
+        memory.data("visualSourceAssets")[0].descriptionFingerprint =
+          "b".repeat(64);
+      return result;
+    });
+    expect((await runJobs(ctx, 1)).items[0].status).not.toBe("COMPLETED");
+    expect(memory.data("visualSourceAssets")[0].indexState).toBe("QUEUED");
+  },
+);
+it("signs only selected assets and validates exact citations before persistence", async () => {
+  const asset = await indexed();
+  ctx.config.VISUAL_RETRIEVAL_ENABLED = true;
+  runtime.source.mockClear();
+  runtime.post.mockImplementation(async (_path, { body }) => {
+    expect(body.visualScopeManifest).toHaveLength(1);
+    expect(body.visualSources).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain("https:");
+    return {
+      data: {
+        requestId: body.requestId,
+        state: "AVAILABLE",
+        visualRequired: false,
+        selected: [{ assetId: asset.id, relevanceRole: "HELPFUL" }],
+      },
+    };
+  });
+  const request = visualQuestion();
+  await prepareVisualChat(ctx, request);
+  expect(runtime.source).toHaveBeenCalledOnce();
+  const citation: Schema["VisualCitation"] = {
+    id: `visual-${asset.id}`,
+    assetId: asset.id,
+    documentId: doc,
+    documentVersionId: version,
+    page: 1,
+    bounds: asset.bounds,
+    sha256: asset.metadata!.sha256,
+    descriptionFingerprint: descriptorFingerprint(description),
+    visualClass: "DIAGRAM",
+    relevanceRole: "HELPFUL",
+  };
+  const result: Schema["QuestionResult"] = {
+    requestId: request.requestId,
+    chatSession: { id: "session", suggestedTitle: "Diagram" },
+    turnId: "turn",
+    status: "incomplete",
+    routing: { usedStructuralFallback: true },
+    answer: { summary: null, steps: [] },
+    followUpAllowed: true,
+    visualEvidenceState: "AVAILABLE",
+    visualCitations: [citation],
+    visualObservations: [
+      { text: "A connects to B.", visualCitationIds: [citation.id] },
+    ],
+  };
+  await expect(
+    validateVisualAnswer(ctx, result, request),
+  ).resolves.toBeUndefined();
+  expect(JSON.stringify(result)).not.toMatch(/https:|objectKey|pngBase64/);
+  citation.sha256 = "0".repeat(64);
+  await expect(validateVisualAnswer(ctx, result, request)).rejects.toThrow(
+    "AI_VISUAL_INVALID",
+  );
+  citation.sha256 = asset.metadata!.sha256;
+  memory.seed("documentLinks", []);
+  await expect(validateVisualAnswer(ctx, result, request)).rejects.toThrow();
+});
+it("rejects invented search selections without signing pixels", async () => {
+  await indexed();
+  ctx.config.VISUAL_RETRIEVAL_ENABLED = true;
+  runtime.source.mockClear();
+  runtime.post.mockImplementation(async (_path, { body }) => ({
+    data: {
+      requestId: body.requestId,
+      state: "AVAILABLE",
+      visualRequired: true,
+      selected: [{ assetId: "0".repeat(24), relevanceRole: "REQUIRED" }],
+    },
+  }));
+  const request = visualQuestion();
+  await prepareVisualChat(ctx, request);
+  expect(request.visualSelection?.state).toBe("UNAVAILABLE");
+  expect(runtime.source).not.toHaveBeenCalled();
+});
+it("an old generation's dead letter cannot fail a newer queued index", async () => {
+  pipeline();
+  await requestDiscovery(ctx, version);
+  for (let i = 0; i < 4; i++) await runJobs(ctx, 1);
+  const old = memory
+    .data("outboxEvents")
+    .find((j) => j.kind === "VISUAL_INDEX")!;
+  old.attempts = 4;
+  memory.data("visualSourceAssets")[0].indexGeneration = 1;
+  runtime.post.mockClear();
+  expect((await runJobs(ctx, 1)).items[0].status).toBe("DEAD_LETTER");
+  expect(memory.data("visualSourceAssets")[0].indexState).toBe("QUEUED");
+  expect(runtime.post).not.toHaveBeenCalled();
+});
+it("disables orphaned vectors and rebuilds a restored source without deleting retained PNGs", async () => {
+  await indexed();
+  const links = memory.data("documentLinks");
+  memory.seed("documentLinks", []);
+  await repairVisuals(ctx);
+  expect(memory.data("visualSourceAssets")[0].indexState).toBe("DISABLED");
+  expect(
+    memory.data("outboxEvents").filter((j) => j.kind === "VISUAL_DELETE"),
+  ).toHaveLength(1);
+  memory.seed("documentLinks", links);
+  await afterVisualDelete({ ...ctx, system: true }, version);
+  expect(memory.data("visualSourceAssets")[0]).toMatchObject({
+    indexState: "QUEUED",
+    indexGeneration: 1,
+    state: "READY",
+  });
+  expect(runtime.store).toHaveBeenCalledOnce();
 });

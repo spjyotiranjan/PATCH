@@ -56,6 +56,44 @@ active pointers; stop dispatch before reverting the parser/lockfile together.
 
 ## Phase 7 visual derivative foundation
 
+### Pack 2 spatial OCR repair (16 September 2026)
+
+Pipeline 4 replaces the mixed-image flattened multi-pass transcript with bounded
+Tesseract word-box extraction (`--psm 6`) and a monospace layout transcription.
+Low-confidence tokens may be re-read in padded crops at original and doubled scale;
+replacement requires agreement of both readings with confidence >=80. At most eight
+tokens are retried; each pass allows 20,000 data rows and 2,000 recognized words,
+inside the existing shared deadline and pixel cap. Unresolved
+readings remain review-required, not silently certified. Full-page scan processing
+and native PDF text are unchanged. OCR confidence is only a retry heuristic;
+extraction quality remains 0.6. No words, chart values or fixture IDs are hardcoded.
+
+Layout whitespace preserves approximate label positions, not inferred chart data.
+Chart relationships, colours and arrows still require the existing pixel-grounded
+Phase 7 path. Native text and the original PDF remain authoritative review inputs.
+The colour pass still supplements missing warning text. New immutable versions
+and renewed review are mandatory; retained pipeline-3 versions are not rewritten.
+No schema, dependency, setting or model call is added. Stop dispatch across upgrade
+or rollback; retain originals and old active versions, and align extraction/index
+code before processing new versions. No automatic approval or backfill.
+
+### Pack 2 OCR follow-up (15 September 2026)
+
+Parser/index pipeline 3 adds one supplemental Tesseract `--psm 6` block-layout
+pass for embedded raster images on mixed pages. Live fixtures showed default
+segmentation omitting boxed identifiers and chart numbers. Preserve the primary
+reading, append only distinct lines, and retain conflicting readings for review.
+All passes share one OCR deadline; no new package, model call or setting is added.
+Whole-page scan behavior is unchanged. This improves label recall, not chart
+pairing, geometry, colour or visual meaning. Those still require Phase 7 pixels.
+See [Tesseract segmentation guidance](https://tesseract-ocr.github.io/tessdoc/ImproveQuality.html#page-segmentation-method).
+
+Upload a new immutable version for previously extracted/reviewed/active sources;
+do not mutate historical extraction or silently reindex them. Stop workers across
+the upgrade and review new extraction before indexing with the matching pipeline.
+Rollback retains originals, prior active pointers and vectors; process new versions
+only after aligning parser/index code. No automatic backfill or source approval.
+
 `visual_renderer.py` extends this same parser exception to page/region PNG assets.
 It reuses pypdf validation, the existing PDFium lock/render function and Pillow;
 no new parser stack, direct provider SDK or license dependency is introduced.

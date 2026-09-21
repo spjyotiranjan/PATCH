@@ -19,6 +19,7 @@ import type { VersionRecord } from "./models";
 import { revokeAccess } from "./access";
 import { procedureSource } from "./procedure-evidence";
 import * as visuals from "./visual-assets";
+import * as visualPipeline from "./visual-pipeline";
 
 interface Endpoint {
   method: string;
@@ -59,6 +60,27 @@ function route<T>(
   });
 }
 const empty = z.object({}).strict();
+route(
+  "POST",
+  "/api/document-versions/{versionId}/visual-discovery",
+  "Discover and index meaningful figures for a current approved PDF",
+  empty,
+  (ctx, p) => visualPipeline.requestDiscovery(ctx, p.versionId),
+);
+route(
+  "GET",
+  "/api/document-versions/{versionId}/visual-discovery",
+  "Inspect discovery coverage and enrichment counts",
+  undefined,
+  (ctx, p) => visualPipeline.discoveryStatus(ctx, p.versionId),
+);
+route(
+  "POST",
+  "/api/visual-assets/{assetId}/index",
+  "Index a verified visual description",
+  empty,
+  (ctx, p) => visualPipeline.requestIndex(ctx, p.assetId),
+);
 route(
   "POST",
   "/api/visual-assets/{assetId}/describe",

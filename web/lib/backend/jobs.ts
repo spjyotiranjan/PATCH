@@ -40,6 +40,15 @@ import {
   currentVisualVersion,
   type VisualAssetRecord,
 } from "./visual-assets";
+import {
+  triageVersion,
+  discoverPage,
+  commitRegions,
+  buildVisualIndex,
+  enqueueVisualIndex,
+  type DiscoveryRecord,
+} from "./visual-pipeline";
+import { afterVisualDelete } from "./visual-repair";
 
 interface Job {
   _id: ObjectId;
@@ -53,6 +62,8 @@ interface Job {
     projectId?: string;
     procedureId?: string;
     assetId?: string;
+    page?: number;
+    indexGeneration?: number;
   };
   status: string;
   attempts: number;
@@ -517,12 +528,86 @@ export async function runJobs(base: Context, limit = 10) {
         await processVersion(ctx, job);
       else if (job.kind === "PROFILE") await processProfile(ctx, job);
       else if (job.kind === "PROCEDURE") await processProcedure(ctx, job);
-      else if (["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind)) {
+      else if (job.kind === "VISUAL_TRIAGE") {
+        const result = await triageVersion(ctx, job.payload.versionId!);
+        await applyJob(ctx, job, async (tx) => {
+          const version = await currentVisualVersion(
+            tx,
+            job.payload.versionId!,
+          );
+          if (version.sha256.toLowerCase() !== result.originalSha256)
+            fail("VISUAL_SOURCE_CHANGED");
+          await tx.db.collection<DiscoveryRecord>("visualDiscovery").updateOne(
+            { _id: oid(job.payload.versionId!), tenantId: job.tenantId },
+            {
+              $set: {
+                pages: result.pages,
+                completedPages: [],
+                totalPages: result.totalPages,
+                scannedPages: result.scannedPages,
+                partial: result.status === "partial",
+                status: result.pages.length
+                  ? "PROCESSING"
+                  : result.status === "partial"
+                    ? "PARTIAL"
+                    : "COMPLETE",
+              },
+            },
+            { session: tx.session },
+          );
+          for (const page of result.pages)
+            await queue(
+              tx,
+              "VISUAL_DISCOVER",
+              `visual-discover:${job.payload.versionId}:${page}:v1`,
+              { versionId: job.payload.versionId, page },
+            );
+        });
+      } else if (job.kind === "VISUAL_DISCOVER") {
+        const result = await discoverPage(
+          ctx,
+          job.payload.versionId!,
+          job.payload.page!,
+        );
+        await applyJob(ctx, job, (tx) =>
+          commitRegions(tx, job.payload.versionId!, result),
+        );
+      } else if (job.kind === "VISUAL_DELETE") {
+        // Scoped derived-vector deletion never removes retained originals or derivatives.
+        const requestId = randomUUID();
+        const response = await createAiServiceClient(ctx.config).POST(
+          "/v1/visual-assets/delete-vectors",
+          {
+            body: {
+              requestId,
+              contractVersion: "v1",
+              tenantId: job.tenantId,
+              documentVersionId: job.payload.versionId!,
+            },
+          },
+        );
+        if (
+          response.data?.requestId !== requestId ||
+          response.data.status !== "deleted"
+        )
+          fail("VISUAL_DELETE_FAILED", 503);
+        await applyJob(ctx, job, (tx) =>
+          afterVisualDelete(tx, job.payload.versionId!),
+        );
+      } else if (
+        ["VISUAL_RENDER", "VISUAL_DESCRIBE", "VISUAL_INDEX"].includes(job.kind)
+      ) {
         await currentLease(ctx, job);
         const asset =
           job.kind === "VISUAL_RENDER"
             ? await buildVisualAsset(ctx, job.payload.assetId!)
-            : await buildVisualDescription(ctx, job.payload.assetId!);
+            : job.kind === "VISUAL_DESCRIBE"
+              ? await buildVisualDescription(ctx, job.payload.assetId!)
+              : await buildVisualIndex(
+                  ctx,
+                  job.payload.assetId!,
+                  job.payload.indexGeneration ?? 0,
+                );
         await applyJob(ctx, job, async (tx) => {
           const version = await currentVisualVersion(
             tx,
@@ -530,6 +615,21 @@ export async function runJobs(base: Context, limit = 10) {
           );
           if (version.sha256.toLowerCase() !== asset.originalSha256)
             fail("VISUAL_SOURCE_CHANGED");
+          const current = await tx.db
+            .collection<VisualAssetRecord>("visualSourceAssets")
+            .findOne(
+              { _id: asset._id, tenantId: job.tenantId },
+              { session: tx.session },
+            );
+          if (
+            !current ||
+            (current.indexGeneration ?? 0) !== (asset.indexGeneration ?? 0) ||
+            (job.kind === "VISUAL_INDEX" &&
+              (current.indexState !== "QUEUED" ||
+                current.descriptionFingerprint !==
+                  asset.descriptionFingerprint))
+          )
+            fail("VISUAL_GENERATION_CHANGED");
           await tx.db
             .collection<VisualAssetRecord>("visualSourceAssets")
             .replaceOne(
@@ -541,11 +641,30 @@ export async function runJobs(base: Context, limit = 10) {
               asset,
               { session: tx.session },
             );
+          if (job.kind === "VISUAL_RENDER" && asset.automatic) {
+            await tx.db
+              .collection<VisualAssetRecord>("visualSourceAssets")
+              .updateOne(
+                { _id: asset._id, tenantId: job.tenantId },
+                { $set: { descriptionState: "QUEUED" } },
+                { session: tx.session },
+              );
+            await queue(
+              tx,
+              "VISUAL_DESCRIBE",
+              `visual-describe:${asset._id.toHexString()}`,
+              { assetId: asset._id.toHexString() },
+            );
+          }
+          if (job.kind === "VISUAL_DESCRIBE")
+            await enqueueVisualIndex(tx, asset);
           await audit(
             tx,
             job.kind === "VISUAL_RENDER"
               ? "VISUAL_ASSET_READY"
-              : "VISUAL_DESCRIPTION_READY",
+              : job.kind === "VISUAL_DESCRIBE"
+                ? "VISUAL_DESCRIPTION_READY"
+                : "VISUAL_INDEX_READY",
             {
               assetId: asset._id.toHexString(),
               versionId: asset.documentVersionId,
@@ -581,7 +700,9 @@ export async function runJobs(base: Context, limit = 10) {
     } catch (error) {
       const status = job.attempts >= 5 ? "DEAD_LETTER" : "PENDING";
       if (
-        ["VISUAL_RENDER", "VISUAL_DESCRIBE"].includes(job.kind) &&
+        ["VISUAL_RENDER", "VISUAL_DESCRIBE", "VISUAL_INDEX"].includes(
+          job.kind,
+        ) &&
         status === "DEAD_LETTER"
       ) {
         // Fence the asset-state update with the lease, just like successful commits.
@@ -595,15 +716,29 @@ export async function runJobs(base: Context, limit = 10) {
                 {
                   _id: oid(job.payload.assetId!),
                   tenantId: job.tenantId,
+                  ...(job.kind === "VISUAL_INDEX"
+                    ? {
+                        $or: [
+                          { indexGeneration: job.payload.indexGeneration ?? 0 },
+                          ...((job.payload.indexGeneration ?? 0) === 0
+                            ? [{ indexGeneration: { $exists: false } }]
+                            : []),
+                        ],
+                      }
+                    : {}),
                   ...(job.kind === "VISUAL_RENDER"
                     ? { state: { $ne: "READY" } }
-                    : { descriptionState: { $ne: "READY" } }),
+                    : job.kind === "VISUAL_DESCRIBE"
+                      ? { descriptionState: { $ne: "READY" } }
+                      : { indexState: { $ne: "READY" } }),
                 },
                 {
                   $set: {
                     ...(job.kind === "VISUAL_RENDER"
                       ? { state: "FAILED" as const }
-                      : { descriptionState: "FAILED" as const }),
+                      : job.kind === "VISUAL_DESCRIBE"
+                        ? { descriptionState: "FAILED" as const }
+                        : { indexState: "FAILED" as const }),
                     updatedAt: new Date(),
                   },
                 },
@@ -612,6 +747,25 @@ export async function runJobs(base: Context, limit = 10) {
           });
         } catch {
           /* A newer lease owns the result; do not overwrite it. */
+        }
+      }
+      if (
+        ["VISUAL_TRIAGE", "VISUAL_DISCOVER"].includes(job.kind) &&
+        status === "DEAD_LETTER"
+      ) {
+        try {
+          await withDatabaseTransaction(ctx.config, async (db, session) => {
+            await currentLease({ ...ctx, db, session }, job);
+            await db
+              .collection("visualDiscovery")
+              .updateOne(
+                { _id: oid(job.payload.versionId!), tenantId: job.tenantId },
+                { $set: { status: "FAILED", partial: true } },
+                { session },
+              );
+          });
+        } catch {
+          /* A later lease owns this job. */
         }
       }
       await base.db.collection<Job>("outboxEvents").updateOne(

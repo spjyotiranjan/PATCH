@@ -68,6 +68,17 @@ class Settings(BaseSettings):
     pinecone_namespace: str = Field(
         default="development", pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
     )
+    pinecone_visual_namespace: str = Field(
+        default="visual-development", pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+    )
+    visual_retrieval_enabled: bool = False
+    visual_candidate_pages: int = Field(default=12, ge=1, le=12)
+    visual_regions_per_page: int = Field(default=4, ge=1, le=4)
+    visual_preview_dpi: int = Field(default=72, ge=72, le=100)
+    visual_candidate_count: int = Field(default=20, ge=1, le=50)
+    visual_gate_limit: int = Field(default=6, ge=1, le=10)
+    visual_final_limit: int = Field(default=3, ge=1, le=3)
+    visual_search_timeout_seconds: int = Field(default=15, ge=1, le=30)
 
     chunk_size_tokens: int = Field(default=700, ge=100, le=4000)
     chunk_overlap_tokens: int = Field(default=120, ge=0, le=1000)
@@ -88,6 +99,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_limits(self) -> "Settings":
+        if self.pinecone_namespace == self.pinecone_visual_namespace:
+            raise ValueError("Text and visual namespaces must differ")
         if self.chunk_overlap_tokens >= self.chunk_size_tokens:
             raise ValueError("Chunk overlap must be smaller than chunk size")
         if self.maintenance_log_indexing_enabled:

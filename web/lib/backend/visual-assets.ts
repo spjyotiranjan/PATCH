@@ -43,6 +43,13 @@ export interface VisualAssetRecord {
   objectKey?: string;
   descriptionState?: "QUEUED" | "READY" | "FAILED";
   description?: Schema["VisualDescription"];
+  automatic?: boolean;
+  visualClass?: Schema["VisualRegion"]["visualClass"];
+  confidence?: number;
+  indexState?: "QUEUED" | "READY" | "FAILED" | "DISABLED";
+  descriptionFingerprint?: string;
+  embeddingModel?: string;
+  indexGeneration?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +66,9 @@ function assetView(record: VisualAssetRecord) {
     metadata: record.metadata ?? null,
     descriptionState: record.descriptionState ?? "NOT_REQUESTED",
     description: record.description ?? null,
+    indexState: record.indexState ?? "NOT_REQUESTED",
+    visualClass: record.visualClass ?? "OTHER",
+    confidence: record.confidence ?? 1,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -88,6 +98,19 @@ export async function currentVisualVersion(
       )
     )
       fail("VISUAL_SOURCE_ACCESS_REQUIRED", 403);
+  } else {
+    const link = await ctx.db.collection("documentLinks").findOne(
+      {
+        tenantId: ctx.actor.tenantId,
+        documentId: version.documentId,
+        $or: [
+          { versionPolicy: "LATEST_APPROVED" },
+          { pinnedDocumentVersionId: id },
+        ],
+      },
+      { session: ctx.session },
+    );
+    if (!link) fail("VISUAL_SOURCE_ACCESS_REQUIRED", 403);
   }
   return version;
 }
@@ -207,7 +230,7 @@ export async function requestVisualDescription(ctx: Context, assetId: string) {
   });
 }
 
-const descriptionSchema = z
+export const descriptionSchema = z
   .object({
     descriptionVersion: z.literal("vision-description-v1"),
     summary: z.string().min(1).max(4000),
@@ -300,7 +323,7 @@ export async function visualAssetSource(ctx: Context, assetId: string) {
 }
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
-const metadataSchema = z
+export const metadataSchema = z
   .object({
     assetId: z.string(),
     documentId: z.string(),

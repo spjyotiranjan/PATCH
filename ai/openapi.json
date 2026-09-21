@@ -1771,6 +1771,36 @@
           },
           "retrievalScopeManifest": {
             "$ref": "#/components/schemas/RetrievalScopeManifest"
+          },
+          "visualScopeManifest": {
+            "items": {
+              "$ref": "#/components/schemas/VisualScopeEntry"
+            },
+            "maxItems": 100,
+            "title": "Visualscopemanifest",
+            "type": "array"
+          },
+          "visualScopePartial": {
+            "title": "Visualscopepartial",
+            "type": "boolean"
+          },
+          "visualSelection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisualSearchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visualSources": {
+            "items": {
+              "$ref": "#/components/schemas/VisualDescribeRequest"
+            },
+            "maxItems": 3,
+            "title": "Visualsources",
+            "type": "array"
           }
         },
         "required": [
@@ -1829,6 +1859,31 @@
             "minLength": 1,
             "title": "Turnid",
             "type": "string"
+          },
+          "visualCitations": {
+            "items": {
+              "$ref": "#/components/schemas/VisualCitation"
+            },
+            "maxItems": 3,
+            "title": "Visualcitations",
+            "type": "array"
+          },
+          "visualEvidenceState": {
+            "enum": [
+              "TEXT_ONLY",
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Visualevidencestate",
+            "type": "string"
+          },
+          "visualObservations": {
+            "items": {
+              "$ref": "#/components/schemas/VisualObservation"
+            },
+            "maxItems": 6,
+            "title": "Visualobservations",
+            "type": "array"
           },
           "warnings": {
             "items": {
@@ -2442,34 +2497,117 @@
         "properties": {
           "bottom": {
             "default": 1,
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Bottom",
             "type": "number"
           },
           "left": {
             "default": 0,
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Left",
             "type": "number"
           },
           "right": {
             "default": 1,
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Right",
             "type": "number"
           },
           "top": {
             "default": 0,
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "maximum": 1,
+            "minimum": 0,
             "title": "Top",
             "type": "number"
           }
         },
         "title": "VisualBounds",
+        "type": "object"
+      },
+      "VisualCitation": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/VisualBounds"
+          },
+          "descriptionFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Descriptionfingerprint",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "page": {
+            "maximum": 500,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "relevanceRole": {
+            "enum": [
+              "REQUIRED",
+              "HELPFUL"
+            ],
+            "title": "Relevancerole",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "visualClass": {
+            "enum": [
+              "SCHEMATIC",
+              "DIAGRAM",
+              "CHART",
+              "TABLE",
+              "PHOTO",
+              "SCREENSHOT",
+              "OTHER"
+            ],
+            "title": "Visualclass",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "assetId",
+          "documentId",
+          "documentVersionId",
+          "page",
+          "bounds",
+          "sha256",
+          "descriptionFingerprint",
+          "visualClass",
+          "relevanceRole"
+        ],
+        "title": "VisualCitation",
         "type": "object"
       },
       "VisualDescribeRequest": {
@@ -2624,6 +2762,362 @@
         "title": "VisualDescription",
         "type": "object"
       },
+      "VisualDiscoverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "page": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "pipelineVersion": {
+            "const": "visual-discovery-v1",
+            "default": "visual-discovery-v1",
+            "title": "Pipelineversion",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "documentId",
+          "documentVersionId",
+          "approvalState",
+          "sourceFile",
+          "page"
+        ],
+        "title": "VisualDiscoverRequest",
+        "type": "object"
+      },
+      "VisualDiscoverResult": {
+        "additionalProperties": false,
+        "properties": {
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "originalSha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Originalsha256",
+            "type": "string"
+          },
+          "page": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/VisualRegion"
+            },
+            "maxItems": 4,
+            "title": "Regions",
+            "type": "array"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "documentVersionId",
+          "originalSha256",
+          "page",
+          "status"
+        ],
+        "title": "VisualDiscoverResult",
+        "type": "object"
+      },
+      "VisualDocumentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "documentId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentid",
+            "type": "string"
+          },
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "pipelineVersion": {
+            "const": "visual-discovery-v1",
+            "default": "visual-discovery-v1",
+            "title": "Pipelineversion",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceFile": {
+            "$ref": "#/components/schemas/SourceFile"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "documentId",
+          "documentVersionId",
+          "approvalState",
+          "sourceFile"
+        ],
+        "title": "VisualDocumentRequest",
+        "type": "object"
+      },
+      "VisualIndexRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalState": {
+            "const": "APPROVED",
+            "title": "Approvalstate",
+            "type": "string"
+          },
+          "asset": {
+            "$ref": "#/components/schemas/VisualSourceAsset"
+          },
+          "confidence": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "contractVersion": {
+            "const": "v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "description": {
+            "$ref": "#/components/schemas/VisualDescription"
+          },
+          "descriptionFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Descriptionfingerprint",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "tenantId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Tenantid",
+            "type": "string"
+          },
+          "visualClass": {
+            "default": "OTHER",
+            "enum": [
+              "SCHEMATIC",
+              "DIAGRAM",
+              "CHART",
+              "TABLE",
+              "PHOTO",
+              "SCREENSHOT",
+              "OTHER"
+            ],
+            "title": "Visualclass",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "contractVersion",
+          "tenantId",
+          "approvalState",
+          "asset",
+          "description",
+          "descriptionFingerprint"
+        ],
+        "title": "VisualIndexRequest",
+        "type": "object"
+      },
+      "VisualIndexResult": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "descriptionFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Descriptionfingerprint",
+            "type": "string"
+          },
+          "embeddingModel": {
+            "maxLength": 255,
+            "title": "Embeddingmodel",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "indexed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "assetId",
+          "descriptionFingerprint",
+          "status",
+          "embeddingModel"
+        ],
+        "title": "VisualIndexResult",
+        "type": "object"
+      },
+      "VisualObservation": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "visualCitationIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Visualcitationids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "text",
+          "visualCitationIds"
+        ],
+        "title": "VisualObservation",
+        "type": "object"
+      },
+      "VisualRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "bounds": {
+            "$ref": "#/components/schemas/VisualBounds"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "uncertainty": {
+            "maxLength": 500,
+            "title": "Uncertainty",
+            "type": "string"
+          },
+          "visualClass": {
+            "enum": [
+              "SCHEMATIC",
+              "DIAGRAM",
+              "CHART",
+              "TABLE",
+              "PHOTO",
+              "SCREENSHOT",
+              "OTHER"
+            ],
+            "title": "Visualclass",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bounds",
+          "visualClass",
+          "confidence",
+          "uncertainty"
+        ],
+        "title": "VisualRegion",
+        "type": "object"
+      },
       "VisualRenderRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2760,6 +3254,116 @@
         "title": "VisualRenderResult",
         "type": "object"
       },
+      "VisualScopeEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/VisualSourceAsset"
+          },
+          "confidence": {
+            "default": 1,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "descriptionFingerprint": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Descriptionfingerprint",
+            "type": "string"
+          },
+          "embeddingModel": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Embeddingmodel",
+            "type": "string"
+          },
+          "visualClass": {
+            "default": "OTHER",
+            "enum": [
+              "SCHEMATIC",
+              "DIAGRAM",
+              "CHART",
+              "TABLE",
+              "PHOTO",
+              "SCREENSHOT",
+              "OTHER"
+            ],
+            "title": "Visualclass",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset",
+          "descriptionFingerprint",
+          "embeddingModel"
+        ],
+        "title": "VisualScopeEntry",
+        "type": "object"
+      },
+      "VisualSearchResult": {
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "selected": {
+            "items": {
+              "$ref": "#/components/schemas/VisualSelection"
+            },
+            "maxItems": 3,
+            "title": "Selected",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "TEXT_ONLY",
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "visualRequired": {
+            "default": false,
+            "title": "Visualrequired",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "requestId",
+          "state"
+        ],
+        "title": "VisualSearchResult",
+        "type": "object"
+      },
+      "VisualSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "assetId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assetid",
+            "type": "string"
+          },
+          "relevanceRole": {
+            "enum": [
+              "REQUIRED",
+              "HELPFUL"
+            ],
+            "title": "Relevancerole",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assetId",
+          "relevanceRole"
+        ],
+        "title": "VisualSelection",
+        "type": "object"
+      },
       "VisualSourceAsset": {
         "additionalProperties": false,
         "properties": {
@@ -2851,6 +3455,66 @@
           "renderDpi"
         ],
         "title": "VisualSourceAsset",
+        "type": "object"
+      },
+      "VisualTriageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "documentVersionId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Documentversionid",
+            "type": "string"
+          },
+          "originalSha256": {
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "title": "Originalsha256",
+            "type": "string"
+          },
+          "pages": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 12,
+            "title": "Pages",
+            "type": "array"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "scannedPages": {
+            "default": 0,
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Scannedpages",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "totalPages": {
+            "default": 0,
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Totalpages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requestId",
+          "documentVersionId",
+          "originalSha256",
+          "status"
+        ],
+        "title": "VisualTriageResult",
         "type": "object"
       }
     },
@@ -3792,6 +4456,105 @@
         ]
       }
     },
+    "/v1/visual-assets/delete-vectors": {
+      "post": {
+        "operationId": "delete_visuals_v1_visual_assets_delete_vectors_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteVectorsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteVectorsResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Delete Visuals",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
     "/v1/visual-assets/describe": {
       "post": {
         "operationId": "describe_visual_asset_v1_visual_assets_describe_post",
@@ -3891,6 +4654,204 @@
         ]
       }
     },
+    "/v1/visual-assets/discover": {
+      "post": {
+        "operationId": "discover_visuals_v1_visual_assets_discover_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualDiscoverRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualDiscoverResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Discover Visuals",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
+    "/v1/visual-assets/index": {
+      "post": {
+        "operationId": "index_visual_v1_visual_assets_index_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualIndexRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualIndexResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Index Visual",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
     "/v1/visual-assets/render": {
       "post": {
         "operationId": "render_visual_asset_v1_visual_assets_render_post",
@@ -3985,6 +4946,204 @@
           }
         ],
         "summary": "Render Visual Asset",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
+    "/v1/visual-assets/search": {
+      "post": {
+        "operationId": "search_visuals_v1_visual_assets_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualSearchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Search Visuals",
+        "tags": [
+          "visual-assets"
+        ]
+      }
+    },
+    "/v1/visual-assets/triage": {
+      "post": {
+        "operationId": "triage_visuals_v1_visual_assets_triage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualTriageResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request correlation mismatch."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication failed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request ID replay detected."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Request schema validation failed."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Service authentication unavailable."
+          }
+        },
+        "security": [
+          {
+            "ServiceContract": [],
+            "ServiceRequest": [],
+            "ServiceSignature": [],
+            "ServiceTimestamp": []
+          }
+        ],
+        "summary": "Triage Visuals",
         "tags": [
           "visual-assets"
         ]

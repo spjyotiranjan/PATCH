@@ -134,7 +134,7 @@ def source_chunks(
                 "originalFileId": request.original_file_id,
                 "contentFingerprint": request.source_file.sha256.lower(),
                 "chunkId": f"{request.document_version_id}:p{chunk.metadata['page']}:{index}",
-                "pipelineVersion": "2",
+                "pipelineVersion": "4",
             }
         )
     return chunks
@@ -157,7 +157,7 @@ def index(request: IndexRequest, settings: Settings, providers: Providers) -> In
                 status="indexed",
                 document_version_id=request.document_version_id,
                 chunk_count=len(chunks),
-                index_reference=f"source:{request.document_version_id}:2",
+                index_reference=f"source:{request.document_version_id}:4",
                 source_locations=[
                     SourceLocation(page=p.metadata["page"], section=p.metadata["section"])
                     for p in state["pages"]
