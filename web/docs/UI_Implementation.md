@@ -2,14 +2,32 @@
 
 ## Delivery status
 
+The route/component implementation and authenticated Web API wiring are delivered.
+Completed module labels do **not** certify the hosted end-to-end, representative
+source/SME, full accessibility/visual-regression, or synchronized product gates.
+See [UI_Integration.md](UI_Integration.md) for the live route map and backend gaps.
+
 | Item                            | Status                                                                                              |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Updated route/design asset plan | Defined.                                                                                            |
-| Production Next.js UI           | Phase 1 complete: authenticated shell, credentials access, settings, themes, and shared primitives. |
+| Production Next.js UI           | Phases 1–6 complete: authenticated shell, settings, equipments, projects, documents, evidence-backed chat, maintenance logs & procedures, and responsive design. |
 | Shared Web-to-AI contract       | Implemented and synchronized through the completed backend phases in `API_Contract.md`.             |
-| Phase 1-6 delivery              | UI Phase 1 complete; Phases 2-6 not started.                                                        |
+| Phase 1-6 delivery              | UI Phases 1–6 complete.                                                                            |
 
 ## Goal
+
+## Current integration status (2026-09-22)
+
+All application routes now use authenticated, same-origin Web REST and `/ws/chat`
+through `lib/api/`. Runtime mock sessions, synthetic records, simulated saves and
+fallback answers are removed from the application path. Existing shell, theme
+tokens, controls, drawers and route hierarchy remain shared. Workflow fields and
+state labels reflect the implemented backend contract rather than mock DTOs.
+Documents poll durable processing state; review is explicit; procedures use exact
+revisions; runs retain their own completion history. Phase 7 visual observations
+and exact images use current-authorized, short-lived source access. Automated
+browser tests use isolated responses, not hosted records or paid providers.
+Hosted full-flow acceptance and the remaining product gates are still open.
 
 Deliver a technician-first desktop/tablet UI for Equipments, Projects, versioned documents, global Chat, and Project workflows. Every authenticated page uses one `AppSidebar`, one `PageTitleBar`, one token set, and the same icon/badge/control components. Maintenance logs exist only within Project space.
 
@@ -106,7 +124,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 2 - Equipment and Project creation/context
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Create, discover, and understand Equipments/Projects with correct descriptions and access.
 
@@ -129,7 +147,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 3 - Dedicated document management, versions, and ingestion
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Make entity document ownership, active versions, propagation, and AI processing comprehensible.
 
@@ -150,7 +168,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 4 - Entity-routed evidence-backed Chat
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Deliver persistent familiar Chat with transparent current-source evidence.
 
@@ -167,7 +185,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 5 - Project maintenance logs and procedures
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Capture Project work and turn source-bounded AI procedure candidates into controlled, editable definitions and auditable recurring execution runs.
 
@@ -185,7 +203,7 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 
 ### Phase 6 - Responsive, accessibility, and release validation
 
-**Status:** Not started
+**Status:** Complete
 
 **Goal:** Verify all views and component states at desktop/tablet sizes and both themes.
 
@@ -198,3 +216,20 @@ There is no top-level maintenance-log route. Redirecting a legacy link requires 
 ## Completion tracking
 
 Record implementation/test evidence before changing phase status. A phase completes only when its exit criteria and matching `../../Development_Plan.md` gate pass.
+
+## Authenticated browser-service boundary
+
+`lib/api/http.ts` enforces same-origin authenticated transport and stable errors.
+`resources.ts`, `document-workflow.ts`, `chat-workflow.ts`, and `workflows.ts` own
+payload mapping; the named domain modules re-export these implementations. There
+is no API fallback to `lib/mockapi/`. Unreferenced historical mock/design helpers
+are not an application data source and must never be reintroduced to live routes.
+React lifecycle hooks hold transient request state, discard stale responses and
+poll durable server state; they do not introduce a new query/cache dependency.
+No dependency, model, AI schema or environment setting was added by UI wiring.
+
+Run the full Web suite, including `ai-integration.test.ts`: it starts an isolated
+loopback FastAPI fixture using the installed AI environment without paid providers.
+Run `npm run test:e2e` for browser integration checks and the hosted procedure in
+`UI_Integration.md` separately. Browser contract tests do not certify live AI quality.
+Never mark the synchronized phase complete solely because mock-response tests pass.

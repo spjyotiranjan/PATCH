@@ -1,2 +1,4 @@
-import { PlaceholderPage } from "@/components/app-shell";
-export default function EquipmentsPage() { return <PlaceholderPage title="Equipments" description="The Equipment directory will be delivered in Phase 2." />; }
+import { EntityDirectory } from "@/components/entity-workspace";
+export default function Page() {
+  return <EntityDirectory kind="equipments" />;
+}

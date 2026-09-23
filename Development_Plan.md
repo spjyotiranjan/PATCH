@@ -23,7 +23,8 @@ visual citations. The detailed Web/AI contracts, limits, safety rules, costs and
 acceptance criteria are authoritative in the two Phase 7 implementation sections;
 this plan does not enable automatic rollout or add a seventh synchronized product phase.
 Implementation is delivered (14 September 2026); representative visual-quality/cost
-acceptance remains open. See both backend documents and the Phase 7 manual matrix.
+acceptance remains open. See both backend documents and the Phase 7 section of
+the setup guide.
 Existing text/profile vectors use configured `PINECONE_NAMESPACE`; the
 visual-description store uses separate `PINECONE_VISUAL_NAMESPACE`. Deployments map
 the values to `{environment}` and `visual-{environment}` respectively.
@@ -38,8 +39,18 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 
 ## Delivery status
 
+### Current reconciliation (2026-09-22)
+
+The UI routes now bind to authenticated Web REST and the same-origin Chat socket,
+including document upload/review, Project workflows and Phase 7 exact visual
+sources. No running route relies on mock sessions, records or successful saves.
+See [UI integration](web/docs/UI_Integration.md) for route coverage, unsupported
+mock-era features and verification. Deterministic browser and loopback transport
+tests are separate from hosted end-to-end acceptance; representative-source/SME,
+full accessibility/visual regression and synchronized phase gates remain open.
+
 - **Phase 1 — Complete (2026-09-04):** UI, Web backend, and AI backend foundations are implemented, contract-synchronized, and reconciled with the setup guide. The integrated gate covers first-party credentials, the protected canonical shell, aggregate Web readiness, and authenticated Web-to-AI readiness.
-- **Phase 2 — Module work in progress:** Web backend and AI backend Phase 2 are complete; the synchronized product phase remains open until UI Phase 2 and its cross-module gate are complete.
+- **Phase 2 — Module implementations delivered:** Web, AI and UI/backend wiring are present; the synchronized product phase remains open until its hosted cross-module acceptance gate is recorded.
 - **Phases 3–6 — Backend code implemented, acceptance in progress (2026-09-06):**
   Web/AI workflows, Swagger REST, private/product WebSockets, worker recovery and
   synthetic evaluation are implemented. Automated suites pass (81 Web, 69 AI),
@@ -49,7 +60,7 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
   Full hosted acceptance, representative
   sources/SME evaluation, recovery/telemetry checks and the matching UI gates remain
   open. See both implementation inventories and
-  [Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
+  [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
 
 | Phase                                | Shared outcome                                                                                       | Web UI                                                                                                                                                                           | Web backend                                                                                                                                                                        | AI backend                                                                                                                                  | Integration gate                                                                                                                                                                                 |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -62,13 +73,11 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 
 ## Phase-level acceptance criteria
 
-The [7–8 September live backend acceptance report](Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
-adds real-service evidence for the backend gates. The subsequent
-[8 September repair acceptance](Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md)
-verifies fixes for OCR, the failed factual-answer cases and review-criticality
-calibration, including live scanned-source Chat and blocked unsupported procedure
-approval. Core API integration may proceed. Representative/SME, UI and the other
-unverified product gates remain open; synchronized phase status is unchanged.
+Historical live and repair acceptance records were removed with the former
+`Manual Testing/` fixture directory. Their outcomes are summarized in the backend
+implementation documents; they do not certify representative/SME review, UI
+integration, or the other remaining product gates. Use the retained
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md) for future backend runs.
 
 ### Phase 1 - Foundation
 

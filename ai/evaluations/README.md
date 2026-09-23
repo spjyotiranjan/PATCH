@@ -42,7 +42,7 @@ synthetic harness and reviewed dataset together when a new failure is discovered
 
 The implemented visual pipeline needs a separate representative acceptance record;
 text-only success is not visual accuracy. Follow the
-[Phase 7 manual runbook](../../Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md).
+the Phase 7 section of the repository-root [Setup_Guide.md](../../Setup_Guide.md).
 `visual_metrics.py` scores **recorded** results without calling providers or
 printing documents, URLs, prompts or asset IDs. It does not execute the application
 or create its own ground truth. Record actual runs and human inspections first.

@@ -7,35 +7,49 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 
 import { Button, Field } from "@/components/ui";
-
 function safeCallbackUrl(value: string | null): string {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+  if (value?.startsWith("/") && !value.startsWith("//")) {
+    return value;
+  }
+
+  return "/";
 }
 
 function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
+
   const [message, setMessage] = useState<string | null>(null);
+
   const sessionExpired = searchParams.get("reason") === "session-expired";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     setSubmitting(true);
     setMessage(null);
+
     try {
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
       });
+
       if (!result?.ok) {
         setMessage("The email or password is incorrect. Try again.");
+
         return;
       }
+
       router.replace(safeCallbackUrl(searchParams.get("callbackUrl")));
+
       router.refresh();
     } catch {
       setMessage("Sign-in is temporarily unavailable. Try again.");
@@ -48,21 +62,26 @@ function SignInForm() {
     <main className="auth-page">
       <section className="auth-card" aria-labelledby="sign-in-heading">
         <div className="auth-brand">P.A.T.C.H.</div>
+
         <div className="auth-icon" aria-hidden="true">
           <LockKeyhole size={24} />
         </div>
+
         <h1 id="sign-in-heading">
           {sessionExpired ? "Session expired" : "Sign in"}
         </h1>
+
         <p>
           {sessionExpired
             ? "Your session expired due to inactivity. Sign in again to continue."
             : "Use your P.A.T.C.H. email and password to continue."}
         </p>
+
         <form onSubmit={submit}>
           <Field label="Email" required>
             <span className="input-with-icon">
               <Mail size={18} aria-hidden="true" />
+
               <input
                 type="email"
                 autoComplete="email"
@@ -73,6 +92,7 @@ function SignInForm() {
               />
             </span>
           </Field>
+
           <Field label="Password" required>
             <input
               type="password"
@@ -84,11 +104,13 @@ function SignInForm() {
               required
             />
           </Field>
+
           {message ? (
             <p className="form-message form-message-error" role="alert">
               {message}
             </p>
           ) : null}
+
           <Button
             type="submit"
             icon={<LogIn size={18} aria-hidden="true" />}
@@ -97,12 +119,15 @@ function SignInForm() {
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+
         <p className="auth-switch">
           New to P.A.T.C.H.? <Link href="/sign-up">Create an account</Link>
         </p>
       </section>
+
       <div className="auth-support" id="support">
-        <MessageCircle size={18} aria-hidden="true" /> Help &amp; support
+        <MessageCircle size={18} aria-hidden="true" />
+        Help &amp; support
         <span className="visually-hidden">
           Contact your administrator for account support.
         </span>

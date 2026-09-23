@@ -94,6 +94,13 @@ implemented, and verified as a paired backend capability, but it does not add a
 seventh synchronized product phase, waive a future Chat UI integration gate, or
 change the completion status of the six product phases.
 
+For the backend-only Phases 3–6 delivery requested on 2026-09-06, Web and AI may
+be implemented and verified together ahead of UI. Record backend verification
+separately; global completion still requires the UI integration gate. Swagger
+REST and Postman WebSocket tests are the interim backend acceptance surface.
+Chat transport is Web gateway to private AI socket with the same scoped
+contracts and authorization as REST.
+
 `web` UI, `web` backend, and `ai` move through the same numbered phase together. A phase is complete only when its cross-module integration gate in `Development_Plan.md` passes. Do not build later-phase UI against invented contracts; update `web/docs/API_Contract.md` first when a contract changes.
 
 ## Definition of done for any feature

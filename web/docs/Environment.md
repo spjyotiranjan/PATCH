@@ -8,10 +8,23 @@ Follow [Setup_Guide.md](../../Setup_Guide.md) for the complete local setup proce
 
 ## Runtime loading and Phase 3–6 additions
 
+- UI/backend wiring adds no browser-visible secrets, service URLs or environment
+  settings. Requests use same-origin `/api/` and `/ws/chat`. Missing server
+  configuration fails closed in development as well as production; there is no
+  hard-coded mock configuration or session identity. Keep the browser origin,
+  `AUTH_URL` and R2 CORS aligned as described in `Setup_Guide.md`.
+
 - `MONGODB_ADDRESS_FAMILY` accepts `0` (automatic/default), `4` (IPv4) or `6`
   (IPv6) for Mongo socket address selection. It does not bypass SRV/TXT DNS
   lookup. Keep the hosted SRV URI when configured DNS plus IPv4 works; a change
   of URI format is not necessary for that failure mode.
+  Mongo readiness failures now log only a fixed diagnostic category to the server
+  console (`patch_web.database.unavailable`), such as `DNS_LOOKUP_TIMEOUT`,
+  `AUTHENTICATION_FAILED` or `SERVER_SELECTION_FAILED`. Driver messages, hosts,
+  credentials, full errors and environment names/values are never logged. The
+  public readiness payload remains aggregate-only. An in-flight DNS resolution
+  can outlast the five-second aggregate deadline; its category appears when the
+  driver fails. IPv4 selection does not cure blocked DNS or an Atlas network rule.
 
 - `MONGODB_DNS_SERVERS` is an optional comma-separated list of DNS server IPs.
   Blank preserves system DNS. When an SRV/TXT lookup is refused by the system

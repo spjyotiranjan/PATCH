@@ -18,18 +18,28 @@ export const POST = publicApiRoute(async (request, { requestId }) => {
     checkOrigin(request, config.AUTH_URL);
     await rateLimit(config, "registration", 20, 300);
     const input = await parseJsonBody(request, signUpSchema);
-    const user = await registerUser(input, config);
-    await persistAuditEvent(
-      {
-        action: "USER_REGISTERED",
-        actor: { userId: user.id, tenantId: user.tenantId },
-        requestId,
-        context: { authenticationMethod: "EMAIL_PASSWORD" },
-      },
-      config,
-    );
+
+    let user;
+    try {
+      user = await registerUser(input, config);
+      await persistAuditEvent(
+        {
+          action: "USER_REGISTERED",
+          actor: { userId: user.id, tenantId: user.tenantId },
+          requestId,
+          context: { authenticationMethod: "EMAIL_PASSWORD" },
+        },
+        config,
+      );
+    } catch (error) {
+      if (error instanceof EmailAlreadyRegisteredError) {
+        throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
+      }
+      throw error;
+    }
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     if (error instanceof EmailAlreadyRegisteredError) {
       throw new ApiError(409, "EMAIL_ALREADY_REGISTERED");
     }

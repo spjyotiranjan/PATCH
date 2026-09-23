@@ -1,2 +1,4 @@
-import { PlaceholderPage } from "@/components/app-shell";
-export default function DocumentsPage() { return <PlaceholderPage title="Documents" description="Document management and versioning will be delivered in Phase 3." />; }
+import { DocumentsWorkspace } from "@/components/document-workspace";
+export default function Page() {
+  return <DocumentsWorkspace />;
+}

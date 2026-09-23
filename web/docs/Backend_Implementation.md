@@ -12,6 +12,17 @@
 
 ## Goal
 
+**UI wiring (2026-09-22):** Existing product APIs are consumed by all application
+routes; there are no new public backend endpoints or AI contracts in this change.
+Invalid configuration and failed signup persistence no longer fall back to demo
+success. See [UI_Integration.md](UI_Integration.md) for supported workflows and the
+remaining UI requests without backend support. Browser contract verification is
+not new hosted/SME acceptance and does not change backend phase status.
+Mongo readiness failures additionally emit fixed, safe diagnostic categories to
+the server console; public readiness still exposes only aggregate availability.
+The reported Mongo connection failure is not marked resolved without a successful
+real ping and aggregate readiness response.
+
 Provide the secure product API and authoritative relationship graph for P.A.T.C.H. The Next.js backend owns authorization, MongoDB, Cloudflare R2 originals, active document versions, Equipment/Project links, Project maintenance logs, controlled workflows, and audit records. It mediates typed AI calls but never implements extraction, embeddings, Pinecone retrieval, LangGraph, or prompting.
 
 ## Setup-guide maintenance
@@ -282,7 +293,7 @@ Generated OpenAPI/TypeScript and real signed REST/socket integration are tested.
 Recorded gate (14 September 2026): 111 Web and 135 AI tests pass, along with Web
 lint/typecheck/build, AI Ruff/format/mypy/Pyright and paired synthetic evaluation.
 The npm production-dependency audit reports zero vulnerabilities.
-See [Phase 7 manual testing](../../Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
+See the Phase 7 verification steps in the repository-root [Setup_Guide.md](../../Setup_Guide.md)
 for representative source inspection, outage, authorization and recovery acceptance.
 
 **Exit criterion:** A valid current diagram can be selected, pixel-verified,
@@ -350,12 +361,12 @@ or dependency change was made; full dependency remediation remains an open gate.
 
 ### Live API acceptance, 7–8 September 2026
 
-[Acceptance report](../../Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
-records real hosted account/access, PDF/text lifecycle, version propagation,
+The former dated acceptance report was removed with the fixture directory. Its
+recorded scope included hosted account/access, PDF/text lifecycle, version propagation,
 WebSocket/replay, scoped logs, synthetic publication/runs, actual daily rollover,
-outage and audited retry checks. Core product APIs can be integrated with UI;
-the subsequent [repair acceptance](../../Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md)
-verifies OCR setup/ingestion/Chat, the failed factual-answer cases and review
+outage and audited retry checks. Core product APIs can be integrated with UI. The
+subsequent repair record was also removed; it covered OCR setup/ingestion/Chat,
+the failed factual-answer cases and review
 criticality through the existing Web contracts. Complete acceptance remains open
 for the explicitly unverified UI/SME/operational cases. This testing change does not
 mark any synchronized phase complete or substitute for UI acceptance.
@@ -435,7 +446,7 @@ acceptance. The exact-host R2 path-style fix has a regression test; it requires 
 stored-object migration because canonical object keys are unchanged.
 
 Use
-[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
 to record hosted
 ingestion → activation → propagation → socket answer → log → review/publish →
 recurrence acceptance. Complete representative/SME evaluation, backup/restore and

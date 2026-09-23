@@ -1,0 +1,193 @@
+/* Live workflow layouts reuse the shared shell, controls and theme tokens. */
+.integration-panel {
+  padding: 24px;
+  margin-block: 20px;
+  min-width: 0;
+}
+.integration-panel h2 {
+  margin-top: 0;
+  font-size: 19px;
+}
+.integration-panel h3 {
+  font-size: 16px;
+}
+.integration-panel p,
+.integration-panel dd {
+  line-height: 1.6;
+}
+.integration-panel a:not(.button),
+.live-transcript a:not(.button) {
+  color: var(--patch-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.integration-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-block: 16px;
+}
+.integration-toolbar .field {
+  flex: 1 1 220px;
+  max-width: 420px;
+}
+.integration-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.integration-columns > * {
+  min-width: 0;
+}
+.integration-form {
+  display: grid;
+  gap: 16px;
+}
+.integration-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.integration-form legend {
+  margin-block: 12px;
+  font-weight: 600;
+}
+.integration-form textarea,
+.live-composer textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.integration-check {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  margin-block: 8px;
+  line-height: 1.5;
+}
+.integration-check input {
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.integration-record {
+  border-block-end: 1px solid var(--patch-boundary);
+  padding-block: 20px;
+  overflow-wrap: anywhere;
+}
+.integration-record:last-child {
+  border-block-end: 0;
+}
+.integration-table {
+  overflow-x: auto;
+}
+.integration-table table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.integration-table th,
+.integration-table td {
+  padding: 14px 12px;
+  border-block-end: 1px solid var(--patch-boundary);
+  vertical-align: top;
+}
+.integration-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 3px;
+  border: 1px solid var(--patch-boundary);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.integration-chip button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+.integration-prewrap,
+.extracted-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.integration-wrap {
+  overflow-wrap: anywhere;
+}
+.extracted-source {
+  max-height: 480px;
+  overflow-y: auto;
+  line-height: 1.6;
+  font-size: 13px;
+}
+.source-frame {
+  display: block;
+  width: 100%;
+  min-height: 540px;
+  border: 1px solid var(--patch-boundary);
+  margin-block: 16px;
+  background: white;
+}
+.source-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 640px;
+  object-fit: contain;
+  margin-block: 16px;
+  background: white;
+}
+.live-chat-layout {
+  max-width: 1100px;
+  margin-inline: auto;
+}
+.live-transcript {
+  min-height: 220px;
+}
+.chat-user-message {
+  background: var(--patch-surface-muted);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.chat-assistant-message {
+  padding: 0 16px;
+}
+.chat-assistant-message h2 {
+  font-size: 16px;
+}
+.reference-options {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.live-composer {
+  position: relative;
+}
+.integration-panel figure {
+  margin: 16px 0;
+}
+.integration-panel button:disabled,
+.live-chat-layout button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+@media (max-width: 850px) {
+  .integration-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .integration-panel {
+    padding: 16px;
+  }
+  .source-frame {
+    min-height: 400px;
+  }
+  .integration-toolbar {
+    align-items: stretch;
+  }
+}

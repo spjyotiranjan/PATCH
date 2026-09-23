@@ -20,14 +20,46 @@ Hosted MongoDB, private Cloudflare R2, OpenAI and Pinecone are needed for the fu
 backend workflow. Phases 3–6 call real providers for ingestion, profiles, answers
 and drafts; there is no silent mock mode in the running app. Automated tests
 inject isolated synthetic providers and never use real maintenance instructions.
-For no-UI acceptance, follow
-[Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
+For no-UI acceptance, follow the repository-root
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md). The former `Manual Testing/`
+fixtures and reports were intentionally removed; bring reviewed, authorized test
+sources separately and record evidence outside the repository.
 
-For a fresh scenario covering all implemented backend modules including Phase 7,
-use [UI-less test pack 2](Manual%20Testing/ui-less-test-2/README.md). It supplies
-multimodal PDFs, immutable revision pairs, OCR/visual answer keys, manual Postman
-templates and a blank acceptance report. These resources do not imply a live pass;
-follow the pack's paid-work, human-review and private-evidence precautions.
+## Integrated UI startup and verification
+
+For MongoDB troubleshooting, inspect only the Web console event
+`patch_web.database.unavailable` after requesting `/api/readiness`. Its fixed
+`reason` identifies DNS, authentication, TLS or connection failure without exposing
+the URI or configuration values. If aggregate readiness times out first, leave the
+server running for the underlying DNS check to settle. `DNS_LOOKUP_TIMEOUT` occurs
+before database authentication: verify resolver/network access from the normal
+terminal. Do not disable TLS, open database access to everyone, or invent standard
+seed hosts. A non-SRV URI must come from the hosted database provider's exact
+connection details and remain only in the local configuration file.
+
+Application routes now use the real authenticated Web APIs and same-origin Chat
+WebSocket gateway. There is no runtime demo login or fallback data. Start Web,
+FastAPI and the Web worker using the commands below, open the exact origin in
+`AUTH_URL`, and register or sign in with a real account. Empty accounts show empty
+directories; unavailable dependencies show errors, not simulated success.
+
+Follow [UI_Integration.md](web/docs/UI_Integration.md) for the route map, supported
+fields, known backend gaps and complete browser acceptance sequence. In particular:
+
+- Direct original uploads use a signed R2 PUT. The bucket's CORS must allow the
+  exact application origin, PUT and the signed request headers; do not relax it
+  to allow credentials or a wildcard origin. See the R2 configuration below.
+- Keep the worker running during upload/extraction, indexing, profile refresh,
+  visual discovery and procedure generation. Polling only reads job state.
+- Compare originals before approving extraction. Separately review and approve
+  a procedure before publication. UI actions never bypass these human gates.
+- Chat needs `npm run dev` or `npm start`, not bare Next commands. Images and
+  citations get fresh authorized URLs on demand; expired/revoked access is cleared.
+- `npm run test:e2e` from `web/` runs the deterministic Chrome browser suite. It
+  uses the existing Playwright dependency and an installed Google Chrome. It starts
+  Web if necessary, intercepts test API/socket responses, and never creates hosted
+  records or calls paid models. Failures/traces go to the OS temporary directory
+  `patch-ui-playwright`, outside this repository. It does not replace hosted testing.
 
 ## 2. Clone and install dependencies
 
@@ -257,7 +289,6 @@ blocks, not printed pages. PDF citations identify one-based source pages.
 
   ```powershell
   uv run python -c "from patch_ai.adapters.ocr import available; from patch_ai.config import Settings; print('OCR ready:', available(Settings()))"
-  uv run python '../Manual Testing/ui-less-test/tools/validate_with_ai_loader.py'
   ```
 
   Then upload a scan through Web, compare every field and warning against its
@@ -494,9 +525,11 @@ unchanged and no destructive object cleanup runs automatically. Changing embeddi
 models/dimensions requires compatible index planning and projection rebuilds; do
 not rename the existing text namespace as an implicit migration.
 
-Follow [Phase 7 REST/WebSocket manual tests](Manual%20Testing/ui-less-test/08_Phase_7_Visual_Assets.md)
-for exact payloads, authorization/outage checks, cost accounting and the
-representative acceptance record. The feature UI is deliberately untouched.
+For Phase 7, use the root backend manual for REST/WebSocket transport and this
+section for visual-specific checks, authorization/outage behavior, cost accounting,
+and representative acceptance recording. The integrated source viewer and Chat UI
+now expose Phase 7 states and exact authorized images; hosted representative visual
+quality and cost acceptance remain separate from browser contract verification.
 
 Run these before handing off a phase implementation:
 
@@ -518,6 +551,7 @@ npm run generate:ai-types
 npm run lint
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 npm audit
 ```
@@ -559,7 +593,7 @@ The AI Phase 2 change is a contract change, not a data migration. Keep `ai/opena
 ### Phase 3–6 operations, recovery and retention
 
 Follow the worker-operation examples in
-[Backend_Manual_Testing.md](Manual%20Testing/ui-less-test/Backend_Manual_Testing.md).
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md).
 Jobs have 300-second leases, fencing tokens, five attempts, bounded backoff and
 dead-letter status. A stale worker cannot overwrite a newer result. An explicit
 operator retry requires a reason and is audited. Repair uses persisted scan
@@ -668,8 +702,8 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   Original pressure/signal questions now return qualified source facts. Real
   document-only revalidation remains LOW; unsupported physical maintenance stays
   HIGH criticality/SEVERE with approval blocked. AI 80 tests and Web 81 tests,
-  type/lint/build/contracts and synthetic evaluation gates pass. See
-  [repair acceptance](Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md).
+  type/lint/build/contracts and synthetic evaluation gates pass. The detailed
+  repair-acceptance record was removed with the former fixture directory.
   UI/SME/global phase acceptance is not implied.
 
 - **Live backend acceptance (7–8 September 2026):** Verified real REST/WebSocket,
@@ -677,9 +711,8 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   and daily runs, AI outage isolation and reasoned worker retry. Indexing and
   activation require separate queued dispatches. Native parsing worked; scanned
   sources remain blocked by the missing Tesseract executable. Factual-answer
-  failures remain open. See the
-  [acceptance report](Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
-  for exact scope and UI-integration limits. No configuration or product code was
+  failures remain open. The detailed acceptance record was removed with the
+  former fixture directory. No configuration or product code was
   changed during these tests.
 
 - **Phase 1 (2026-09-04):** Reconciled UI, Web backend, AI backend, environment ownership, startup commands, credentials-only authentication, aggregate readiness, and the signed Web-to-AI contract. Verified Web contract generation, lint, TypeScript, 39 automated tests, and the production build; verified AI lint/format/type gates and 26 tests; ran the live signed readiness/profile-contract integration; and visually reviewed the public credentials screens with no browser errors. Hosted MongoDB and R2 connectivity remains a per-environment check through `/api/readiness` because credentials are intentionally not stored in the repository.
@@ -715,5 +748,5 @@ The first sandboxed probe could not access OCR/hosted services; repeating outsid
 the sandbox passed without changing local configuration. Two pre-existing EXTRACT
 dead letters were observed and left untouched; no active jobs were dispatched.
 No paid visual-provider acceptance or historical bulk enrichment was performed.
-Record a real representative run in the Phase 7 manual guide before accepting
+Record a real representative run using the Phase 7 section of this guide before accepting
 automatic rollout; keep the default flags off until that review.

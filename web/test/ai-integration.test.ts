@@ -177,6 +177,44 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
       status: "failed",
       description: null,
     });
+    expect(
+      (await fetch(`${config.AI_SERVICE_BASE_URL}/readiness`)).status,
+    ).toBe(401);
+  });
+  it("uses generated REST contract and rejects replay", async () => {
+    const body = question();
+    const client = createAiServiceClient(config);
+    const first = await client.POST("/v1/questions", { body });
+    expect(first.data).toMatchObject({
+      requestId: body.requestId,
+      status: "incomplete",
+      citations: [],
+    });
+    expect((await client.POST("/v1/questions", { body })).response.status).toBe(
+      409,
+    );
+  });
+  it("completes a signed Web-to-AI WebSocket turn", async () => {
+    const body = question();
+    const result = await askAiSocket(config, body);
+    expect(result).toMatchObject({
+      requestId: body.requestId,
+      status: "incomplete",
+      answer: { steps: [] },
+      citations: [],
+    });
+    await expect(askAiSocket(config, body)).rejects.toThrow("AI_UNAVAILABLE");
+  });
+  it("rejects wrong-secret and pre-aborted socket calls safely", async () => {
+    await expect(
+      askAiSocket(
+        { ...config, AI_SERVICE_SHARED_SECRET: "invalid" },
+        question(),
+      ),
+    ).rejects.toThrow("AI_UNAVAILABLE");
+    await expect(
+      askAiSocket(config, question(), AbortSignal.abort()),
+    ).rejects.toThrow("AI_UNAVAILABLE");
   });
   it("completes a signed Web-to-AI WebSocket turn", async () => {
     const body = question();

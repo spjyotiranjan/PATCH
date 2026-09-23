@@ -25,8 +25,17 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials.password) {
           return null;
         }
-        if (credentials.email.length > 320 || credentials.password.length > 1024) return null;
-        await rateLimit(getServerConfig(), `login:${credentials.email.trim().toLowerCase()}`, 10, 300);
+        if (
+          credentials.email.length > 320 ||
+          credentials.password.length > 1024
+        )
+          return null;
+        await rateLimit(
+          getServerConfig(),
+          `login:${credentials.email.trim().toLowerCase()}`,
+          10,
+          300,
+        );
         const user = await authenticateUser(
           credentials.email,
           credentials.password,
@@ -46,9 +55,9 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.userId && token.tenantId) {
-        session.user.id = token.userId;
-        session.user.tenantId = token.tenantId;
+      if (session.user) {
+        session.user.id = (token.userId as string) ?? "";
+        session.user.tenantId = (token.tenantId as string) ?? "";
       }
       return session;
     },

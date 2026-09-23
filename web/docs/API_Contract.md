@@ -1,5 +1,25 @@
 # Web-to-AI API Contract
 
+## Browser integration reconciliation (21 September 2026)
+
+The UI uses authenticated same-origin Web APIs and `/ws/chat`; it must not use
+mock sessions, fallback answers, synthetic records, or simulated successful saves.
+Browser models map the existing operation catalog rather than inventing payloads.
+Document review requires an explicit source-review acknowledgement. Procedure
+save, revalidate, review, approve and publish remain distinct user actions carrying
+the revision the user actually viewed. Socket recovery reads persisted history and
+reuses the original client turn ID only with identical content.
+
+The current APIs do not persist Project codes, Equipment serial/manufacturer fields,
+request messages/organizations, log priority/assignee/comments, favourites or shared
+exports. Member directories and audit/activity feeds have no public read endpoints.
+Profile refresh and failed-job retries remain worker operations, not browser actions.
+UI controls for these capabilities must explain their unavailability; they must not
+send unsupported fields or display generated substitutes as stored data. Log state
+is DRAFT/SUBMITTED; Equipment has OWNER/MANAGER access, and Project has OWNER/MEMBER.
+Operational Equipment state is UNKNOWN/OPERATING/MAINTENANCE/OUT_OF_SERVICE.
+
+
 ## Phase 7 backend contract (14 September 2026)
 
 AI owns
@@ -176,7 +196,7 @@ served by `GET /api/openapi`; the locally served Swagger UI is `/api/docs`.
 `lib/backend/router.ts` registers the Phase 3–6 routes and generates their schemas;
 the Phase 1–2/auth operations are included by `lib/backend/openapi.ts`.
 Use
-[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
 for exact request
 bodies, authentication, expected errors, polling and socket frames. Tables below
 describe concepts; examples containing `uuid`, alternatives or descriptive IDs

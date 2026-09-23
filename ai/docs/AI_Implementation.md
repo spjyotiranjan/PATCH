@@ -13,6 +13,12 @@
 
 ## Goal
 
+**Web UI consumer (2026-09-22):** The UI is now bound to existing Web REST and
+gateway WebSocket contracts, including Phase 7 visual evidence. AI remains private;
+no browser-to-FastAPI calls, model changes or new AI contracts are introduced.
+See [UI integration](../../web/docs/UI_Integration.md) for the current consumer
+coverage. Browser fixtures do not certify representative provider/visual quality.
+
 Deliver the internal AI service that owns extraction, source indexing, Equipment/Project retrieval-profile generation, hierarchical retrieval, cited answers, and draft generation. It may use profiles to decide where to search, but it must produce operational answers only from authorized current source chunks and exact citations.
 
 ## Setup-guide maintenance
@@ -370,14 +376,14 @@ Synthetic tests are not representative/SME sign-off.
 
 ### Live provider acceptance, 7–8 September 2026
 
-[Acceptance report](../../Manual%20Testing/ui-less-test/06_Live_Backend_Acceptance.md)
+The removed dated acceptance report
 records native PDF/text indexing, 122-page DOE extraction, Markdown/DOCX extraction,
 real cited answers/drafts/revalidation and unavailable-state recovery. Tesseract
 is missing in the tested environment. Two expected factual answers failed; one
 pressure fact succeeded after explicit synthetic-document wording, while the
 signal-range question remained incomplete. Review-need calibration also warrants
 follow-up. These historical findings were subsequently investigated and fixed:
-see [8 September repair acceptance](../../Manual%20Testing/ui-less-test/07_Backend_Repair_Acceptance.md).
+see the removed 8 September repair-acceptance record.
 The original test did not alter code to claim a pass. The repair has separate
 live evidence; representative/SME and global phase gates remain open.
 
@@ -477,7 +483,7 @@ Metadata-only logs/spans cover graph stages, model/query/upsert timings, fallbac
 and citation outcomes. Raw LangSmith export is suppressed. Optional OTLP must be
 configured and its receipt tested; existing Sentry placeholders do not activate
 an exporter. Use [Setup_Guide.md](../../Setup_Guide.md) and
-[Backend_Manual_Testing.md](../../Manual%20Testing/ui-less-test/Backend_Manual_Testing.md)
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
 for startup, signed
 Swagger, private sockets, provider prerequisites and remaining acceptance records.
 

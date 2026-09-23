@@ -1,2 +1,4 @@
-import { PlaceholderPage } from "@/components/app-shell";
-export default function ChatPage() { return <PlaceholderPage title="Chat" description="Evidence-backed Chat will be delivered in Phase 4." />; }
+import { ChatDirectory } from "@/components/live-chat";
+export default function Page() {
+  return <ChatDirectory />;
+}

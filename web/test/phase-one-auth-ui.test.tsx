@@ -37,6 +37,10 @@ describe("Phase 1 credentials UI", () => {
 
     expect(screen.queryByText(/sso/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/sign-in link/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^email/i)).toHaveValue("");
+    expect(screen.getByLabelText(/^password/i)).toHaveValue("");
+    await user.clear(screen.getByLabelText(/^email/i));
+    await user.clear(screen.getByLabelText(/^password/i));
     await user.type(screen.getByLabelText(/^email/i), "owner@example.com");
     await user.type(screen.getByLabelText(/^password/i), "correct-pass");
     await user.click(screen.getByRole("button", { name: /^sign in$/i }));
