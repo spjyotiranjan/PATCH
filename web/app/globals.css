@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "../components/integration.css";
 
 :root {
   --patch-navigation: #08233f;
@@ -62,13 +63,18 @@ input {
   font: inherit;
 }
 .app-shell {
+  --sidebar-width: 205px;
   display: flex;
   min-height: 100vh;
   background: var(--patch-canvas);
 }
 .app-sidebar {
-  width: 205px;
-  flex: 0 0 205px;
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 40;
+  width: var(--sidebar-width);
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--patch-navigation);
@@ -76,12 +82,14 @@ input {
   padding: 22px 12px 12px;
 }
 .brand {
+  flex-shrink: 0;
   display: block;
   padding: 0 6px 24px;
   font-size: 22px;
   font-weight: 750;
 }
 .sidebar-primary {
+  flex-shrink: 0;
   display: grid;
   gap: 3px;
 }
@@ -105,24 +113,73 @@ input {
   color: white;
 }
 .sidebar-divider {
+  flex-shrink: 0;
   height: 1px;
   margin: 12px 2px 9px;
   background: rgba(220, 231, 242, 0.22);
 }
 .chat-nav {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
 }
 .chat-heading {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.chat-heading-active {
+  background: var(--patch-accent);
 }
 .chat-heading .nav-item {
   flex: 1;
+  min-width: 0;
+  border-radius: 0;
+}
+.chat-heading .nav-item-active {
+  background: transparent;
+}
+.chat-history-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  align-self: stretch;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #d7e5f3;
+  cursor: pointer;
+}
+.chat-heading-active .chat-history-toggle {
+  color: white;
+}
+.chat-history-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.chat-history-toggle:focus-visible,
+.chat-heading .nav-item:focus-visible {
+  outline: 2px solid #f2f7fc;
+  outline-offset: -3px;
+}
+.chat-history-toggle[aria-expanded="false"] svg {
+  transform: rotate(180deg);
+}
+.chat-history {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+.chat-history[hidden] {
+  display: none;
 }
 .new-chat {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -159,6 +216,8 @@ input {
   font-size: 10px;
 }
 .sidebar-bottom {
+  flex-shrink: 0;
+  margin-top: auto;
   display: grid;
   gap: 3px;
   padding-top: 14px;
@@ -166,6 +225,7 @@ input {
 .workspace {
   min-width: 0;
   flex: 1;
+  margin-left: var(--sidebar-width);
 }
 .page-title-bar {
   height: 56px;
@@ -778,9 +838,10 @@ a:focus-visible {
   border: 0;
 }
 @media (max-width: 900px) {
+  .app-shell {
+    --sidebar-width: 72px;
+  }
   .app-sidebar {
-    width: 72px;
-    flex-basis: 72px;
     padding-inline: 10px;
   }
   .brand {
@@ -828,6 +889,9 @@ a:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    --sidebar-width: 0px;
+  }
   .app-sidebar {
     position: fixed;
     z-index: 60;
@@ -837,7 +901,6 @@ a:focus-visible {
     width: min(300px, 84vw);
     flex-basis: auto;
     padding: 22px 12px 12px;
-    overflow-y: auto;
     transform: translateX(-105%);
     transition: transform 0.2s ease;
     box-shadow: none;
@@ -870,7 +933,7 @@ a:focus-visible {
   }
 
   .app-sidebar-open .chat-nav {
-    display: block;
+    display: flex;
   }
 
   .sidebar-backdrop-open {

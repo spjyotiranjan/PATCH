@@ -18,6 +18,8 @@ import { recurrenceSchema } from "./recurrence";
 import type { VersionRecord } from "./models";
 import { revokeAccess } from "./access";
 import { procedureSource } from "./procedure-evidence";
+import * as visuals from "./visual-assets";
+import * as visualPipeline from "./visual-pipeline";
 
 interface Endpoint {
   method: string;
@@ -58,6 +60,55 @@ function route<T>(
   });
 }
 const empty = z.object({}).strict();
+route(
+  "POST",
+  "/api/document-versions/{versionId}/visual-discovery",
+  "Discover and index meaningful figures for a current approved PDF",
+  empty,
+  (ctx, p) => visualPipeline.requestDiscovery(ctx, p.versionId),
+);
+route(
+  "GET",
+  "/api/document-versions/{versionId}/visual-discovery",
+  "Inspect discovery coverage and enrichment counts",
+  undefined,
+  (ctx, p) => visualPipeline.discoveryStatus(ctx, p.versionId),
+);
+route(
+  "POST",
+  "/api/visual-assets/{assetId}/index",
+  "Index a verified visual description",
+  empty,
+  (ctx, p) => visualPipeline.requestIndex(ctx, p.assetId),
+);
+route(
+  "POST",
+  "/api/visual-assets/{assetId}/describe",
+  "Queue verified visual understanding for a current ready derivative",
+  empty,
+  (ctx, p) => visuals.requestVisualDescription(ctx, p.assetId),
+);
+route(
+  "POST",
+  "/api/document-versions/{versionId}/visual-assets",
+  "Queue an immutable PDF page or region derivative",
+  visuals.visualRequestSchema,
+  (ctx, p, body) => visuals.requestVisualAsset(ctx, p.versionId, body),
+);
+route(
+  "GET",
+  "/api/document-versions/{versionId}/visual-assets",
+  "List visual derivatives for an authorized current PDF",
+  undefined,
+  (ctx, p) => visuals.listVisualAssets(ctx, p.versionId),
+);
+route(
+  "GET",
+  "/api/visual-assets/{assetId}/source",
+  "Open a ready visual derivative after current-source authorization",
+  undefined,
+  (ctx, p) => visuals.visualAssetSource(ctx, p.assetId),
+);
 route(
   "PATCH",
   "/api/documents/{documentId}",

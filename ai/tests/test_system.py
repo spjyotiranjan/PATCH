@@ -58,8 +58,17 @@ def test_openapi_is_public_and_contains_complete_phase_one_surface() -> None:
 
 
 def test_exported_openapi_artifact_matches_the_application() -> None:
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            assert key not in result, f"Duplicate OpenAPI key: {key}"
+            result[key] = value
+        return result
+
     exported_path = Path(__file__).resolve().parents[1] / "openapi.json"
-    exported = json.loads(exported_path.read_text(encoding="utf-8"))
+    exported = json.loads(
+        exported_path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_keys
+    )
 
     with TestClient(create_app(Settings())) as client:
         current = client.get("/openapi.json").json()

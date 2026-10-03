@@ -5,6 +5,15 @@ Use this guide together with [Setup_Guide.md](Setup_Guide.md),
 the backends without application UI. Swagger pages are API tooling, not feature UI.
 Keep this guide reconciled after each backend phase or contract change.
 
+## Retained testing guidance
+
+This is the retained in-repository backend test manual. The former `Manual Testing/`
+fixture packs, generated PDFs, and dated acceptance reports were deliberately
+removed. Use reviewed and authorized test sources supplied outside the repository;
+do not recreate temporary fixtures in the project tree. For Phase 7 visual-source
+checks, use the Phase 7 section of [Setup_Guide.md](Setup_Guide.md) alongside this
+manual.
+
 ## 1. What each test surface proves
 
 | Surface           | Address                                      | Authentication                                 | Purpose                                                           |

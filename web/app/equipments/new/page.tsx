@@ -1,10 +1,4 @@
-import { AppShell } from "@/components/app-shell";
-import { EquipmentForm } from "@/components/equipments/equipment-form";
-
-export default function NewEquipmentPage() {
-  return (
-    <AppShell title="Create Equipment">
-      <EquipmentForm />
-    </AppShell>
-  );
+import { EntityCreate } from "@/components/entity-workspace";
+export default function Page() {
+  return <EntityCreate kind="equipments" />;
 }

@@ -5,15 +5,38 @@
 | Item                                                 | Status                                                                                                                                        |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Architecture, entity/version model, and API boundary | Defined.                                                                                                                                      |
-| MongoDB models and browser-facing API                | Phases 1–6 backend code implemented; Phase 3–6 state/authorization tests use isolated Mongo test doubles. Hosted acceptance remains required. |
+| MongoDB models and browser-facing API                | **Backend complete through Phase 6 (2026-09-08).** Phase 3–6 state/authorization tests, hosted workflow checks, and the dated repair acceptance cover the implemented backend scope. |
 | Authenticated AI client and background coordination  | Phase 1 signed client implemented and revalidated against the authenticated FastAPI readiness endpoint on 2026-09-04.                         |
-| Phase 1-6 delivery                                   | Phases 1–2 complete. Phases 3–6 implemented with automated verification; live workflow/recovery and global UI gates remain open.              |
+| Phase 1–6 delivery                                   | **Complete for the Web backend only (2026-09-08).** This is not a synchronized product/UI completion claim; the separate global UI, representative-source/SME, and operational gates remain governed by `Development_Plan.md`. |
+| Phase 7 delivery                                     | Backend implementation delivered; representative live visual-quality/cost acceptance pending. Automatic processing/retrieval are opt-in; no UI completion claim. |
 
 ## Goal
+
+**UI wiring (2026-09-22):** Existing product APIs are consumed by all application
+routes; there are no new public backend endpoints or AI contracts in this change.
+Invalid configuration and failed signup persistence no longer fall back to demo
+success. See [UI_Integration.md](UI_Integration.md) for supported workflows and the
+remaining UI requests without backend support. Browser contract verification is
+not new hosted/SME acceptance and does not change backend phase status.
+Mongo readiness failures additionally emit fixed, safe diagnostic categories to
+the server console; public readiness still exposes only aggregate availability.
+The reported Mongo connection failure is not marked resolved without a successful
+real ping and aggregate readiness response.
 
 Provide the secure product API and authoritative relationship graph for P.A.T.C.H. The Next.js backend owns authorization, MongoDB, Cloudflare R2 originals, active document versions, Equipment/Project links, Project maintenance logs, controlled workflows, and audit records. It mediates typed AI calls but never implements extraction, embeddings, Pinecone retrieval, LangGraph, or prompting.
 
 ## Setup-guide maintenance
+
+Chat Markdown uses the existing citation-bound `answer.steps[].text` strings.
+AI verifies all formatted content; Web's current citation/access validation and
+REST/socket persistence remain unchanged. There is no new Markdown body field,
+uncited summary, endpoint or migration. UI parsing never opens model-authored URLs.
+
+The 2 October Chat explanation update is AI-owned and uses the existing `warnings`
+field. Web continues validating evidence/current access and persisting the same
+response shape over REST/socket; no new endpoint, authorization behavior or
+database migration is introduced. Explanations are status metadata, not uncited
+technical claims. See the AI implementation and API contract for verification.
 
 Before marking any backend phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new Web dependency, environment variable, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
@@ -145,7 +168,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 3 - Document lifecycle, activation, and profile coordination
 
-**Status:** Implemented; automated verification and small hosted upload/review/index/activation/shared-source smoke passed (2026-09-06). Full version-replacement/failure propagation acceptance pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and hosted lifecycle/propagation acceptance, including the subsequent repair acceptance, passed. Product/UI and representative-source gates remain separately tracked.
 
 **Goal:** Support dedicated entity document management and automatic safe propagation of active versions.
 
@@ -157,7 +180,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 4 - Chat gateway and evidence integrity
 
-**Status:** Implemented; automated transport/scope/citation tests and one live cited Web-to-AI WebSocket turn with persisted history/idempotent replay passed (2026-09-06). Representative-source acceptance and UI integration pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and live scoped WebSocket/REST mediation, citation validation, history, replay, and repair acceptance passed. UI and product-wide representative acceptance remain separately tracked.
 
 **Goal:** Supply FastAPI the current authorized entity graph and validate every cited answer.
 
@@ -169,7 +192,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 5 - Project logs and controlled procedures
 
-**Status:** Implemented; automated ownership/history/draft/recurrence tests and hosted synthetic log submission plus an unpublished source-cited candidate passed (2026-09-06). Owner publication, recurring-run and SME ground acceptance pending.
+**Status:** Complete for the Web backend (2026-09-08). Automated and hosted ownership, history, draft, publication, recurrence, and repair acceptance checks cover the backend scope. UI and SME product acceptance remain separately tracked.
 
 **Goal:** Keep maintenance outcomes and controlled content within Project ownership.
 
@@ -181,7 +204,7 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 ### Phase 6 - Security, reliability, and release
 
-**Status:** Backend hardening and operator/evaluation tooling implemented (2026-09-06). Live recovery, telemetry/backup drill and release acceptance pending; not a completed product phase.
+**Status:** Complete for the Web backend (2026-09-08). Backend security, recovery, operator, evaluation, and repair checks are implemented and verified. This does not mark the synchronized product phase or its UI/release gates complete.
 
 **Goal:** Make propagation, authorization, and AI mediation observable and recoverable.
 
@@ -191,7 +214,173 @@ This lets FastAPI route with entity profiles and then retrieve chunks without ca
 
 **Exit criteria:** Tests cover failed upload/index/activation, duplicate events, stale profiles, version races, link changes, access revocation, Project Equipment removal, and AI/Pinecone outages. Traces connect user request, Mongo resolution, AI graph, Pinecone query, and returned citations.
 
+### Phase 7 - Multimodal visual-source retrieval and asset mediation (backend-only)
+
+**Status (14 September 2026):** Backend implementation delivered; representative
+live visual-quality/cost acceptance remains open. UI files and synchronized phase
+statuses are unchanged. Automatic processing and visual Chat are opt-in.
+
+**Implemented modules:**
+
+- `visual-assets.ts`: authorized explicit page/crop requests, immutable private
+  R2 PNGs, safe metadata listing, verified descriptions and fresh source opening.
+  Original/derivative hashes, page/bounds, renderer/DPI and dimensions are retained.
+  A source URL expires after at most 300 seconds; already-issued URLs cannot be
+  instantly revoked. List/Chat/history never store or expose URLs, keys or bytes.
+- `visual-pipeline.ts`: idempotent discovery initiation/status and descriptor
+  indexing. AI owns local PDF triage and preview detection. Web validates
+  correlated tenant-bound parent/SHA/page results, finite positive normalized bounds,
+  class/confidence/uncertainty, max four regions, and current document eligibility.
+  It rejects confidence below 0.5 and deduplicates overlap at intersection/min-area
+  >=0.8, including contained crops, in deterministic confidence/position order.
+  Per-version transactional allocation enforces 48 automatic/100 total assets.
+  Reused manual pages/crops finish enrichment when explicit discovery requests it;
+  an undescribed manual derivative cannot silently suppress searchable evidence.
+  Discovery records distinguish detection status from end-to-end status and expose
+  candidate/completed pages, total/scanned counts, partial coverage and asset counts.
+  COMPLETE is not reported while automatic rendering/description/indexing is pending.
+- `jobs.ts`: fenced outbox stages `VISUAL_TRIAGE → VISUAL_DISCOVER →
+  VISUAL_RENDER → VISUAL_DESCRIBE → VISUAL_INDEX`; independent `VISUAL_DELETE`.
+  Each job has bounded retries/five attempts/dead-letter recovery. Automatic
+  regions chain all stages; manual renders remain rendering-only until description
+  is requested. Verified descriptions enqueue indexing. Correlation, source state,
+  SHA, selection fingerprint, description fingerprint and index generation are
+  rechecked before commit. Lost leases and stale generations cannot publish success.
+- `documents.ts`: activating a linked approved/indexed PDF optionally queues
+  discovery when `VISUAL_PROCESSING_ENABLED=true`. Existing versions are not
+  bulk-enriched; owners/managers may explicitly request discovery. Visual failure
+  never changes successful text indexing or the active original version.
+- `visual-chat.ts`: when `VISUAL_RETRIEVAL_ENABLED=true`, resolves at most
+  100 READY/described/indexed assets from the assigned authorized active versions;
+  discloses a truncated scope. Signed AI search selects max three IDs/roles.
+  Only selected assets receive AI-only expiring source URLs. The usual private
+  question socket returns text plus bounded verified visual observations/citations.
+  Before persistence, revalidate current access, parent/version/SHA/bounds, index
+  state/fingerprint/model, class, selected role and observation-to-citation IDs.
+  An uninspected, altered, revoked or superseded asset cannot become a saved citation.
+- `visual-repair.ts`: bounded fair recovery scans restart requested missing work,
+  disable ineligible vectors immediately in product state, enqueue tenant/version
+  visual-only deletion and rebuild a restored source with a new index generation.
+  Periodic cleanup catches stale external upserts whose workers lost their lease.
+  Reads always reauthorize, even before asynchronous cleanup. Revoking one user's
+  access never deletes vectors still needed by other authorized users.
+  Originals/derivatives remain retained; there is no automatic destructive R2 purge.
+- Migration `0005_visual_retrieval` adds eligibility/discovery indexes alongside
+  `0004_visual_assets`. Additive fields preserve older assets. Never remove
+  migration markers to retry a job.
+
+**Public API and Chat contract:**
+
+| Operation | Endpoint |
+| --- | --- |
+| Start discovery / inspect coverage | POST / GET `/api/document-versions/{versionId}/visual-discovery` |
+| Explicit render / list assets | POST / GET `/api/document-versions/{versionId}/visual-assets` |
+| Describe a rendered asset | POST `/api/visual-assets/{assetId}/describe`, body `{}` |
+| Index a verified description | POST `/api/visual-assets/{assetId}/index`, body `{}` |
+| Open the exact retained PNG | GET `/api/visual-assets/{assetId}/source` |
+
+Mutation requires document owner/approved manager access; reads require a current
+authorized inclusion path. Chat returns `visualEvidenceState`,
+`visualCitations` and `visualObservations` through both existing REST and product
+WebSocket transports. Citation fields identify asset/document/version/page/bounds,
+SHA, description fingerprint, class and REQUIRED/HELPFUL role. The later UI can
+resolve each asset through the source endpoint; no direct browser-to-AI connection
+or model-generated replacement image is introduced.
+
+**Safety/cost:** Descriptors are not approved facts; AI must inspect exact pixels
+in the current turn. Visual observations cannot supply operating/safety actions in
+place of applicable text citations. Optional visual failure retains valid text;
+required visual failure is incomplete. Separate namespaces, relevance gating,
+bounded candidates and opt-in automatic processing limit additional paid work.
+Retrying external inference/upserts can repeat cost; durable jobs are not a billing
+exactly-once guarantee. No new dependencies, R2 credentials in AI, or Web retrieval SDK.
+
+**Verification:** Tests cover the full durable stage chain, quotas/overlap
+deduplication, coverage states, stale-index fencing, exact citation checks,
+selected-only URL issuance, invented selections, revocation, orphan disable and
+restoration/rebuild. Existing rendering/description tests cover corrupt PNGs,
+supersession, tenant isolation, leased retries and retained-source availability.
+Generated OpenAPI/TypeScript and real signed REST/socket integration are tested.
+Recorded gate (14 September 2026): 111 Web and 135 AI tests pass, along with Web
+lint/typecheck/build, AI Ruff/format/mypy/Pyright and paired synthetic evaluation.
+The npm production-dependency audit reports zero vulnerabilities.
+See the Phase 7 verification steps in the repository-root [Setup_Guide.md](../../Setup_Guide.md)
+for representative source inspection, outage, authorization and recovery acceptance.
+
+**Exit criterion:** A valid current diagram can be selected, pixel-verified,
+persisted as an exact citation and freshly opened without copying the logical
+document across entities. Live representative quality/cost and future UI rendering
+are separate gates; no blanket completion of those gates is claimed here.
+
 ## Completion tracking
+
+### Pack 2 acceptance follow-up (15 September 2026, testing in progress)
+
+**16 September follow-up:** The user-reviewed four-step synthetic procedure was
+published unchanged through the normal Owner workflow. Live checks passed published
+immutability, current-period run deduplication, required-step blocking, performed
+digital-only review/log submission, stale run revision rejection and completed-run
+immutability. No physical work occurred. The 17 September continuation verified
+actual next-day rollover (fresh unchecked steps, unchanged completed history) and
+the published export's download; its export/index job completed. AI parser pipeline 4 requires
+a new immutable manual version and renewed review; Web payloads are unchanged.
+
+**17-18 September follow-up:** The new pipeline-4 manual was source-compared,
+approved, indexed and activated without approving its faulty historical versions.
+Three automatically discovered exact visual assets reached READY. Current diagram,
+marker/follow-up and chart observations passed targeted real-service retests; the
+stored chart result replayed identically over REST and WebSocket after restart.
+Linking the manual to the second Equipment twice left one logical source/current
+version across both Equipments and both Projects, with the same three asset IDs.
+The link-triggered jobs completed, drive/main-Project profiles became FRESH, and
+the published procedure remained unchanged; old unrelated dead letters were retained.
+No UI or public schema changes; Web's 117 tests, including paired AI transport,
+pass. This does not certify replacement/archive races or representative accuracy.
+
+The configured Mongo DNS resolver timed out while system DNS/ping succeeded.
+The first test server used a process-only empty resolver list, without rewriting
+local credentials/settings. On resumption, configured DNS succeeded and system
+DNS failed; the test server returned to the unchanged configured resolver.
+Readiness now bounds each parallel probe to five seconds;
+unsettled probes are shared across requests until they settle, preventing duplicate
+probe accumulation. AI readiness has a five-second maximum and no retry. Native
+DNS/storage work may outlive the HTTP response; timeout does not claim cancellation
+or switch DNS automatically. Public output remains aggregate; only safe service
+names appear in logs. No dependency/schema change or phase sign-off.
+
+Live visual discovery exposed a transaction-helper defect: a committed callback
+returning `void` was incorrectly reported as HTTP 500. Completion is now tracked
+independently of the callback value, with regression tests for void mutations,
+retry results, failure propagation, and session cleanup. Retesting discovery
+returned HTTP 200 and reused the existing queued job; no migration or API payload
+change is required. Visual end-to-end acceptance remains in progress.
+
+The 16 September continuation passed scan PNG checksum/source authorization,
+REST visual observations, WebSocket replay/conflict/authentication, scoped log
+draft/edit conflicts, Project assignment exclusion, and whole-AI outage source
+availability. The relevance optimization is AI-owned and changes no public schema.
+Web clients must distinguish the text status from visual availability; verified
+observations do not promote incomplete text to approved. Manual revision/crop
+acceptance and human publication/run checks remain open for this new fixture pack.
+
+Full npm audit subsequently reported two high-severity development-tooling findings
+in the `@redocly/openapi-core` / `js-yaml` chain; production-only audit stayed clear.
+The [publisher advisory](https://github.com/advisories/GHSA-2883-xcg3-v3hh) lists
+4.3.2 as a patched js-yaml version. An npm remediation dry-run failed with
+`EALLOWREMOTE` under the local package-fetch restriction. No package-policy override
+or dependency change was made; full dependency remediation remains an open gate.
+
+### Live API acceptance, 7–8 September 2026
+
+The former dated acceptance report was removed with the fixture directory. Its
+recorded scope included hosted account/access, PDF/text lifecycle, version propagation,
+WebSocket/replay, scoped logs, synthetic publication/runs, actual daily rollover,
+outage and audited retry checks. Core product APIs can be integrated with UI. The
+subsequent repair record was also removed; it covered OCR setup/ingestion/Chat,
+the failed factual-answer cases and review
+criticality through the existing Web contracts. Complete acceptance remains open
+for the explicitly unverified UI/SME/operational cases. This testing change does not
+mark any synchronized phase complete or substitute for UI acceptance.
 
 ### Backend implementation inventory, 2026-09-06
 
@@ -267,10 +456,52 @@ one unpublished procedure candidate. This is not publication/recurrence or SME
 acceptance. The exact-host R2 path-style fix has a regression test; it requires no
 stored-object migration because canonical object keys are unchanged.
 
-Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) to record hosted
+Use
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
+to record hosted
 ingestion → activation → propagation → socket answer → log → review/publish →
 recurrence acceptance. Complete representative/SME evaluation, backup/restore and
 configured telemetry checks before signing off their gates. UI phases were not
 implemented or marked complete by this backend change.
 
-Change phase status only in a pull request containing code, migrations, tests, contract evidence, and the matching `../../Development_Plan.md` integration-gate result.
+Mark a **Web-backend module** phase complete only with its code, migrations,
+tests, contract evidence, and setup-guide reconciliation. A **synchronized product
+phase** additionally requires the matching `../../Development_Plan.md` integration
+gate; module completion never substitutes for that gate.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.

@@ -16,13 +16,6 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/settings",
   useRouter: () => ({ replace: mocks.replace }),
 }));
-// The committed shell tests opt out of the local frontend mock
-// session so they verify the authenticated shell directly.
-// Production code is untouched.
-vi.mock("@/lib/mockapi/session", () => ({
-  PATCH_MOCK_MODE: false,
-  getMockSession: () => null,
-}));
 
 describe("Phase 1 authenticated shell", () => {
   beforeEach(() => {

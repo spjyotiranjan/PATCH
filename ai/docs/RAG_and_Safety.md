@@ -22,6 +22,21 @@ This hierarchy improves focus only when measured. The system always retains a st
 
 ## Source chunk record
 
+Mixed-image OCR pipeline 4 retains approximate word positions in whitespace and
+may replace a weak label only after two confident crop readings agree. This is
+reviewable recognition, not measured correctness or inferred chart relationships.
+Do not turn aligned characters alone into physical instructions. Visual meaning
+still follows the same-turn pixel verification boundary below. Changed parsing
+requires new immutable reviewed versions, not mutation of historical source text.
+
+Phase 7 preserves PDF pages/regions as private version-bound PNGs and separately
+indexes verified descriptions. Rendering or descriptor matching alone establishes
+no claim. Opt-in Chat inspects exact authorized pixels in the current turn and
+independently verifies factual observations before returning visual citations.
+These observations cannot replace source-chunk support for operating/safety steps.
+Current `SOURCE_CHUNK` and `ENTITY_PROFILE` filters/citation rules remain in force.
+Representative image-understanding quality still requires independent review.
+
 ```text
 recordType = SOURCE_CHUNK
 chunkId
@@ -153,6 +168,40 @@ Bound fallback iterations and retrieved context. Never loop until a desired answ
 
 ## Evidence states
 
+Chat limitation explanations are separate from source-supported answer claims.
+The generator supplies a bounded reason category and short explanation tailored
+to the current question. The independent verifier must confirm both the category
+and wording, including that it contains no answer to an outside-scope request,
+technical facts, operating advice, source excerpts, private-resource assertions,
+URLs, secrets or chain-of-thought. Only a reason consistent with the final evidence
+state may appear in `warnings`; rejected/absent reasons use a deterministic message
+for the actual failure. Never forward raw `gaps` as user-facing text. Outside-scope
+requests remain incomplete with no claims/citations. Missing sources must not be
+mislabelled outside scope. Empty source scopes perform no vector calls; optional workspace context may invoke the record/help intent path without sources.
+Model/provider failures use unavailable without exposing exception content.
+
+Factual document lookup and operational instruction requests require different
+coverage checks. A cited value, label or historical observation does not imply
+permission to operate equipment. The answer generator and independent verifier
+both receive the question and authoritative active/approved source metadata.
+Missing safety prerequisites block operational instructions, not unrelated
+document facts. Source text cannot override approval/access metadata. A fixture
+disclaimer or old publication date alone does not make an active source outdated;
+an explicit applicable expiry/supersession statement can. Never upgrade a model's
+negative evidence state merely because retrieval returned a chunk.
+The verifier's conflict flag requires incompatible applicable source facts. A
+draft's unsupported claim, OCR layout ambiguity or an earlier answer's uncertainty
+is an insufficiency, not a second conflicting source. Reject unsupported claims
+without manufacturing a source disagreement; never let history override current evidence.
+
+Generation and revalidation use the same criticality rubric, assessed from the
+Project purpose and actual unchanged instructions. Do not hard-code HIGH for
+every edited draft. Generation verification, individual-step revalidation and
+whole-draft assessment retain any high-criticality finding; an off-purpose action
+does not become low criticality because its Project is document-only.
+High-criticality actions retain HIGH and severe evidence gaps
+remain blocking regardless of the user's requested label or prior badge.
+
 | Status        | Meaning                                                       | Response behavior                                                  |
 | ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `approved`    | Sufficient applicable current evidence.                       | Return concise cited guidance and source access.                   |
@@ -250,6 +299,18 @@ Raw source, history, question, model and signed URL content is excluded from
 telemetry. Metadata-only spans describe query/filter counts, graph stage,
 fallback, timings and validation outcome. Raw LangSmith callbacks are disabled.
 
+Visual observation generation receives the actual pixels, current question,
+authorized image bindings and bounded history for reference resolution. Do not
+feed the generated text answer back as pixel evidence: it can contain nonvisual
+facts and text citation IDs. Independent pixel verification may compare the
+separately grounded text for real contradictions. Missing OCR detail or a text
+baseline's inability to see an arrow is not contradictory source evidence;
+genuine contradictory facts still fail closed. No visual result upgrades an
+incomplete text baseline or supplies physical operating authority.
+Relevance classification uses bounded per-request candidate indices. Map these
+back to authorized asset IDs in code; reject missing, duplicate or foreign indices.
+The model must not copy opaque, near-identical database IDs to bind a descriptor.
+
 ## Required test cases
 
 - A question for Equipment A cannot cite a document linked only to inaccessible Equipment B.
@@ -268,3 +329,95 @@ fallback, timings and validation outcome. Raw LangSmith callbacks are disabled.
 - Reordering a draft preserves stable step IDs/citations; changing step meaning sets citation review to `NEEDS_REVIEW`.
 - A recurring procedure's September run checks do not appear in the October run; September history remains unchanged.
 - AI cannot tick a procedure step or mark a run complete under any request payload.
+# Phase 7 description safety boundary
+
+Verified visual descriptions are untrusted retrieval aids, not new approved facts.
+The describe workflow checks actual derivative pixels twice using separate model
+calls, rejects unsupported descriptions, and retains uncertainty about illegible
+labels and ambiguous connections. This cannot guarantee perfect image perception.
+No generated description enters ordinary source chunks, procedures or Chat evidence.
+Visual answers inspect retrieved pixels and validate exact asset/version/checksum
+authorization; a description alone cannot justify a pixel-only claim. Source text
+embedded in images cannot grant authority.
+
+## Phase 7 implemented visual relevance and evidence controls
+
+- Text and visual-description vector scores are not comparable across namespaces.
+  Retrieval filters each namespace independently and uses bounded rank-based
+  fusion rather than raw-score arithmetic, with deterministic ties for auditability.
+  Text/profile vectors use configured `PINECONE_NAMESPACE`; visual-description
+  vectors use configured `PINECONE_VISUAL_NAMESPACE`. Deployment maps them to
+  `{environment}` and `visual-{environment}`. Namespace names never come from
+  request or model content.
+- A visual-description match is only a candidate. The relevance gate may label a
+  fused authorized candidate `REQUIRED`, `HELPFUL`, or `NOT_RELEVANT`; it cannot
+  introduce an asset, widen scope, or create an answer claim. Generic/duplicate,
+  low-confidence, and high-uncertainty visuals are penalized before this gate.
+- `REQUIRED`/`HELPFUL` are not permission to cite an image. The workflow must
+  re-download the exact checksum-bound derivative and inspect pixels in the same
+  turn. A visual claim maps to the asset inspected. If that fails, evidence is
+  `UNAVAILABLE`; an image-dependent answer is incomplete.
+- A visual may clarify a text-grounded answer automatically even if a user does not
+  ask for an image. It is not attached merely because it was retrieved: positive
+  relevance and verified material support are required.
+  The gate compares shortlisted descriptors with at most four current scoped
+  text excerpts of 2,000 characters each. These remain untrusted relevance hints;
+  they do not bypass the answer verifier or become new citations. A redundant
+  image of already-sufficient text is not REQUIRED or HELPFUL merely because it
+  matches the topic. Prior image requests are context, not continuing instructions.
+- For physical action, operating values, safety isolation, or procedure claims, a
+  diagram does not replace applicable approved source chunks or the existing safety
+  rubric. Distinguish visible labels/connections from inferred operation.
+- Visual failures never expose a raw error, signed URL or pixels, widen filters, or
+  discard a separately grounded text answer solely because optional visual work failed.
+
+
+## Chat Markdown presentation
+
+Chat may organize each citation-bound claim as a self-contained Markdown passage
+with modest headings, paragraphs, emphasis, lists, tables, blockquotes or fenced
+code. Formatting never creates another evidence path: the independent verifier
+must check every factual statement, list item, table cell, code value and heading
+against that claim's supplied chunks. Keep materially different source bindings
+in separate claims. Never produce uncited summaries, invented citation markers,
+raw HTML, images, external links or interactive completion controls. Status-only
+limitation explanations remain plain text. Existing negative-state, access and
+visual evidence rules are unchanged.
+
+
+## Workspace Chat scope (2 October 2026)
+
+PATCH workspace questions (including listing accessible Projects, Equipments and
+linked documents with saved record overviews) are in scope. A separate typed
+workspace overview displays current authorized product metadata; it does not
+require source-chunk citations or treat saved descriptions as technical evidence.
+Technical facts, calculations and operational/safety guidance retain the existing
+approved-source verification and explicit evidence limitations. Only requests
+unrelated to PATCH are outside scope; missing coverage or service failures are
+not outside-scope classifications.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

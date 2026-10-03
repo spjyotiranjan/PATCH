@@ -20,7 +20,62 @@ Hosted MongoDB, private Cloudflare R2, OpenAI and Pinecone are needed for the fu
 backend workflow. Phases 3–6 call real providers for ingestion, profiles, answers
 and drafts; there is no silent mock mode in the running app. Automated tests
 inject isolated synthetic providers and never use real maintenance instructions.
-For no-UI acceptance, follow [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+For no-UI acceptance, follow the repository-root
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md). The former `Manual Testing/`
+fixtures and reports were intentionally removed; bring reviewed, authorized test
+sources separately and record evidence outside the repository.
+
+## Integrated UI startup and verification
+
+For MongoDB troubleshooting, inspect only the Web console event
+`patch_web.database.unavailable` after requesting `/api/readiness`. Its fixed
+`reason` identifies DNS, authentication, TLS or connection failure without exposing
+the URI or configuration values. If aggregate readiness times out first, leave the
+server running for the underlying DNS check to settle. `DNS_LOOKUP_TIMEOUT` occurs
+before database authentication: verify resolver/network access from the normal
+terminal. Do not disable TLS, open database access to everyone, or invent standard
+seed hosts. A non-SRV URI must come from the hosted database provider's exact
+connection details and remain only in the local configuration file.
+
+Application routes now use the real authenticated Web APIs and same-origin Chat
+WebSocket gateway. There is no runtime demo login or fallback data. Start Web,
+FastAPI and the Web worker using the commands below, open the exact origin in
+`AUTH_URL`, and register or sign in with a real account. Empty accounts show empty
+directories; unavailable dependencies show errors, not simulated success.
+
+Follow [UI_Integration.md](web/docs/UI_Integration.md) for the route map, supported
+fields, known backend gaps and complete browser acceptance sequence. In particular:
+
+- Direct original uploads use a signed R2 PUT. The bucket's CORS must allow the
+  exact application origin, PUT and the signed request headers; do not relax it
+  to allow credentials or a wildcard origin. See the R2 configuration below.
+- Keep the worker running during upload/extraction, indexing, profile refresh,
+  visual discovery and procedure generation. Polling only reads job state.
+- Compare originals before approving extraction. Separately review and approve
+  a procedure before publication. UI actions never bypass these human gates.
+- Chat needs `npm run dev` or `npm start`, not bare Next commands. Images and
+  citations get fresh authorized URLs on demand; expired/revoked access is cleared.
+- `npm run test:e2e` from `web/` runs the deterministic Chrome browser suite. It
+  uses the existing Playwright dependency and an installed Google Chrome. It starts
+  Web if necessary, intercepts test API/socket responses, and never creates hosted
+  records or calls paid models. Failures/traces go to the OS temporary directory
+  `patch-ui-playwright`, outside this repository. It does not replace hosted testing.
+
+For the UI presentation checks, verify Home record names and document revision
+links remain readable; select an original file in the styled picker with both
+mouse and keyboard; inspect Chat citations, source assignments and the sticky
+composer. Check Light/Dark and desktop/tablet layouts. Chat working text is driven
+by accepted/processing socket events; it does not report detailed retrieval stages
+or stream unverified answers. The Chrome fixtures save presentation screenshots
+as `patch-ui-*.png` in the OS temporary directory and perform no hosted mutations.
+
+For sidebar scrolling, open a long Chat and scroll down: primary navigation and
+Settings/Help must stay in view. Scroll a long session history separately, including
+at its end; this must not move the Chat page. Use the Chat chevron with Enter to
+collapse/expand history; New chat stays available. Check Light/Dark, the compact
+tablet rail and the mobile navigation drawer. The 2 October shell repair passed
+179 Web tests, 25 Chrome scenarios, lint, type checking and production build.
+It needs only a Web reload/rebuild; no AI restart, configuration or data changes.
 
 ## 2. Clone and install dependencies
 
@@ -150,12 +205,18 @@ Configure these values before expecting AI readiness to be `ready`:
 | `HOST` / `PORT`                                                      | `0.0.0.0` and `8000` (defaults are suitable).                                                                         |
 | `AI_SERVICE_SHARED_SECRET`                                           | The exact same Web value.                                                                                             |
 | `SOURCE_URL_ALLOWED_HOSTS`                                           | Your R2 endpoint host only, for example `<account-id>.r2.cloudflarestorage.com`. Do not include `https://` or a path. |
-| `OPENAI_*`                                                           | Development OpenAI configuration and credentials.                                                                     |
-| `PINECONE_*`                                                         | Development Pinecone API key, index name, and namespace.                                                              |
+| `OPENAI_*`                                                           | Development OpenAI configuration and credentials, including model names for answering, routing, complex reasoning, and embeddings. |
+| `PINECONE_*`                                                         | Development Pinecone API key, index name, and `PINECONE_NAMESPACE=development`.                                      |
 | `ENTITY_ROUTING_ENABLED`                                             | Leave `false` until representative evaluation accepts profile routing. Current-manifest retrieval still works.        |
 | `OPENAI_ROUTING_REASONING_EFFORT`                                    | `low`, used with the configured routing model.                                                                        |
 | `OPENAI_ANSWER_REASONING_EFFORT`                                     | `medium`, used with the configured answering model.                                                                   |
-| `OPENAI_COMPLEX_REASONING_MODEL` / `OPENAI_COMPLEX_REASONING_EFFORT` | `gpt-5.6-terra` / `high`, used for answer, procedure, whole-draft, step and log verification.                         |
+| `OPENAI_COMPLEX_REASONING_MODEL` / `OPENAI_COMPLEX_REASONING_EFFORT` | Configure the model name and effort (`high`) in the environment; used for answer, procedure, whole-draft, step and log verification. |
+
+OpenAI model settings accept lowercase API model IDs containing letters, numbers,
+dots, underscores, colons, and hyphens (for example aliases, dated snapshots, and
+fine-tuned IDs). Whitespace, uppercase letters, and path separators are rejected at
+startup. Use model IDs shown in the official OpenAI model catalog; validation checks
+identifier shape, not account entitlement or endpoint compatibility.
 
 AI never receives R2 account credentials, access keys, bucket credentials, MongoDB credentials, browser authentication secrets, or any `NEXT_PUBLIC_` value. It receives only Web-issued, short-lived source URLs when an ingestion workflow runs.
 
@@ -179,16 +240,37 @@ For the complete variable ownership and security rules, read [web/docs/Environme
    origin, allowed method `PUT`, allowed header `Content-Type`, and exposed
    header `ETag`. Postman is not subject to browser CORS. Follow the official
    [R2 CORS instructions](https://developers.cloudflare.com/r2/buckets/cors/).
+   For local `AUTH_URL=http://localhost:3000`, the dashboard CORS JSON is:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["http://localhost:3000"],
+       "AllowedMethods": ["PUT", "GET", "HEAD"],
+       "AllowedHeaders": ["Content-Type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   Replace the origin with the exact configured Web origin for other environments;
+   preserve any existing approved rules. Keep the bucket private. Allow up to 30
+   seconds for propagation. A missing rule causes `UPLOAD_TRANSFER_FAILED` even
+   when server-side R2 readiness succeeds. Retry the retained upload session; if
+   its signed URL expired, restart the upload to obtain a fresh session.
 3. Create a Pinecone **dense bring-your-own-vector** index with cosine similarity,
    not an integrated-embedding index. The default `text-embedding-3-large`
    produces 3,072-dimensional vectors; provision that dimension. Both source
-   chunks and profiles use this model and a namespace specific to the environment.
+   chunks and profiles use this model and the explicitly configured
+   `PINECONE_NAMESPACE` (`development` locally). Keep it aligned with `APP_ENV`
+   by deployment convention; AI does not infer or override it.
    See [OpenAI embeddings](https://developers.openai.com/api/docs/guides/embeddings)
    and [Pinecone index creation](https://docs.pinecone.io/guides/index-data/create-an-index).
 4. Set an OpenAI API key with access to the configured answer/routing models and
    embeddings. An unavailable model returns a safe workflow failure; readiness
-   validates configuration, not model entitlements, vector dimensions, OCR
-   installation or retrieval quality. Verify these by completing ingestion.
+   validates provider configuration and the local OCR runtime, not model entitlements,
+   vector dimensions or retrieval quality. Verify these by completing ingestion.
 5. Keep `MAINTENANCE_LOG_INDEXING_ENABLED=false`. The optional log-evidence
    pipeline is not enabled; setting it true is rejected to avoid implying support.
    Submitted logs are still fully persisted and auditable.
@@ -200,18 +282,59 @@ embeddings or delete originals as part of reindexing.
 
 ### Supported document parsing and OCR
 
+Parser/index pipeline 4 (16 September 2026) preserves embedded-image OCR word
+positions in a monospace text layout. Low-confidence labels receive bounded padded
+crop re-reading; replacements require two confident agreeing readings. The colour
+pass supplements non-overlapping text, avoiding conflicting duplicates. All OCR
+passes share the existing timeout; native text and full-page scan behavior remain
+unchanged. Positions are not inferred chart data or operating authority: Phase 7
+still verifies actual pixels for visual claims. For previously extracted sources,
+upload a new immutable version and review again; never rewrite old extraction.
+See the parser decision for exact bounds and rollback.
+
 Supported MIME types are PDF, UTF-8 plain text, Markdown and DOCX. Keep both
 templates' MIME lists and byte limits aligned (default 50 MiB). Markdown is
 treated as text; no HTML is executed. Text/DOCX citations identify numbered text
 blocks, not printed pages. PDF citations identify one-based source pages.
 
-- Text-native PDFs use pypdf. Image-only pages use embedded-image OCR and require
-  the **Tesseract executable** plus appropriate language data on PATH. Check
-  `tesseract --version` in the terminal starting AI. The Python wrapper does not
-  install that executable. OCR calls are bounded and are always marked lower quality.
-- Complex scans without extractable embedded images fail for review; there is
-  no licensed full-page PDF renderer configured. Do not accept missing text or
-  infer instructions from an unreadable page. Compare all OCR against originals.
+- Text-native PDFs use pypdf. Low-text pages are rendered with the locked
+  `pypdfium2` renderer before Tesseract OCR, preserving physical page orientation
+  and composition. Mixed pages retain native text and OCR embedded raster labels.
+  OCR remains text recognition, not diagram/colour interpretation or image embeddings.
+- Install the **Tesseract executable** and required language data separately;
+  `uv sync` installs the wrapper and renderer, not Tesseract. For Windows, use the
+  installer linked from [Tesseract's installation guide](https://tesseract-ocr.github.io/tessdoc/Installation.html)
+  and [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). Install into a
+  dedicated Tesseract-OCR directory, never the repo or a shared directory. Verify
+  the publisher/release checksum. Linux: `sudo apt install tesseract-ocr tesseract-ocr-eng`;
+  macOS: `brew install tesseract`.
+- AI discovers Tesseract on PATH, then standard Windows per-user
+  `%LOCALAPPDATA%\Programs\Tesseract-OCR` and system `%PROGRAMFILES%\Tesseract-OCR`
+  locations. For another location set `OCR_TESSERACT_CMD` in `ai/.env.local` to
+  its full executable path. An explicit invalid path fails; it does not silently
+  select a different installation. No machine-wide PATH change is needed.
+- `OCR_LANGUAGES=eng` selects installed trained data; multiple languages use `+`,
+  for example `eng+deu`. Run the executable with `--list-langs` to check the
+  installed data. `OCR_RENDER_DPI=200`, `OCR_MAX_IMAGE_PIXELS=30000000`, and
+  `OCR_TIMEOUT_SECONDS=15` bound rendering and each image's OCR work. A colour
+  contrast pass appends additional recognized lines without replacing original
+  readings; ambiguous readings remain for human review. OCR quality is `0.6`,
+  not a measured confidence/probability. Never approve unreadable or incorrect text.
+- Restart AI after changing OCR settings. From `ai`, verify discovery/data with:
+
+  ```powershell
+  uv run python -c "from patch_ai.adapters.ocr import available; from patch_ai.config import Settings; print('OCR ready:', available(Settings()))"
+  ```
+
+  Then upload a scan through Web, compare every field and warning against its
+  original, approve, dispatch indexing and activation, and ask a cited question.
+  A ready OCR runtime does not prove every scan is legible. Readiness returns only
+  aggregate status; a missing executable/language is logged as safe service `ocr`.
+- Parser pipeline 4 applies to newly processed sources. For already-reviewed or
+  active sources, upload a new immutable version and review it again; do not rewrite
+  retained extraction/citations in place. Failed never-approved OCR jobs can use
+  the reasoned operator retry after fixing the prerequisite. Old active versions
+  and originals remain intact. See [the parser decision](ai/adapters/README.md).
 - DOCX paragraphs and flat tables preserve body order. Images, embedded objects,
   external relationships, tracked changes, fields, text boxes, nested tables and
   unsupported footnote/math content fail explicitly. Export a reviewed PDF or
@@ -299,14 +422,22 @@ Expected responses contain only service identity and aggregate status, for examp
 
 Then open <http://localhost:3000/api/readiness>. A `200` response with `status: ready`
 confirms MongoDB/R2 checks and authenticated AI readiness. AI readiness checks
-required provider configuration; it is **not** proof of a successful paid model
-call, indexing, OCR, or a safety evaluation. A `503` means dependencies are not
+required provider configuration and the OCR executable/language data; it is **not**
+proof of a successful paid model call, indexing, OCR accuracy, or a safety evaluation.
+A `503` means dependencies are not
 ready. Details appear only in server logs as safe service names, never environment
 variable names, credentials, signed URLs or connection strings.
 
 Do not call AI `/readiness` directly from a browser. It is intentionally private and requires the server-to-server HMAC headers that the Web API client creates. `/health` is the public AI liveness check.
 
 ### Verify Phase 1 account and UI readiness
+
+Readiness dependency probes run in parallel with five-second deadlines. Unresolved
+native DNS/storage probes may continue internally and are shared until they settle;
+repeated HTTP checks do not launch duplicate probes. AI readiness has no retry and
+a five-second maximum timeout. Workflow timeouts are unchanged. If an explicitly
+configured DNS resolver becomes unreachable, verify system DNS before deliberately
+clearing the optional override and restarting; there is no automatic resolver switch.
 
 1. Open <http://localhost:3000/sign-up>. Create a development account using exactly Name, Email, Password, and Confirm password. There are no social-login, SSO, or passwordless-link options.
 2. Sign out from Settings, then sign in at <http://localhost:3000/sign-in> with the same email and password. Opening `/`, `/equipments`, `/projects`, `/documents`, `/chat`, or `/settings` without a session must redirect to sign-in without exposing protected content.
@@ -342,6 +473,99 @@ Owners approve or reject access through the nested request-decision routes docum
 
 ## 7. Testing and quality commands
 
+### Phase 7: visual discovery, indexing and Chat
+
+Backend code and contracts are implemented; representative live visual-quality/cost
+acceptance remains open. Start small; do not bulk-process historic documents.
+No new dependencies or credentials are needed. Update both services together,
+export OpenAPI/regenerate Web types with the commands below, and restart AI, Web
+and the worker. Additive migrations `0004_visual_assets` and
+`0005_visual_retrieval` apply automatically; never delete their markers to retry.
+
+The relevance gate reuses up to four current retrieved text excerpts to identify
+redundant image attachments. Restart AI after updating this logic; no reindex,
+new setting or schema migration is needed. Compare a text-only factual lookup
+with a genuine diagram/shape question, including after a previous image request.
+This is a relevance optimization, not a guarantee of model accuracy.
+
+The September visual follow-up also separates pixel generation from the text
+answer and maps per-request relevance indices back to authorized image IDs in code.
+Restart AI; no reindex or environment change is required. Fixed-enum
+`visual_gate.*` and `visual_pixels.*` diagnostics distinguish relevance, support,
+safety and citation rejection without logging prompts, source text or signed URLs.
+Missing OCR detail is not automatically a conflict with visible pixels, but real
+source contradictions and unsupported observations still fail closed.
+
+For an interrupted visual-discovery request, inspect its GET status before retrying:
+the outbox request may already have committed. The transaction helper accepts
+successful mutations without a return value. Repeating discovery is idempotent
+and does not create a second job for the same source/pipeline version.
+Verified image observations may accompany an incomplete text baseline; inspect
+both `status` and `visualEvidenceState` and retain the evidence warnings.
+
+1. Keep the existing AI `PINECONE_NAMESPACE=development`. Add
+   `PINECONE_VISUAL_NAMESPACE=visual-development` to `ai/.env.local`.
+   These explicit settings must differ; neither is calculated from `APP_ENV`.
+   The existing Pinecone index and configured embedding dimensions are reused.
+   A namespace is created on its first successful upsert, not at service startup.
+2. Confirm configured routing, answering and complex-verification models support
+   image inputs/structured outputs. Existing low/medium/high effort settings apply.
+   OCR/Tesseract remains necessary for text extraction from scans; it does not
+   replace image inspection or asset preservation.
+3. Initially leave `VISUAL_PROCESSING_ENABLED=false` in Web. Use one already
+   approved/indexed/active linked PDF and manually POST `{}` to
+   `/api/document-versions/{versionId}/visual-discovery` as its owner/manager.
+   This explicit request can incur paid calls even with automatic processing off.
+4. Run the worker. Poll GET on that discovery path and the version's
+   `/visual-assets` path. Jobs perform local triage, preview detection, render,
+   description/verification and indexing. Expect at least one meaningful figure
+   to reach `state: READY`, `descriptionState: READY`, `indexState: READY`.
+   No-figure pages may legitimately create no assets. Inspect `partial`,
+   `scannedPages`, `candidatePages`, `detectionStatus` and end-to-end `status`;
+   detection completion alone is not index completion.
+5. GET `/api/visual-assets/{assetId}/source`, open the exact PNG and compare its
+   page/crop/labels with the immutable original. URLs expire within 300 seconds;
+   already-issued URLs remain valid until expiry. No generated/redrawn image is used.
+6. If indexing fails, inspect the safe job state and local service console.
+   Verify the configured embedding model matches the index dimensions; a mismatched
+   upsert fails explicitly and does not mark the asset indexed. Fix the cause,
+   then use the operator's audited retry—not new duplicate asset requests.
+7. Enable `VISUAL_RETRIEVAL_ENABLED=true` in **both** local environment files and
+   restart both services. Chat uses existing REST or raw WebSocket endpoints.
+   It may now return `visualObservations` linked to exact `visualCitations`.
+   Test relevant, irrelevant and required-image questions using the matrix below.
+   Do not add URLs/bytes to a browser request or bypass Web authorization.
+8. Only after reviewing a small representative set, optionally set Web
+   `VISUAL_PROCESSING_ENABLED=true` to enqueue future linked PDF activations.
+   Existing documents still require explicit discovery; no historical bulk job runs.
+
+Safe defaults/caps and ownership are listed in
+[Environment.md](web/docs/Environment.md#phase-7-configuration-implemented-opt-in).
+Web render DPI is 144 (72–200); AI caps full-page allocation at four million
+pixels before cropping, each output side at 4096, and PNGs at 2 MB. An oversized
+source may fail even for a small crop; a lower DPI creates a distinct selection.
+Discovery uses at most 12 page previews/four regions per page; per version at most
+48 automatic and 100 total assets. Search uses up to 100 authorized descriptors,
+six gate candidates and three final images. A cap reports partial coverage, not a
+guarantee that every diagram was found. Manual render → describe remains available
+for a page/region missed by automatic discovery.
+
+**Recovery/rollback:** Stop worker dispatch before switching service versions.
+Disable both visual flags for the text-only path, but note that flags do not cancel
+already-requested jobs. Do not send any `VISUAL_*` job to an older worker.
+Retain originals, derivatives, visual records and migration indexes. Repair
+disables ineligible projections and deletes only scoped visual vectors; restoring
+eligibility queues a new index generation. R2 derivative/original retention is
+unchanged and no destructive object cleanup runs automatically. Changing embedding
+models/dimensions requires compatible index planning and projection rebuilds; do
+not rename the existing text namespace as an implicit migration.
+
+For Phase 7, use the root backend manual for REST/WebSocket transport and this
+section for visual-specific checks, authorization/outage behavior, cost accounting,
+and representative acceptance recording. The integrated source viewer and Chat UI
+now expose Phase 7 states and exact authorized images; hosted representative visual
+quality and cost acceptance remain separate from browser contract verification.
+
 Run these before handing off a phase implementation:
 
 ```powershell
@@ -362,6 +586,7 @@ npm run generate:ai-types
 npm run lint
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 npm audit
 ```
@@ -378,6 +603,21 @@ npm run generate:ai-types
 Commit the resulting `ai/openapi.json` and `web/lib/ai/generated.ts` with the matching API implementation and tests. Do not hand-edit generated types.
 
 ## 8. Troubleshooting
+
+For specific Chat limitation messages, restart AI after the 2 October update and
+submit a new question. Saved turns retain their original output. A standalone
+arithmetic question should explain that it is outside PATCH
+scope and provide no computed answer; a relevant question with missing coverage
+should name the evidence gap instead. Empty source scope, no usable passages and
+service failures have distinct fallback messages. No reindex, migration, Web
+transport change or environment update is needed. The full AI test suite currently
+has two legacy OCR tests referencing PDFs from the removed `Manual Testing/`
+directory; their missing-fixture failures are separate from the Chat checks.
+
+If an Equipment or Project page fails at `RecordState` with undefined `replaceAll`,
+update to the entity-response fix and reload the browser. Detail/create/update
+responses wrap records in `equipment` or `project`; browser helpers must unwrap
+them. No database reset or record recreation is needed.
 
 | Symptom                                                  | Likely cause and resolution                                                                                                                                                                                                                                     |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -402,7 +642,8 @@ The AI Phase 2 change is a contract change, not a data migration. Keep `ai/opena
 
 ### Phase 3–6 operations, recovery and retention
 
-Follow the worker-operation examples in [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+Follow the worker-operation examples in
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md).
 Jobs have 300-second leases, fencing tokens, five attempts, bounded backoff and
 dead-letter status. A stale worker cannot overwrite a newer result. An explicit
 operator retry requires a reason and is audited. Repair uses persisted scan
@@ -458,6 +699,72 @@ This reconciliation is part of the phase definition of done. A phase may not be 
 
 ### Reconciliation record
 
+- **Pack 2 OCR/publication/visual repair (16-18 September 2026):** Pipeline 4 fixes the
+  fixture chart's C/Cc recognition and preserves column alignment. Both manual
+  revisions and all ten fixture pages passed local parsing. A new unchanged-byte
+  revision-1 upload passed hosted extraction comparison, conditional source review,
+  indexing and activation; the faulty older extractions remain unapproved. The
+  user-reviewed digital-only procedure was published unchanged, exported/indexed,
+  executed through normal checklist/log APIs, and verified across the actual next
+  daily period without changing history. AI 155 tests plus lint/format/type gates
+  and synthetic evaluation, and Web 117 tests/lint/typecheck pass. New visual
+  targeted retests passed current diagram arrows, marker/follow-up and tallest-bar
+  chart observations, with exact stored REST/WebSocket replay. Shared Equipment/
+  Project links retained one source and visual set. Full revision/lifecycle visual
+  acceptance is still in progress; no UI, SME or automatic-rollout sign-off.
+
+- **Pack 2 acceptance repairs (15–16 September 2026, in progress):** Bounded
+  readiness waits, repaired successful void-transaction handling, added pipeline-3
+  mixed-image OCR, and made the visual gate compare bounded current text context.
+  Real scan ingestion, exact PNG description/indexing/Chat, source authorization,
+  REST/socket replay, Project scope, log drafts, open-socket access revocation and
+  whole-AI outage source availability were exercised. Web build/lint/typecheck and
+  117 tests, AI lint/format/types and 138 tests, and synthetic evaluation pass;
+  production dependency audit reported zero vulnerabilities. Chart OCR ambiguity,
+  manual revision/visual lifecycle, human publication/execution and representative
+  quality/cost acceptance remain open. Temporary evidence is outside the repo;
+  local environment files, UI and synchronized phase statuses are unchanged.
+  The subsequent **full** npm audit reported two high-severity development-tooling
+  findings in the Redocly/js-yaml chain. Remediation remains pending: npm's dry-run
+  stopped with `EALLOWREMOTE`. Obtain an authorized package update rather than
+  bypassing that restriction; rerun generation and full audit afterward. The clean
+  production-only audit does not establish a clean development dependency tree.
+
+- **Phase 7 namespace convention (9 September 2026, in progress):** Existing
+  text/profile vectors continue using environment-controlled
+  `PINECONE_NAMESPACE=development`, so local data requires no migration. The planned
+  separate `PINECONE_VISUAL_NAMESPACE=visual-development` setting was subsequently
+  implemented in the 14 September completion work described above.
+
+- **Phase 7 asset foundation (8 September 2026, in progress):** Added the signed
+  visual render contract, generated types, additive visual-asset migration, DPI
+  configuration, worker/retry behavior, source access and the manual test guide.
+  Verification: 97 Web and 89 AI tests, including real loopback signed PNG rendering;
+  lint/type checks, production Web build and synthetic evaluation passed. npm audit
+  reported zero vulnerabilities. Hosted R2 visual acceptance has not been executed;
+  automatic visual retrieval/understanding and Chat citations were pending at this
+  milestone and are now implemented; representative live acceptance remains open.
+
+- **Acceptance repairs (8 September 2026):** Installed/verified Tesseract 5.5.3;
+  locked pypdfium2 full-page rendering, added configurable OCR discovery/languages
+  and aggregate runtime checks, and reconciled parser migration/rollback. All
+  prepared PDFs parsed; live OCR upload/review/index/activation/Chat passed.
+  Original pressure/signal questions now return qualified source facts. Real
+  document-only revalidation remains LOW; unsupported physical maintenance stays
+  HIGH criticality/SEVERE with approval blocked. AI 80 tests and Web 81 tests,
+  type/lint/build/contracts and synthetic evaluation gates pass. The detailed
+  repair-acceptance record was removed with the former fixture directory.
+  UI/SME/global phase acceptance is not implied.
+
+- **Live backend acceptance (7–8 September 2026):** Verified real REST/WebSocket,
+  hosted document lifecycle, scoped access, logs, synthetic procedure publication
+  and daily runs, AI outage isolation and reasoned worker retry. Indexing and
+  activation require separate queued dispatches. Native parsing worked; scanned
+  sources remain blocked by the missing Tesseract executable. Factual-answer
+  failures remain open. The detailed acceptance record was removed with the
+  former fixture directory. No configuration or product code was
+  changed during these tests.
+
 - **Phase 1 (2026-09-04):** Reconciled UI, Web backend, AI backend, environment ownership, startup commands, credentials-only authentication, aggregate readiness, and the signed Web-to-AI contract. Verified Web contract generation, lint, TypeScript, 39 automated tests, and the production build; verified AI lint/format/type gates and 26 tests; ran the live signed readiness/profile-contract integration; and visually reviewed the public credentials screens with no browser errors. Hosted MongoDB and R2 connectivity remains a per-environment check through `/api/readiness` because credentials are intentionally not stored in the repository.
 - **Backend Phases 3–6 (2026-09-06):** Startup/worker, additive migration,
   Swagger/WebSocket contracts, provider/parser prerequisites, recovery and
@@ -469,3 +776,110 @@ This reconciliation is part of the phase definition of done. A phase may not be 
   See the dated manual-test record for deliberately unrun ground-test scenarios.
   Global phase status remains open for UI integration and representative/SME
   acceptance; synthetic fixtures do not certify real maintenance guidance.
+## Phase 7 verification record (14 September 2026)
+
+The foundation and description-only milestones below in the historical change log
+are superseded by the implemented Phase 7 setup section above. Current backend
+coverage includes automatic candidate discovery, separate descriptor indexing,
+rank fusion/relevance selection, same-turn pixel verification, exact Chat citations
+and lifecycle recovery. No direct dependencies changed.
+
+Verification: 111 Web tests and 135 AI tests pass, including the real signed
+REST/WebSocket loopback case. Web lint/typecheck/build and AI Ruff/format/mypy/
+Pyright pass; 15 paired baseline/hierarchical cases pass synthetic evaluation guards.
+The npm production-dependency audit reports zero vulnerabilities.
+
+Automated Web/AI checks and the signed loopback REST/socket test are the code and
+transport evidence; they do not establish hosted Mongo transaction behavior, actual
+provider diagram perception, representative legibility or acceptable provider cost.
+The follow-up local service check passed aggregate Web readiness, installed OCR,
+live OpenAPI equality and unsigned/unauthenticated denial on the new routes.
+The first sandboxed probe could not access OCR/hosted services; repeating outside
+the sandbox passed without changing local configuration. Two pre-existing EXTRACT
+dead letters were observed and left untouched; no active jobs were dispatched.
+No paid visual-provider acceptance or historical bulk enrichment was performed.
+Record a real representative run using the Phase 7 section of this guide before accepting
+automatic rollout; keep the default flags off until that review.
+
+
+### Chat typed attachment check
+
+On Chat, type `@`, choose Project, Equipment or Document, then type after the
+inserted colon and select an accessible result. Confirm a removable text preview
+appears and the rest of the question is preserved. Test arrow keys, Enter/Tab,
+Escape, no matches and removal. Submit a question and confirm its saved context
+uses the selected IDs; typed names without selection must not create assignments.
+The feature uses existing configuration and endpoints.
+
+
+### Chat Markdown setup and verification
+
+Run `npm install` in `web` to install the committed Markdown dependencies, then
+restart Web and AI. Submit a new source-grounded question requesting a concise
+overview, list or comparison table. Confirm headings, emphasis, lists, tables and
+code render cleanly in Light/Dark and tablet layouts; source numbers still open
+exact evidence. Existing plain-text turns remain readable. Saved answers are not
+regenerated automatically. No environment changes, reindexing or migration are
+needed; schema fields and REST/socket payload shapes remain unchanged.
+
+
+### Procedure editor presentation acceptance
+
+Check that long review reasons wrap inside the analysis panel at desktop/mobile
+widths and that their checkboxes remain visible and usable.
+
+No installation or configuration changes are required. Refresh the browser and
+open a Project procedure draft. In both themes, collapse/expand steps with the
+summary or keyboard; confirm titles, required flags and source states remain
+visible. Edit a title, collapse/reopen and reorder it; confirm the edit and stable
+step identity survive. Drag a collapsed step using its header grip; confirm it
+moves without opening, and clicking the grip does not expand the step.
+Add/remove a step and save using the existing revision
+flow. Inspect linked sources and review findings; revalidation, human approval
+and publication remain separate, and severe blockers still prevent publication.
+Source evidence starts as compact cards: confirm title, revision/page and approval
+state remain visible while excerpts are hidden. Expand with click or Enter/Space
+to read the full excerpt and use the existing source-access control; collapse it
+again. Expansion itself must not request a signed original source URL.
+Check the editor at a narrow mobile width, then inspect procedure history,
+scheduling and recorded execution progress. Published definitions and completed
+runs retain their existing immutability; Member permissions remain unchanged.
+
+Verification on 2 October 2026: lint, TypeScript, 179 Web tests, 27 Chrome
+scenarios and production build pass. Screenshots were reviewed. The dependency
+audit retains six high and one critical pre-existing advisory; this UI change
+adds no dependencies or configuration.
+
+### PATCH-aware Chat setup and acceptance
+
+Export AI OpenAPI, regenerate Web types, and restart Web and AI together. No
+additional installation, configuration, migration or reindexing is required.
+Submit new turns; saved turns are not regenerated.
+
+Without attachments, check: list your Projects with linked documents; ask for a
+named Equipment's saved location/status; list a Project's logs/procedure/run
+states; ask how to add a document revision; ask a named source-content question;
+then ask standalone arithmetic. The first group should use accessible records
+or documented PATCH help; source content still uses approved-source citations.
+Only the unrelated question should say Outside PATCH scope. Partial context and
+missing records/coverage must be specific. Test explicit assignment narrowing
+and membership revocation during a pending request. Record/helper references are
+separate from Evidence used. No response can claim an unsaved creation, approval,
+publication, run tick or physical execution.
+
+The path adds one routing call to technical questions and usually uses two model
+calls for record/help responses, within existing deadlines. For rollback, deploy
+the paired previous services; retain app records/history, originals and indexes.
+No provider secret or database credential is exposed in Chat.
+
+
+Verification on 2 October 2026: Web 177 tests and 23 Chrome scenarios passed
+before two additional fallback UI checks; focused paired REST/socket and record
+checks passed. AI 186 tests passed; two pre-existing OCR acceptance tests fail
+because their PDFs under `Manual Testing/ui-less-test/pdfs/fixtures` are absent.
+The additional passage-isolation test passes. Lint, module type checks, production
+Web build and synthetic evaluation guards passed. A configured-model smoke check
+using synthetic authorized records classified project overview, logs and document/
+Project help as WORKSPACE, technical pressure as EVIDENCE and standalone arithmetic
+as OUT_OF_SCOPE. This checks intent behavior, not production source correctness or
+exhaustive live-quality acceptance. No live user records were modified.

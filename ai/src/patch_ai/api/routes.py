@@ -1,9 +1,11 @@
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Request
 
+from patch_ai.adapters import ocr
 from patch_ai.adapters.providers import Providers
 from patch_ai.api.execution import WorkflowExecutor
 from patch_ai.config import Settings
@@ -28,8 +30,27 @@ from patch_ai.schemas.contracts import (
     ReadinessStatus,
     RevalidationRequest,
     RevalidationResult,
+    VisualDescribeRequest,
+    VisualDescribeResult,
+    VisualDiscoverRequest,
+    VisualDiscoverResult,
+    VisualDocumentRequest,
+    VisualIndexRequest,
+    VisualIndexResult,
+    VisualRenderRequest,
+    VisualRenderResult,
+    VisualSearchResult,
+    VisualTriageResult,
 )
-from patch_ai.services import answering, drafting, ingestion
+from patch_ai.services import (
+    answering,
+    drafting,
+    ingestion,
+    visual_assets,
+    visual_ingestion,
+    visual_retrieval,
+    visual_understanding,
+)
 
 router = APIRouter()
 
@@ -60,6 +81,72 @@ async def health() -> HealthStatus:
     return HealthStatus()
 
 
+@router.post(
+    "/v1/visual-assets/triage",
+    response_model=VisualTriageResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def triage_visuals(request: VisualDocumentRequest, http: Request) -> VisualTriageResult:
+    return await run_workflow(http, visual_ingestion.triage, request, http.app.state.settings)
+
+
+@router.post(
+    "/v1/visual-assets/discover",
+    response_model=VisualDiscoverResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def discover_visuals(request: VisualDiscoverRequest, http: Request) -> VisualDiscoverResult:
+    return await run_workflow(
+        http, visual_ingestion.discover, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/index",
+    response_model=VisualIndexResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def index_visual(request: VisualIndexRequest, http: Request) -> VisualIndexResult:
+    return await run_workflow(
+        http, visual_ingestion.index, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/search",
+    response_model=VisualSearchResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def search_visuals(request: QuestionRequest, http: Request) -> VisualSearchResult:
+    return await run_workflow(
+        http, visual_retrieval.search, request, http.app.state.settings, http.app.state.providers
+    )
+
+
+@router.post(
+    "/v1/visual-assets/delete-vectors",
+    response_model=DeleteVectorsResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def delete_visuals(request: DeleteVectorsRequest, http: Request) -> DeleteVectorsResult:
+    try:
+        await run_workflow(
+            http,
+            http.app.state.providers.visual_delete,
+            visual_ingestion.delete_filter(
+                request.tenant_id, request.document_version_id, http.app.state.settings
+            ),
+        )
+        return DeleteVectorsResult(request_id=request.request_id, status="deleted")
+    except Exception:
+        return DeleteVectorsResult(request_id=request.request_id, status="failed")
+
+
 @router.get(
     "/readiness",
     response_model=ReadinessStatus,
@@ -70,6 +157,8 @@ async def readiness(request: Request) -> ReadinessStatus:
     """Aggregate runtime readiness without exposing configuration names or values."""
     settings: Settings = request.app.state.settings
     unavailable_services = settings.unavailable_services()
+    if not await asyncio.to_thread(ocr.available, settings):
+        unavailable_services.append("ocr")
     if unavailable_services:
         log_event(
             logging.ERROR,
@@ -102,6 +191,34 @@ async def index_document(request: IndexRequest, http: Request) -> IndexResult:
     return await run_workflow(
         http, ingestion.index, request, http.app.state.settings, http.app.state.providers
     )
+
+
+@router.post(
+    "/v1/visual-assets/describe",
+    response_model=VisualDescribeResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def describe_visual_asset(
+    request: VisualDescribeRequest, http: Request
+) -> VisualDescribeResult:
+    return await run_workflow(
+        http,
+        visual_understanding.describe,
+        request,
+        http.app.state.settings,
+        http.app.state.providers,
+    )
+
+
+@router.post(
+    "/v1/visual-assets/render",
+    response_model=VisualRenderResult,
+    responses=CONTRACT_ERRORS,
+    tags=["visual-assets"],
+)
+async def render_visual_asset(request: VisualRenderRequest, http: Request) -> VisualRenderResult:
+    return await run_workflow(http, visual_assets.render, request, http.app.state.settings)
 
 
 @router.post(

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from patch_ai.adapters.providers import Providers
 from patch_ai.config import Settings
@@ -33,6 +33,45 @@ def test_local_environment_overrides_legacy_and_process_overrides_local(
     assert process_settings.openai_answer_model == "process-model"
 
 
+def test_text_vector_namespace_is_configured_independently_from_app_env() -> None:
+    settings = Settings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]
+        app_env="staging",
+        pinecone_namespace="staging-text",
+    )
+    assert settings.app_env == "staging"
+    assert settings.pinecone_namespace == "staging-text"
+
+
+@pytest.mark.parametrize(
+    "field_name,model_id",
+    [
+        ("openai_answer_model", "GPT-5.6-TERRA"),
+        ("openai_routing_model", "gpt 5.6 luna"),
+        ("openai_complex_reasoning_model", "../gpt-5.6-terra"),
+        ("openai_embedding_model", "text-embedding-3-large/preview"),
+        ("openai_answer_model", "gpt-5.6-terra-"),
+    ],
+)
+def test_openai_model_ids_reject_non_openai_identifier_characters(
+    field_name: str, model_id: str
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field_name: model_id})  # pyright: ignore[reportCallIssue]
+
+
+def test_openai_model_ids_accept_alias_snapshot_and_fine_tune_shapes() -> None:
+    settings = Settings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]
+        openai_answer_model="gpt-5.6-terra",
+        openai_routing_model="gpt-5.6-luna-2026-08-01",
+        openai_complex_reasoning_model="ft:gpt-5.6-terra:patch:safety-review:abc123",
+        openai_embedding_model="text-embedding-3-large",
+    )
+
+    assert settings.openai_routing_model == "gpt-5.6-luna-2026-08-01"
+
+
 @pytest.mark.parametrize(
     "routing,complex_reasoning,expected",
     [
@@ -53,12 +92,14 @@ def test_model_and_reasoning_selection_come_from_settings(
         def __init__(self, **kwargs: Any) -> None:
             calls.append(kwargs)
 
-        def with_structured_output(self, schema: type[BaseModel], *, method: str) -> "FakeModel":
-            assert schema is Output and method == "json_schema"
+        def with_structured_output(
+            self, schema: type[BaseModel], *, method: str, include_raw: bool
+        ) -> "FakeModel":
+            assert schema is Output and method == "json_schema" and include_raw
             return self
 
-        def invoke(self, *args: Any, **kwargs: Any) -> Output:
-            return Output(value="fixture")
+        def invoke(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            return {"parsed": Output(value="fixture"), "raw": None, "parsing_error": None}
 
     monkeypatch.setattr("patch_ai.adapters.providers.ChatOpenAI", FakeModel)
     settings = Settings(
@@ -79,3 +120,47 @@ def test_model_and_reasoning_selection_come_from_settings(
     assert (calls[0]["model"], calls[0]["reasoning_effort"]) == expected
     assert calls[0]["max_completion_tokens"] == 8192
     assert not {"base_url", "organization", "default_headers"}.intersection(calls[0])
+
+
+def test_images_use_bounded_high_detail_content_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: list[Any] = []
+
+    class FakeModel:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        def with_structured_output(self, *args: Any, **kwargs: Any) -> "FakeModel":
+            return self
+
+        def invoke(self, messages: Any, **kwargs: Any) -> dict[str, Any]:
+            captured.append(messages)
+            return {"parsed": Output(value="fixture"), "raw": None, "parsing_error": None}
+
+    monkeypatch.setattr("patch_ai.adapters.providers.ChatOpenAI", FakeModel)
+    provider = Providers(Settings(_env_file=None))  # pyright: ignore[reportCallIssue]
+    REAL_MODEL(provider, Output, "system", "describe", images=(b"png",))
+    assert captured[0][1].content == [
+        {"type": "text", "text": "describe"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,cG5n", "detail": "high"}},
+    ]
+    with pytest.raises(ValueError, match="VISUAL_MODEL_INPUT_LIMIT"):
+        REAL_MODEL(provider, Output, "system", "describe", images=(b"x",) * 5)
+    assert len(captured) == 1
+
+
+def test_vector_store_uses_explicit_distinct_namespaces(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr("patch_ai.adapters.providers.OpenAIEmbeddings", lambda **kwargs: object())
+    monkeypatch.setattr(
+        "patch_ai.adapters.providers.PineconeVectorStore", lambda **kwargs: calls.append(kwargs)
+    )
+    settings = Settings(
+        _env_file=None,  # pyright: ignore[reportCallIssue]
+        app_env="staging",
+        pinecone_namespace="legacy-text",
+        pinecone_visual_namespace="isolated-visual",
+    )
+    provider = Providers(settings)
+    provider.store()
+    provider.store(visual=True)
+    assert [call["namespace"] for call in calls] == ["legacy-text", "isolated-visual"]

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAiServiceClient, getAiReadiness } from "../lib/ai/client";
@@ -110,6 +110,90 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
       409,
     );
   });
+  it("renders a PDF region over the generated signed contract with exact PNG provenance", async () => {
+    const requestId = randomUUID();
+    const response = await createAiServiceClient(config).POST(
+      "/v1/visual-assets/render",
+      {
+        body: {
+          requestId,
+          contractVersion: "v1",
+          tenantId: "fixture",
+          assetId: "asset-1",
+          documentId: "doc-1",
+          documentVersionId: "version-1",
+          approvalState: "APPROVED",
+          sourceFile: {
+            url: "https://fixture.invalid/visual.pdf",
+            contentType: "application/pdf",
+            sha256: "a".repeat(64),
+          },
+          page: 1,
+          bounds: { left: 0, top: 0, right: 0.5, bottom: 1 },
+          renderDpi: 72,
+          rendererVersion: "pdfium-png-v1",
+        },
+      },
+    );
+    expect(response.response.status).toBe(200);
+    expect(response.data).toMatchObject({
+      requestId,
+      status: "rendered",
+      asset: {
+        assetId: "asset-1",
+        documentVersionId: "version-1",
+        width: 72,
+        height: 72,
+      },
+    });
+    const bytes = Buffer.from(response.data!.pngBase64!, "base64");
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(
+      response.data!.asset!.sha256,
+    );
+    expect(bytes.length).toBe(response.data!.asset!.byteCount);
+    const descriptionId = randomUUID();
+    const description = await createAiServiceClient(config).POST(
+      "/v1/visual-assets/describe",
+      {
+        body: {
+          requestId: descriptionId,
+          contractVersion: "v1",
+          tenantId: "fixture",
+          approvalState: "APPROVED",
+          asset: response.data!.asset!,
+          sourceFile: {
+            url: "https://fixture.invalid/visual.png",
+            contentType: "image/png",
+            sha256: response.data!.asset!.sha256,
+          },
+        },
+      },
+    );
+    // No external hosts/providers are enabled: validate the real signed failure contract.
+    expect(description.response.status).toBe(200);
+    expect(description.data).toMatchObject({
+      requestId: descriptionId,
+      assetId: "asset-1",
+      status: "failed",
+      description: null,
+    });
+    expect(
+      (await fetch(`${config.AI_SERVICE_BASE_URL}/readiness`)).status,
+    ).toBe(401);
+  });
+  it("uses generated REST contract and rejects replay", async () => {
+    const body = question();
+    const client = createAiServiceClient(config);
+    const first = await client.POST("/v1/questions", { body });
+    expect(first.data).toMatchObject({
+      requestId: body.requestId,
+      status: "incomplete",
+      citations: [],
+    });
+    expect((await client.POST("/v1/questions", { body })).response.status).toBe(
+      409,
+    );
+  });
   it("completes a signed Web-to-AI WebSocket turn", async () => {
     const body = question();
     const result = await askAiSocket(config, body);
@@ -131,5 +215,159 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
     await expect(
       askAiSocket(config, question(), AbortSignal.abort()),
     ).rejects.toThrow("AI_UNAVAILABLE");
+  });
+  it("completes a signed Web-to-AI WebSocket turn", async () => {
+    const body = question();
+    const result = await askAiSocket(config, body);
+    expect(result).toMatchObject({
+      requestId: body.requestId,
+      status: "incomplete",
+      answer: { steps: [] },
+      citations: [],
+    });
+    await expect(askAiSocket(config, body)).rejects.toThrow("AI_UNAVAILABLE");
+  });
+  it("indexes and selects a descriptor over REST then grounds exact pixels over WebSocket", async () => {
+    // Deterministic Pillow fixture bytes; no hosted models, vectors or R2.
+    const bytes = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAIUlEQVR4nGP8z0AaYCJRPcOoBmIAE1GqkMCoBmIAyaEEAEAuAR9UPEsJAAAAAElFTkSuQmCC",
+      "base64",
+    );
+    const asset: Schema["VisualSourceAsset"] = {
+      assetId: "a".repeat(24),
+      documentId: "b".repeat(24),
+      documentVersionId: "c".repeat(24),
+      page: 1,
+      bounds: { left: 0, top: 0, right: 1, bottom: 1 },
+      originalSha256: "a".repeat(64),
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+      byteCount: bytes.length,
+      width: 16,
+      height: 16,
+      contentType: "image/png",
+      renderDpi: 144,
+      rendererVersion: "pdfium-png-v1",
+    };
+    const description: Schema["VisualDescription"] = {
+      descriptionVersion: "vision-description-v1",
+      summary: "A red square.",
+      labels: [],
+      relationships: [],
+      uncertainties: [],
+    };
+    const hash = createHash("sha256")
+      .update(JSON.stringify(description))
+      .digest("hex");
+    const client = createAiServiceClient(config);
+    const index = await client.POST("/v1/visual-assets/index", {
+      body: {
+        requestId: randomUUID(),
+        contractVersion: "v1",
+        tenantId: "fixture",
+        approvalState: "APPROVED",
+        asset,
+        description,
+        descriptionFingerprint: hash,
+        visualClass: "DIAGRAM",
+        confidence: 1,
+      },
+    });
+    expect(index.data?.status).toBe("indexed");
+    const body = question();
+    body.question = "visual-transport-fixture";
+    body.retrievalScopeManifest.allowedDocumentVersions = [
+      {
+        documentId: asset.documentId,
+        documentVersionId: asset.documentVersionId,
+        inclusionPaths: ["PERSONAL"],
+      },
+    ];
+    body.visualScopeManifest = [
+      {
+        asset,
+        descriptionFingerprint: hash,
+        embeddingModel: "text-embedding-3-large",
+        visualClass: "DIAGRAM",
+        confidence: 1,
+      },
+    ];
+    const selection = await client.POST("/v1/visual-assets/search", {
+      body: { ...body, requestId: randomUUID() },
+    });
+    expect(selection.data?.state).toBe("AVAILABLE");
+    body.visualSelection = selection.data!;
+    body.visualSources = [
+      {
+        requestId: body.requestId,
+        contractVersion: "v1",
+        tenantId: "fixture",
+        approvalState: "APPROVED",
+        asset,
+        sourceFile: {
+          url: "https://fixture.invalid/phase7.png",
+          contentType: "image/png",
+          sha256: asset.sha256,
+        },
+      },
+    ];
+    const result = await askAiSocket(config, body);
+    expect(result).toMatchObject({
+      status: "incomplete",
+      visualEvidenceState: "AVAILABLE",
+      visualCitations: [
+        {
+          assetId: asset.assetId,
+          sha256: asset.sha256,
+          descriptionFingerprint: hash,
+        },
+      ],
+      visualObservations: [
+        {
+          text: "A red square is visible.",
+          visualCitationIds: [`visual-${asset.assetId}`],
+        },
+      ],
+    });
+    expect(JSON.stringify(result)).not.toMatch(/https:|base64|objectKey/);
+  });
+  it("rejects wrong-secret and pre-aborted socket calls safely", async () => {
+    await expect(
+      askAiSocket(
+        { ...config, AI_SERVICE_SHARED_SECRET: "invalid" },
+        question(),
+      ),
+    ).rejects.toThrow("AI_UNAVAILABLE");
+    await expect(
+      askAiSocket(config, question(), AbortSignal.abort()),
+    ).rejects.toThrow("AI_UNAVAILABLE");
+  });
+
+  it("transports verified PATCH workflow Markdown without attachments or approved versions", async () => {
+    const req = question();
+    req.question = "workspace-transport-fixture: how do I add a revision?";
+    req.workspaceCatalog = {
+      entities: [],
+      documents: [],
+      partial: false,
+      workflowRecords: [],
+      help: [
+        {
+          id: "help",
+          title: "Document revisions",
+          text: "Use Add new version in Documents.",
+        },
+      ],
+    };
+    const socket = await askAiSocket(config, req);
+    expect(socket.answerKind).toBe("WORKSPACE");
+    expect(socket.workspaceOverview?.passages?.[0].text).toBe(
+      "Use **Add new version** in Documents.",
+    );
+    expect(socket.answer.steps).toEqual([]);
+    const client = createAiServiceClient(config);
+    const response = await client.POST("/v1/questions", {
+      body: { ...req, requestId: randomUUID() },
+    });
+    expect(response.data?.workspaceOverview).toEqual(socket.workspaceOverview);
   });
 });

@@ -54,6 +54,208 @@ class SourceFile(ApiModel):
     sha256: Sha256
 
 
+class VisualBounds(ApiModel):
+    """Top-left origin, normalized to the displayed (rotation-applied) PDF page."""
+
+    left: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    top: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+    right: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+    bottom: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def validate_area(self) -> "VisualBounds":
+        if self.left >= self.right or self.top >= self.bottom:
+            raise ValueError("visual bounds must have positive area")
+        return self
+
+
+class VisualRenderRequest(ContractRequest):
+    tenant_id: Identifier
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    approval_state: Literal["APPROVED"]
+    source_file: SourceFile
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds = Field(default_factory=VisualBounds)
+    render_dpi: int = Field(ge=72, le=200)
+    renderer_version: Literal["pdfium-png-v1"] = "pdfium-png-v1"
+
+
+class VisualSourceAsset(ApiModel):
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds
+    original_sha256: Sha256
+    sha256: Sha256
+    content_type: Literal["image/png"] = "image/png"
+    byte_count: int = Field(ge=1, le=2_000_000)
+    width: int = Field(ge=1, le=4096)
+    height: int = Field(ge=1, le=4096)
+    render_dpi: int = Field(ge=72, le=200)
+    renderer_version: Literal["pdfium-png-v1"] = "pdfium-png-v1"
+
+
+class VisualRenderResult(ApiModel):
+    request_id: UUID
+    status: Literal["rendered", "failed"]
+    asset: VisualSourceAsset | None = None
+    png_base64: str | None = Field(default=None, max_length=2_666_668)
+    errors: list[ServiceError] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_result(self) -> "VisualRenderResult":
+        if self.status == "rendered":
+            if self.asset is None or not self.png_base64 or self.errors:
+                raise ValueError("rendered result requires a complete asset")
+        elif self.asset is not None or self.png_base64 is not None:
+            raise ValueError("failed render cannot expose partial content")
+        return self
+
+
+class VisualDescription(ApiModel):
+    description_version: Literal["vision-description-v1"] = "vision-description-v1"
+    summary: str = Field(min_length=1, max_length=4000)
+    labels: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(max_length=50)
+    relationships: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(max_length=30)
+    uncertainties: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(max_length=20)
+
+
+class VisualDescribeRequest(ContractRequest):
+    tenant_id: Identifier
+    approval_state: Literal["APPROVED"]
+    asset: VisualSourceAsset
+    source_file: SourceFile
+
+    @model_validator(mode="after")
+    def validate_source(self) -> "VisualDescribeRequest":
+        if (
+            self.source_file.content_type != "image/png"
+            or self.source_file.sha256.lower() != self.asset.sha256.lower()
+            or self.asset.width * self.asset.height > 4_000_000
+        ):
+            raise ValueError("visual source provenance mismatch")
+        return self
+
+
+class VisualDescribeResult(ApiModel):
+    request_id: UUID
+    asset_id: Identifier
+    sha256: Sha256
+    status: Literal["described", "failed"]
+    description: VisualDescription | None = None
+    errors: list[ServiceError] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def validate_description(self) -> "VisualDescribeResult":
+        if self.status == "described":
+            if self.description is None or self.errors:
+                raise ValueError("described result requires a complete description")
+        elif self.description is not None:
+            raise ValueError("failed description cannot expose partial content")
+        return self
+
+
+VisualClass = Literal["SCHEMATIC", "DIAGRAM", "CHART", "TABLE", "PHOTO", "SCREENSHOT", "OTHER"]
+
+
+class VisualDocumentRequest(ContractRequest):
+    tenant_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    approval_state: Literal["APPROVED"]
+    source_file: SourceFile
+    pipeline_version: Literal["visual-discovery-v1"] = "visual-discovery-v1"
+
+
+class VisualTriageResult(ApiModel):
+    request_id: UUID
+    document_version_id: Identifier
+    original_sha256: Sha256
+    status: Literal["complete", "partial", "failed"]
+    pages: list[int] = Field(default_factory=list, max_length=12)
+    total_pages: int = Field(default=0, ge=0, le=500)
+    scanned_pages: int = Field(default=0, ge=0, le=500)
+
+
+class VisualDiscoverRequest(VisualDocumentRequest):
+    page: int = Field(ge=1, le=500)
+
+
+class VisualRegion(ApiModel):
+    bounds: VisualBounds
+    visual_class: VisualClass
+    confidence: float = Field(ge=0, le=1, allow_inf_nan=False)
+    uncertainty: str = Field(max_length=500)
+
+
+class VisualDiscoverResult(ApiModel):
+    request_id: UUID
+    document_version_id: Identifier
+    original_sha256: Sha256
+    page: int = Field(ge=1, le=500)
+    status: Literal["complete", "partial", "failed"]
+    regions: list[VisualRegion] = Field(default_factory=list, max_length=4)
+
+
+class VisualIndexRequest(ContractRequest):
+    tenant_id: Identifier
+    approval_state: Literal["APPROVED"]
+    asset: VisualSourceAsset
+    description: VisualDescription
+    description_fingerprint: Sha256
+    visual_class: VisualClass = "OTHER"
+    confidence: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+
+class VisualIndexResult(ApiModel):
+    request_id: UUID
+    asset_id: Identifier
+    description_fingerprint: Sha256
+    status: Literal["indexed", "failed"]
+    embedding_model: str = Field(max_length=255)
+
+
+class VisualScopeEntry(ApiModel):
+    asset: VisualSourceAsset
+    description_fingerprint: Sha256
+    embedding_model: str = Field(min_length=1, max_length=255)
+    visual_class: VisualClass = "OTHER"
+    confidence: float = Field(default=1, ge=0, le=1, allow_inf_nan=False)
+
+
+class VisualSelection(ApiModel):
+    asset_id: Identifier
+    relevance_role: Literal["REQUIRED", "HELPFUL"]
+
+
+class VisualSearchResult(ApiModel):
+    request_id: UUID
+    state: Literal["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"]
+    selected: list[VisualSelection] = Field(default_factory=list, max_length=3)
+    visual_required: bool = False
+
+
+class VisualCitation(ApiModel):
+    id: Identifier
+    asset_id: Identifier
+    document_id: Identifier
+    document_version_id: Identifier
+    page: int = Field(ge=1, le=500)
+    bounds: VisualBounds
+    sha256: Sha256
+    description_fingerprint: Sha256
+    visual_class: VisualClass
+    relevance_role: Literal["REQUIRED", "HELPFUL"]
+
+
+class VisualObservation(ApiModel):
+    text: str = Field(min_length=1, max_length=2000)
+    visual_citation_ids: list[Identifier] = Field(min_length=1, max_length=3)
+
+
 class DeclaredMetadata(ApiModel):
     title: str = Field(min_length=1, max_length=500)
     document_type: str = Field(min_length=1, max_length=100)
@@ -354,6 +556,87 @@ class RetrievalPolicy(ApiModel):
     allow_structural_fallback: bool = True
 
 
+class WorkspaceEntity(ApiModel):
+    id: Identifier
+    type: Literal["PROJECT", "EQUIPMENT"]
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(max_length=1000)
+    status: str = Field(max_length=50)
+    equipment_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+    attributes: dict[str, str] = Field(default_factory=dict, max_length=10)
+
+
+class WorkspaceDocument(ApiModel):
+    id: Identifier
+    title: str = Field(min_length=1, max_length=200)
+    entity_ids: list[Identifier] = Field(max_length=500)
+    active_version_id: Identifier | None = Field(default_factory=lambda: None)
+    evidence_available: bool
+    document_type: str = Field(default_factory=str, max_length=50)
+    processing_state: str = Field(default_factory=str, max_length=50)
+
+
+class WorkspaceWorkflowRecord(ApiModel):
+    id: Identifier
+    type: Literal["LOG", "PROCEDURE", "RUN"]
+    project_id: Identifier
+    title: str = Field(min_length=1, max_length=300)
+    text: str = Field(max_length=2000)
+    status: str = Field(max_length=50)
+
+
+class WorkspaceHelp(ApiModel):
+    id: Identifier
+    title: str = Field(max_length=200)
+    text: str = Field(max_length=2000)
+
+
+class WorkspacePassage(ApiModel):
+    text: str = Field(min_length=1, max_length=4000)
+    record_ids: list[Identifier] = Field(min_length=1, max_length=100)
+
+
+class WorkspaceCatalog(ApiModel):
+    entities: list[WorkspaceEntity] = Field(max_length=100)
+    documents: list[WorkspaceDocument] = Field(max_length=200)
+    partial: bool
+    workflow_records: list[WorkspaceWorkflowRecord] = Field(default_factory=list, max_length=100)
+    help: list[WorkspaceHelp] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_records(self) -> "WorkspaceCatalog":
+        ids = {e.id for e in self.entities}
+        projects = {e.id for e in self.entities if e.type == "PROJECT"}
+        if any(r.project_id not in projects for r in self.workflow_records):
+            raise ValueError("workflow record outside authorized projects")
+        if len({r.id for r in self.workflow_records}) != len(self.workflow_records) or len(
+            {r.id for r in self.help}
+        ) != len(self.help):
+            raise ValueError("duplicate workspace context")
+        equipment = {e.id for e in self.entities if e.type == "EQUIPMENT"}
+        if len(ids) != len(self.entities) or len({d.id for d in self.documents}) != len(
+            self.documents
+        ):
+            raise ValueError("duplicate workspace records")
+        if any(
+            len(set(e.equipment_ids)) != len(e.equipment_ids)
+            or not set(e.equipment_ids).issubset(equipment)
+            or (e.type == "EQUIPMENT" and e.equipment_ids)
+            for e in self.entities
+        ) or any(
+            len(set(d.entity_ids)) != len(d.entity_ids) or not set(d.entity_ids).issubset(ids)
+            for d in self.documents
+        ):
+            raise ValueError("workspace relationship outside catalog")
+        return self
+
+
+class WorkspaceOverview(ApiModel):
+    scope: Literal["PROJECTS", "EQUIPMENTS", "DOCUMENTS", "WORKSPACE", "LOGS", "PROCEDURES", "HELP"]
+    catalog: WorkspaceCatalog
+    passages: list[WorkspacePassage] = Field(default_factory=list, max_length=20)
+
+
 class QuestionRequest(ContractRequest):
     actor: Actor
     chat_session: ChatSessionInput
@@ -361,6 +644,11 @@ class QuestionRequest(ContractRequest):
     question: str = Field(min_length=1, max_length=10_000)
     retrieval_scope_manifest: RetrievalScopeManifest
     retrieval_policy: RetrievalPolicy
+    workspace_catalog: WorkspaceCatalog | None = Field(default_factory=lambda: None)
+    visual_scope_manifest: list[VisualScopeEntry] = Field(default_factory=list, max_length=100)
+    visual_scope_partial: bool = Field(default_factory=lambda: False)
+    visual_selection: VisualSearchResult | None = None
+    visual_sources: list[VisualDescribeRequest] = Field(default_factory=list, max_length=3)
 
     @model_validator(mode="after")
     def validate_assigned_references(self) -> "QuestionRequest":
@@ -369,6 +657,30 @@ class QuestionRequest(ContractRequest):
             raise ValueError("assignedReferences must be unique")
 
         manifest = self.retrieval_scope_manifest
+        parents = {v.document_version_id: v.document_id for v in manifest.allowed_document_versions}
+        assets = {v.asset.asset_id: v for v in self.visual_scope_manifest}
+        if len(assets) != len(self.visual_scope_manifest) or any(
+            parents.get(v.asset.document_version_id) != v.asset.document_id
+            for v in self.visual_scope_manifest
+        ):
+            raise ValueError("visual manifest is duplicate or outside authorized parents")
+        selected = self.visual_selection.selected if self.visual_selection else []
+        if self.visual_selection and (
+            (self.visual_selection.state == "AVAILABLE") != bool(selected)
+        ):
+            raise ValueError("visual selection state is inconsistent")
+        selected_ids = {s.asset_id for s in selected}
+        if len(selected_ids) != len(selected) or not selected_ids.issubset(assets):
+            raise ValueError("visual selection is outside manifest")
+        source_ids = {s.asset.asset_id for s in self.visual_sources}
+        if len(source_ids) != len(self.visual_sources) or not source_ids.issubset(selected_ids):
+            raise ValueError("visual sources are outside selected assets")
+        for source in self.visual_sources:
+            if (
+                source.tenant_id != self.actor.tenant_id
+                or source.asset != assets[source.asset.asset_id].asset
+            ):
+                raise ValueError("visual source metadata mismatch")
         document_ids = {item.document_id for item in manifest.allowed_document_versions}
         version_ids = {item.document_version_id for item in manifest.allowed_document_versions}
         equipment_ids = {item.id for item in manifest.entities if item.type == "EQUIPMENT"}
@@ -447,6 +759,15 @@ class QuestionResult(ApiModel):
     citations: list[Citation] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     follow_up_allowed: bool
+    answer_kind: Literal["EVIDENCE", "WORKSPACE", "OUT_OF_SCOPE"] = Field(
+        default_factory=lambda: "EVIDENCE"
+    )
+    workspace_overview: WorkspaceOverview | None = Field(default_factory=lambda: None)
+    visual_evidence_state: Literal["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"] = Field(
+        default_factory=lambda: "TEXT_ONLY"
+    )
+    visual_citations: list[VisualCitation] = Field(default_factory=list, max_length=3)
+    visual_observations: list[VisualObservation] = Field(default_factory=list, max_length=6)
 
 
 class LogScope(StrEnum):

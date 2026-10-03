@@ -7,13 +7,8 @@ import {
   ExternalLink,
   ChevronRight,
   Info,
-  FileText,
-  AlertTriangle,
-  Layers,
   Wrench,
   FolderKanban,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import {
   type Citation,
@@ -44,11 +39,14 @@ export function EvidenceDrawer({
 
   // Combine sources from props or default mock sources
   const includedSources = sources.filter(
-    (s) => s.status === "Active" || s.status === "Approved" || s.status === "Indexed"
+    (s) =>
+      s.status === "Active" ||
+      s.status === "Approved" ||
+      s.status === "Indexed",
   );
   const incompleteSources = sources.filter((s) => s.status === "Needs review");
   const conflictingSources = sources.filter(
-    (s) => s.status === "Conflicting" || s.status === "Outdated"
+    (s) => s.status === "Conflicting" || s.status === "Outdated",
   );
 
   // If no explicit sources passed but citations present, derive source cards
@@ -92,13 +90,16 @@ export function EvidenceDrawer({
                     <CitationSourceCard key={cit.id} citation={cit} />
                   ))
                 ) : (
-                  <div className="empty-source-card">No included active sources</div>
+                  <div className="empty-source-card">
+                    No included active sources
+                  </div>
                 )}
               </div>
             </section>
 
             {/* Incomplete / Conflicting grid if present */}
-            {(incompleteSources.length > 0 || conflictingSources.length > 0) && (
+            {(incompleteSources.length > 0 ||
+              conflictingSources.length > 0) && (
               <div className="evidence-split-grid">
                 {incompleteSources.length > 0 && (
                   <section className="evidence-section">
@@ -147,7 +148,9 @@ export function EvidenceDrawer({
       <div className="evidence-drawer-header">
         <div>
           <h2>Evidence Used</h2>
-          <p className="evidence-subtitle">Exact sources used in this response</p>
+          <p className="evidence-subtitle">
+            Exact sources used in this response
+          </p>
         </div>
         <button
           className="btn-icon"
@@ -168,17 +171,20 @@ export function EvidenceDrawer({
           />
         ))}
 
-        {includedSources.length === 0 && activeCitations.map((cit) => (
-          <CitationSourceCard
-            key={cit.id}
-            citation={cit}
-            isHighlighted={highlightedCitationId === cit.id}
-          />
-        ))}
+        {includedSources.length === 0 &&
+          activeCitations.map((cit) => (
+            <CitationSourceCard
+              key={cit.id}
+              citation={cit}
+              isHighlighted={highlightedCitationId === cit.id}
+            />
+          ))}
 
         {/* Searched in (not evidence) Section */}
         <div className="searched-in-section">
-          <h3>Searched in <span className="text-muted">(not evidence)</span></h3>
+          <h3>
+            Searched in <span className="text-muted">(not evidence)</span>
+          </h3>
           <div className="searched-scope-list">
             {searchedScope.length > 0 ? (
               searchedScope.map((item, idx) => (
@@ -212,7 +218,8 @@ export function EvidenceDrawer({
           <div className="scope-footnote">
             <Info size={14} className="info-icon" />
             <span>
-              These sources were searched but were not used as evidence in this response.
+              These sources were searched but were not used as evidence in this
+              response.
             </span>
           </div>
         </div>
@@ -224,7 +231,8 @@ export function EvidenceDrawer({
 function StatusBadge({ status }: { status: EvidenceSourceCard["status"] }) {
   let badgeClass = "badge-success";
   if (status === "Needs review") badgeClass = "badge-attention";
-  if (status === "Conflicting" || status === "Outdated") badgeClass = "badge-danger";
+  if (status === "Conflicting" || status === "Outdated")
+    badgeClass = "badge-danger";
 
   return <span className={`status-pill ${badgeClass}`}>{status}</span>;
 }
@@ -237,7 +245,9 @@ function SourceCard({
   isHighlighted?: boolean;
 }) {
   return (
-    <div className={`source-card ${isHighlighted ? "source-card-highlighted" : ""}`}>
+    <div
+      className={`source-card ${isHighlighted ? "source-card-highlighted" : ""}`}
+    >
       <div className="source-card-header">
         <h4 className="source-title">{source.documentTitle}</h4>
         <StatusBadge status={source.status} />
@@ -285,22 +295,20 @@ function SourceCard({
         <div className="source-included-in">
           <span className="included-label">Included in</span>
           {source.includedIn.equipmentName && (
-            <Link
-              href="/equipments"
-              className="included-link equipment-link"
-            >
+            <Link href="/equipments" className="included-link equipment-link">
               <Wrench size={13} />
-              <span>Equipment: <strong>{source.includedIn.equipmentName}</strong></span>
+              <span>
+                Equipment: <strong>{source.includedIn.equipmentName}</strong>
+              </span>
               <ChevronRight size={13} className="arrow" />
             </Link>
           )}
           {source.includedIn.projectName && (
-            <Link
-              href="/projects"
-              className="included-link project-link"
-            >
+            <Link href="/projects" className="included-link project-link">
               <FolderKanban size={13} />
-              <span>Project: <strong>{source.includedIn.projectName}</strong></span>
+              <span>
+                Project: <strong>{source.includedIn.projectName}</strong>
+              </span>
               <ChevronRight size={13} className="arrow" />
             </Link>
           )}
@@ -318,10 +326,14 @@ function CitationSourceCard({
   isHighlighted?: boolean;
 }) {
   return (
-    <div className={`source-card ${isHighlighted ? "source-card-highlighted" : ""}`}>
+    <div
+      className={`source-card ${isHighlighted ? "source-card-highlighted" : ""}`}
+    >
       <div className="source-card-header">
         <h4 className="source-title">{citation.documentTitle}</h4>
-        <span className="status-pill badge-success">{citation.approvalState}</span>
+        <span className="status-pill badge-success">
+          {citation.approvalState}
+        </span>
       </div>
 
       <div className="source-meta-row">
@@ -365,22 +377,20 @@ function CitationSourceCard({
         <div className="source-included-in">
           <span className="included-label">Included in</span>
           {citation.includedIn.equipmentName && (
-            <Link
-              href="/equipments"
-              className="included-link equipment-link"
-            >
+            <Link href="/equipments" className="included-link equipment-link">
               <Wrench size={13} />
-              <span>Equipment: <strong>{citation.includedIn.equipmentName}</strong></span>
+              <span>
+                Equipment: <strong>{citation.includedIn.equipmentName}</strong>
+              </span>
               <ChevronRight size={13} className="arrow" />
             </Link>
           )}
           {citation.includedIn.projectName && (
-            <Link
-              href="/projects"
-              className="included-link project-link"
-            >
+            <Link href="/projects" className="included-link project-link">
               <FolderKanban size={13} />
-              <span>Project: <strong>{citation.includedIn.projectName}</strong></span>
+              <span>
+                Project: <strong>{citation.includedIn.projectName}</strong>
+              </span>
               <ChevronRight size={13} className="arrow" />
             </Link>
           )}

@@ -90,4 +90,44 @@ export async function applyBackendMigrations(db: Db) {
     },
     { upsert: true },
   );
+  await db
+    .collection("visualSourceAssets")
+    .createIndex(
+      { tenantId: 1, documentVersionId: 1, selectionFingerprint: 1 },
+      { unique: true, name: "visual_asset_selection_unique" },
+    );
+  await db
+    .collection("visualSourceAssets")
+    .createIndex(
+      { tenantId: 1, documentVersionId: 1, indexState: 1 },
+      { name: "visual_retrieval_scope" },
+    );
+  await db
+    .collection("visualDiscovery")
+    .createIndex(
+      { tenantId: 1, status: 1 },
+      { name: "visual_discovery_status" },
+    );
+  await db
+    .collection<{ _id: string }>("schemaMigrations")
+    .updateOne(
+      { _id: "0005_visual_retrieval" },
+      {
+        $setOnInsert: {
+          appliedAt: new Date(),
+          description: "Visual discovery and retrieval indexes",
+        },
+      },
+      { upsert: true },
+    );
+  await db.collection<{ _id: string }>("schemaMigrations").updateOne(
+    { _id: "0004_visual_assets" },
+    {
+      $setOnInsert: {
+        appliedAt: new Date(),
+        description: "Immutable version-bound visual derivatives",
+      },
+    },
+    { upsert: true },
+  );
 }

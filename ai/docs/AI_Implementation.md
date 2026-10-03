@@ -6,14 +6,50 @@
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Service boundary, ingestion lifecycle, entity routing, and RAG safety design | Defined.                                                                                                                                                                       |
 | FastAPI/Pydantic contract implementation                                     | Phases 1-2 complete: authenticated service, synchronized OpenAPI, bounded scope/profile schemas, filters, and deterministic stubs; Phase 1 integration revalidated 2026-09-04. |
-| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | Phases 3–5 provider-backed code implemented; isolated graph/safety tests pass. Live-source/SME acceptance pending.                                                             |
-| Evaluation and production readiness                                          | Phase 6 synthetic baseline comparison, failure tests and metadata telemetry implemented; representative evaluation and operational acceptance remain open.                     |
+| Source ingestion, entity profiles, Pinecone, and LangGraph flows             | **Backend complete through Phase 5 (2026-09-08).** Provider-backed workflows, graph/safety tests, hosted workflows, and the dated repair acceptance cover the implemented AI backend scope. |
+| Evaluation and production readiness                                          | **Phase 6 backend complete (2026-09-08).** Evaluation tooling, failure handling, metadata telemetry, and repair checks are implemented and verified. Product release/SME gates remain separate. |
+| Phase 1–6 delivery                                                           | **Complete for the AI backend only (2026-09-08).** This does not mark the synchronized product/UI phase complete; `Development_Plan.md` continues to govern its separate UI, representative-source/SME, and operational gates. |
+| Phase 7 delivery                                                             | Backend implementation delivered; representative live visual-quality/cost acceptance pending. Automatic processing/retrieval are opt-in; no UI completion claim. |
 
 ## Goal
+
+**Web UI consumer (2026-09-22):** The UI is now bound to existing Web REST and
+gateway WebSocket contracts, including Phase 7 visual evidence. AI remains private;
+no browser-to-FastAPI calls, model changes or new AI contracts are introduced.
+See [UI integration](../../web/docs/UI_Integration.md) for the current consumer
+coverage. Browser fixtures do not certify representative provider/visual quality.
 
 Deliver the internal AI service that owns extraction, source indexing, Equipment/Project retrieval-profile generation, hierarchical retrieval, cited answers, and draft generation. It may use profiles to decide where to search, but it must produce operational answers only from authorized current source chunks and exact citations.
 
 ## Setup-guide maintenance
+
+### Specific Chat limitation explanations (2 October 2026)
+
+The existing answer model now drafts a bounded reason/explanation alongside its
+cited claims. The independent complex verifier checks that explanation, and code
+returns only a reason compatible with the final evidence state in `warnings`.
+Outside-scope questions stay incomplete with no claims/citations. Rejected or
+missing explanations use specific deterministic messages for evidence gaps,
+safety prerequisites, source conflicts, outdated guidance, citation rejection,
+empty scope or unavailable service. Raw model gaps are never exposed as answers.
+
+This reuses the two existing generation/verification calls, LangChain/LangGraph,
+model settings and public response schema. The evidence-only path without workspace context invokes no models for empty
+scope/passages and never makes an unfiltered query. That limitation-message update
+introduced no additional provider calls, dependencies, migrations,
+reindexing or environment settings are introduced. Existing saved turns remain
+unchanged. Restart AI and submit a new turn to use the new behavior.
+
+Verification: 16 new limitation tests pass, including signed REST/socket delivery,
+refusal-text injection rejection, final-state precedence and preserved cited facts.
+The full AI suite reports 169 passes and two unrelated failures from missing
+legacy OCR fixture PDFs under the removed `Manual Testing/` directory. Ruff,
+format, mypy, Pyright and the 15-case synthetic evaluation gate pass. All 156 Web
+unit/integration tests pass, including paired transport. A live configured-model
+check with synthetic local source passages returned a specific Outside scope
+explanation for standalone arithmetic with zero claims/citations and no answer
+hidden in the warning. This is a bounded smoke check, not representative/SME
+acceptance; synchronized phase status is unchanged.
 
 Before marking any AI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new AI dependency, environment variable, model/vector prerequisite, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
@@ -116,7 +152,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 1. Treat source text, descriptions, summaries, profile text, history, and questions as untrusted data.
 2. Apply tenant, record-type, allowed-profile, and allowed-active-version filters before vector matching.
 3. Never broaden an empty allowed manifest to the whole index.
-4. Use entity profiles only to select/expand search scope. Cite exact source chunks for every answer claim.
+4. Use entity profiles only to select/expand search scope. Cite exact source chunks for every technical answer claim. Record/help claims use the separate verified product-context bindings.
 5. Never declare “no evidence” solely from routing-profile results; invoke structural fallback first when allowed.
 6. Never activate a document version, alter a Project/Equipment link, submit a log, publish a procedure, or control equipment.
 
@@ -148,7 +184,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 3 - Extraction, source indexing, and profile refresh
 
-**Status:** Implemented; automated parser/provenance/idempotency tests and live synthetic R2 text extraction, embeddings, Pinecone indexing and profile refresh passed (2026-09-06). Representative PDF/DOCX/OCR and failure acceptance pending.
+**Status:** Complete for the AI backend (2026-09-08). Parser/provenance/idempotency tests and hosted extraction, embeddings, Pinecone indexing, profile refresh, OCR, and repair acceptance passed. Product-wide representative/SME gates remain separately tracked.
 
 **Goal:** Produce traceable source vectors and versioned routing profiles idempotently.
 
@@ -160,7 +196,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 4 - Entity-routed grounded answers
 
-**Status:** Implemented; synthetic scope/citation/fallback tests and one live source-cited socket answer passed (2026-09-06). Profile optimization stays disabled by default until representative baseline comparison passes.
+**Status:** Complete for the AI backend (2026-09-08). Scoped routing, citation/fallback tests, live source-cited socket answers, and repair acceptance passed. Profile optimization remains disabled by default until its separately governed representative baseline comparison passes.
 
 **Goal:** Improve search focus/latency while preserving recall and citations.
 
@@ -172,7 +208,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 5 - Project draft helpers and safety controls
 
-**Status:** Implemented; automated drafting/revalidation/review-rubric tests and one live synthetic source-cited procedure candidate passed (2026-09-06). Representative-source, edited-draft and SME ground acceptance pending.
+**Status:** Complete for the AI backend (2026-09-08). Drafting/revalidation/review-rubric tests and hosted source-cited candidate/repair acceptance cover the backend scope. Representative-source and SME product acceptance remain separately tracked.
 
 **Goal:** Draft useful Project logs and automatically generate source-bounded procedure candidates with transparent review need, without owning product mutations or execution state.
 
@@ -184,7 +220,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 ### Phase 6 - Evaluation, observability, and production readiness
 
-**Status:** Evaluation harness, synthetic corpus, metadata tracing and failure tests implemented (2026-09-06). Representative groundedness, SLO, telemetry and release acceptance remain open.
+**Status:** Complete for the AI backend (2026-09-08). Evaluation harness, synthetic corpus, metadata tracing, failure handling, and repair verification are implemented and verified. Representative groundedness, SLO, telemetry, and release acceptance remain product-wide gates.
 
 **Goal:** Prove routing/retrieval reliability for safety-conscious release.
 
@@ -194,7 +230,190 @@ The routing layer is an optimization. It cannot create access, suppress structur
 
 **Exit criteria:** Accepted thresholds pass against the direct-manifest baseline; traces identify profile selection, fallback, source filters, reranking, model calls, and citations; Pinecone/OpenAI failures return safe typed states.
 
+### Phase 7 - Multimodal visual understanding and retrieval (backend-only)
+
+**Status (14 September 2026):** Backend implementation delivered; representative
+live visual-quality/cost acceptance remains open. This does not complete any UI
+phase or grant safety/SME approval. Automatic rollout remains opt-in.
+
+**Implemented pipeline and ownership:**
+
+1. Signed `/v1/visual-assets/triage` downloads the Web-approved immutable PDF,
+   validates its checksum, rejects encrypted/unsupported or >500-page sources,
+   and uses pypdf caption, drawing and image/Form XObject signals locally.
+   Mixed text/image pages remain eligible. No model call for rejected pages.
+   Decoded page-content parsing is capped at 2 MB; scanning stops at the deadline
+   or candidate cap and returns explicit `partial` coverage.
+2. Signed `/v1/visual-assets/discover` takes the same original and one shortlisted
+   page. AI, not Web, renders a 72-DPI preview inside a bounded LangGraph workflow.
+   The configured routing model/low effort proposes up to four normalized regions,
+   class, confidence and uncertainty. Zero regions is valid. Web owns validation,
+   overlap deduplication, allocation quotas and durable job dispatch.
+3. `/render` preserves exact PDFium pixels rather than generating/redrawing an
+   image. Existing pypdf/PDFium/Pillow adapters enforce rotation-aware top-left
+   bounds, four-million full-page pixels before crop, 4096 output pixels per side,
+   and 2 MB PNG. Web stores private immutable R2 derivatives; AI has no R2 credentials.
+4. `/describe` uses the configured answer model and independent complex verifier
+   on checksum-, byte-count-, dimension- and format-validated PNGs. Ambiguous
+   labels/connections stay uncertain. Descriptors are untrusted retrieval hints,
+   not OCR, approved facts, operational steps or substitutes for pixel inspection.
+5. `/index` hashes a canonical bounded descriptor, checks the supplied fingerprint,
+   and uses LangChain OpenAI embeddings/Pinecone to upsert an `IMAGE_REGION`
+   projection. IDs are deterministic by tenant/asset/description fingerprint.
+   Metadata binds parent/version/page/bounds, original and derivative SHA, class,
+   confidence, uncertainty count, pipeline/renderer and embedding model.
+   `PINECONE_NAMESPACE` remains the explicit text/profile setting;
+   `PINECONE_VISUAL_NAMESPACE` is distinct and explicit. Local values are
+   `development` and `visual-development`; neither is synthesized from `APP_ENV`.
+   The same configured embedding model/index dimensions serve both namespaces.
+   A dimension mismatch fails the upsert, never returns indexed success.
+6. Signed `/search` intersects the visual manifest with current assignments before
+   querying. Text and visual searches run concurrently with tenant, environment,
+   record type, approval, allowed parent/asset and embedding-model filters.
+   Returned metadata is checked again against the manifest. Fusion uses reciprocal
+   ranks (constant 60), parent-page agreement, deterministic asset-ID ties,
+   confidence/generic-class/uncertainty penalties and checksum deduplication.
+   Raw cross-namespace similarity scores are never compared.
+7. A low-effort gate sees the question, shortlisted descriptors and up to four
+   current scoped text excerpts (2,000 characters each), labels
+   candidates `REQUIRED | HELPFUL | NOT_RELEVANT`, and may not invent IDs.
+   No candidates means no gate/pixel call. Visuals can help without an explicit
+   image request. Explicit image-dependent wording is conservatively detected even
+   when the gate cannot run. More required assets than the final cap fails closed.
+   Bounded recent history may resolve follow-ups, but is never evidence; every turn
+   still performs fresh scoped retrieval and exact pixel verification.
+   The excerpts are untrusted relevance context, not a new answer/evidence path.
+   Text-sufficient factual lookups must not require a redundant image; HELPFUL
+   requires added explanatory value. Prior image requests do not carry forward
+   unless needed to resolve the current question. This reuses the existing text
+   retrieval, adds no provider call, and leaves pixel verification mandatory for
+   any selected visual.
+8. Web supplies private PNG sources only for selected IDs on the usual question
+   REST/socket request. The answer graph retains its source-chunk-grounded text
+   baseline, then loads exact pixels, generates bounded factual visual observations,
+   and independently verifies each observation against the cited image/question.
+   `visualObservations` maps to `visualCitations`; no generated description is
+   promoted directly into evidence. Physical actions, operating values and safety
+   instructions remain in the existing source-chunk-cited answer, never inferred
+   from images. Unsupported/injected/conflicting visual claims are removed.
+9. Optional visual failure preserves separately grounded text. Required failure
+   makes an otherwise approved answer incomplete with a warning.
+   `visualEvidenceState` is `TEXT_ONLY | AVAILABLE | UNAVAILABLE`.
+   The pixel branch uses a 45-second sub-budget and reserves two seconds of the
+   enclosing deadline for a safe fallback. Partial manifest coverage is disclosed.
+10. Signed `/delete-vectors` removes only tenant/version `IMAGE_REGION` records
+    in the visual namespace. Web owns eligibility, retention, disable/rebuild and
+    generation fencing. Text/profile records and retained originals are untouched.
+
+**Configuration and cost controls:** Defaults are 12 candidate pages, four
+regions/page, 72 preview DPI, 20 visual vector candidates, six gate candidates,
+three final pixels and 15-second search budget. Hard public/private contract caps
+cannot be bypassed through configuration. Automatic assets are capped at 48/version,
+100 total including manual assets. One detection call per shortlisted page;
+normally two description calls and one embedding operation per accepted region;
+normally one relevance plus two pixel calls per visual Chat turn, in addition to
+the text baseline. Retries can repeat paid calls; they are not exactly-once billing.
+Model telemetry records only schema/role, counts, image bytes, input characters,
+numeric provider usage, latency and bounded verification outcomes. Visual diagnostics
+include role counts, verdict booleans and fixed unsupported-reason/error enums;
+never rejected claim text or raw provider exceptions. Raw messages/URLs/reasoning are transient and
+never exported. Price estimates use recorded usage and current configured-model
+rates, not hardcoded prices. See the environment/setup tables and manual guide.
+
+**Dependencies:** No new packages or provider SDK exceptions. Reuse maintained
+LangChain integrations, LangGraph, pypdf, PDFium and Pillow already owned by AI.
+The configured text embedding model embeds descriptions, not native pixel data.
+Pinecone metadata is a projection; R2 preserves the retrievable image and MongoDB
+owns authorization/currentness. Model configuration remains environment-driven.
+
+**Verification and remaining gate:** Deterministic tests cover triage/detection
+bounds, duplicate/tampered vectors, relevance roles, unauthorized manifests,
+same-turn pixel verification, injection/operational rejection, timeout fallback,
+namespace isolation and signed endpoints. The real loopback Web/AI suite covers
+descriptor indexing/search and exact visual citations over authenticated sockets.
+Recorded gate (14 September 2026): 135 AI and 111 Web tests pass; AI Ruff/format,
+mypy/Pyright, Web lint/typecheck/build, and 15 paired synthetic evaluation cases pass.
+The npm production-dependency audit reports zero vulnerabilities.
+`evaluations/visual_metrics.py` scores recorded page/region recall/precision,
+descriptor retrieval, relevance selection, citation provenance, text regression,
+human-reviewed groundedness, latency and cost. It does not fabricate human reviews
+or approve automatic rollout. Before enabling automatic processing broadly, run
+the representative manual matrix: diagrams, charts, photos, screenshots, scans,
+mixed pages, decoration, cropped labels, duplicate figures and embedded injection.
+Require zero unauthorized/stale/uninspected citations, no text recall regression
+and reviewed usefulness/legibility. Record actual provider costs and SME thresholds.
+
+**Exit criterion:** Backend answers can return an exact authorized current diagram
+citation only after same-turn pixel verification and Web persistence revalidation.
+Live semantic accuracy and future Chat rendering remain separately accepted gates.
+
 ## Completion tracking
+
+### Pack 2 acceptance follow-up (15 September 2026, testing in progress)
+
+**17-18 September visual follow-up:** All three repaired manual regions were
+automatically detected, rendered, described and indexed; exact PNG hashes and
+full crops were checked. Live tests exposed unsupported pixel observations,
+wrong-image follow-up selection and false text conflict classification. Pixel
+generation now excludes the generated text answer; verification compares it only
+for actual contradictions, not missing OCR detail. The relevance model returns
+bounded local candidate indices, mapped to authorized asset IDs in code, with
+complete/unique coverage required. No public payload, dependency or index migration
+changes. Fixed-enum diagnostics expose rejection categories without source content.
+
+Targeted retests returned verified current diagram arrows, orange-diamond
+observations, the marker follow-up and chart B=5/A=2/C=3. Earlier failures remain
+recorded, including one provider timeout; no repeated-until-pass automatic loop
+was added. Text-only register/screenshot-label lookups remained text-only in the
+earlier pass. Successful visual observations do not upgrade incomplete text status.
+AI 155 tests and the documented lint/format/type gates pass; Web 117 tests include
+the updated real REST/socket transport fixture. Representative quality, source
+replacement/lifecycle and remaining negative cases are still open.
+
+**16 September OCR follow-up:** Pipeline 4 supersedes the pipeline-3 mixed-image
+strategy described below. Word boxes retain approximate horizontal layout;
+at most eight low-confidence labels receive two padded crop readings, requiring
+agreement and confidence >=80 before replacement. Per-pass word/data bounds and
+the existing shared OCR timeout/pixel limit apply. Native text and full-page scans
+are unchanged. The chart's C/Cc error and lost column alignment are repaired on
+both local fixture revisions; chart meaning still requires Phase 7 pixels. No
+hardcoded labels, vision-generated source text, new dependency or public schema.
+Review a new immutable source version; never rewrite retained citations. See the
+parser ADR and setup guide. Hosted acceptance is recorded separately from local tests.
+
+Mixed-page OCR missed boxed labels and chart numbers in the new live fixture.
+Parser/index pipeline 3 adds a bounded supplemental block-layout pass for embedded
+images, retaining native/primary text, distinct alternative readings and OCR quality
+0.6. It does not infer chart label/value associations or visual facts. Whole-page
+scan extraction is unchanged. New immutable versions and renewed source review are
+required; no historical extraction/vector rewriting. See `../adapters/README.md`.
+No dependency or public schema changes. Live Phase 7 semantic acceptance remains open.
+
+The 16 September continuation verified real scan rendering, private source hashes,
+description/indexing, same-turn pixel observations and REST/socket persistence.
+The relevance gate now reuses bounded current text excerpts: the repeated factual
+scan lookup stayed TEXT_ONLY, while the shape question still used exact pixels.
+Successful pixels retain the separate text baseline status, including incomplete.
+Negative controls were not selected as figures; injected OCR/question content
+produced no publication or invented answer. This did not exercise injected pixels
+inside the final visual verifier, because no negative-control asset was selected.
+At that checkpoint manual diagram/chart OCR ambiguity and human procedure review
+were open. The subsequent pipeline-4 source comparison and user-approved publication
+resolved those specific blockers; full revision/lifecycle acceptance remains open.
+Synthetic tests are not representative/SME sign-off.
+
+### Live provider acceptance, 7–8 September 2026
+
+The removed dated acceptance report
+records native PDF/text indexing, 122-page DOE extraction, Markdown/DOCX extraction,
+real cited answers/drafts/revalidation and unavailable-state recovery. Tesseract
+is missing in the tested environment. Two expected factual answers failed; one
+pressure fact succeeded after explicit synthetic-document wording, while the
+signal-range question remained incomplete. Review-need calibration also warrants
+follow-up. These historical findings were subsequently investigated and fixed:
+see the removed 8 September repair-acceptance record.
+The original test did not alter code to claim a pass. The repair has separate
+live evidence; representative/SME and global phase gates remain open.
 
 ### Implemented layout and provider ownership
 
@@ -211,11 +430,13 @@ socket use the same typed services, replay guard and correlation contract.
 `adapters/providers.py` is the only model/vector integration boundary. It uses
 maintained `langchain-openai` and `langchain-pinecone`, with zero SDK retries,
 bounded provider timeouts, 8,192 maximum completion tokens and structured output.
-Models, embeddings, reasoning effort, namespace, retrieval/routing limits and
+Models, embeddings, reasoning effort, namespaces, retrieval/routing limits and
 download controls are read from validated settings, not literal workflow choices.
+The current text/profile store uses `PINECONE_NAMESPACE`; `APP_ENV` remains service
+environment identity rather than an implicit vector-store setting.
 The configured routing model uses low effort, answering uses medium, and answer,
 procedure, whole-draft, individual-step and log verification use the complex model
-with high effort. Defaults are overridable in `ai/.env.local`; process environment
+with high effort. Model values are configured in `ai/.env.local`; process environment
 wins over `.env.local`, which wins over legacy `.env`. Removed OpenAI URL/org/project
 and LangSmith settings are not silently reintroduced. No provider SDK is called
 directly from workflow code.
@@ -229,7 +450,7 @@ dependencies are reused. The [loader ADR](../adapters/README.md) documents why
 archived `langchain-community` was not added and isolates parsing behind the
 maintained BaseLoader interface. No direct OpenAI/Pinecone SDK exception was needed.
 
-Source parsing supports native PDF, bounded embedded-image OCR, UTF-8 text/Markdown
+Source parsing supports native PDF, bounded full-page and mixed-image OCR, UTF-8 text/Markdown
 and simple DOCX paragraphs/tables. Unsupported visual/linked/complex DOCX content,
 encrypted PDFs, unreadable pages, private/redirected download targets, checksum
 mismatch and oversized text/archive/image data fail explicitly. Each source chunk
@@ -237,6 +458,37 @@ records immutable original, version, tenant/environment, approval and exact anch
 Deterministic IDs make retries idempotent. Supersession is enforced by Web's current
 manifest; deleting derived vectors is an authenticated, scoped operator action,
 never deletion of originals. Entity profiles are never citable.
+
+### Acceptance repairs, 2026-09-08
+
+The parser ADR adds locked `pypdfium2` 5.x for the missing full-page rendering
+capability. Existing pypdf/Pillow/pytesseract and LangChain BaseLoader remain the
+parsing boundary; no model/vector SDK or orchestration change. Tesseract is an
+external executable installed separately. The OCR adapter discovers/configures
+the runtime, checks language data for aggregate readiness, bounds pixels/time,
+serializes PDFium calls and OCR executable selection, and closes native buffers.
+Native text survives mixed-page OCR; low-text pages use whole-page rendering.
+A bounded colour-contrast pass preserves additional warning text for review.
+Parser pipeline 2 requires new reviewed versions for previously active sources;
+the setup guide covers migration and rollback without rewriting old citations.
+
+Live diagnostic retrieval found the pressure and signal passages: failures came
+from treating test-only source disclaimers as lack of approval for factual lookup.
+Generation and verification now share question-aware evidence rules and receive
+current/approved provenance. Qualified document facts do not imply operating
+authority. Negative evidence states are never force-upgraded by code. Unknown
+citations, unsupported claims, conflicts and safety gaps still fail closed.
+Procedure revalidation now assesses actual high criticality with the same rubric
+as generation instead of assigning HIGH to all edits. Independent generation,
+per-step and whole-draft findings retain any HIGH criticality, so a document-only
+Project description cannot downgrade an unsupported physical-action step. See the dated repair
+acceptance report for executed tests and remaining product-wide acceptance limits.
+
+Repair verification: 80 AI tests, lint/format, mypy/Pyright, unchanged OpenAPI,
+synthetic evaluation and dependency compatibility pass. Web's 81-test suite and
+real REST/WebSocket repair regressions pass. Parser-only checks cover all seven
+PDFs, including the 122-page DOE and 45-page OSHA references. Real OCR-grounded
+Chat and both LOW and blocked SEVERE procedure revalidation have live evidence.
 
 ### Evaluation and operational limits
 
@@ -259,7 +511,79 @@ Metadata-only logs/spans cover graph stages, model/query/upsert timings, fallbac
 and citation outcomes. Raw LangSmith export is suppressed. Optional OTLP must be
 configured and its receipt tested; existing Sentry placeholders do not activate
 an exporter. Use [Setup_Guide.md](../../Setup_Guide.md) and
-[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for startup, signed
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
+for startup, signed
 Swagger, private sockets, provider prerequisites and remaining acceptance records.
 
-Change phase status only with code, contract tests, evaluation evidence, and the matching `../../Development_Plan.md` integration gate.
+Mark an **AI-backend module** phase complete only with code, contract tests,
+evaluation evidence, and setup-guide reconciliation. A **synchronized product
+phase** additionally requires the matching `../../Development_Plan.md` integration
+gate; module completion never substitutes for that gate.
+
+
+### Chat Markdown formatting (2 October 2026)
+
+Generation now chooses concise Markdown structure inside existing `Claim.text`
+values. Each claim remains one complete passage with exact chunk bindings; lists
+and tables are self-contained rather than split into incomplete Markdown fragments.
+The existing independent verifier checks all rendered content including headings,
+list items, table cells and code. No model/provider setting, dependency, extra
+call, response field, schema, migration or reindexing is needed. Limitation warnings
+remain plain status text. Restart AI for newly generated formatted answers.
+
+
+Markdown verification (2 October 2026): Web lint, TypeScript, production build,
+171 unit/integration tests and 21 Chrome scenarios pass. Light/Dark screenshots
+were visually checked; mobile layout stays within the viewport. Tests cover
+semantic Markdown, HTML/image/link suppression, genuine citation insertion,
+plain-text history, read-only checklists, passage endings and evidence access.
+AI Ruff/format/mypy/Pyright and synthetic evaluation pass; all five new Markdown
+checks pass including signed REST/socket and unsupported/conflict/safety rejection.
+The full AI suite has 174 passes and two existing failures for deleted legacy
+OCR PDF fixtures. Regenerated OpenAPI/types have no schema diff. Full npm audit
+still reports six high and one critical existing findings. These fixture checks
+do not establish live model/SME acceptance and change no synchronized phase status.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

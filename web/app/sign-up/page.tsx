@@ -1,23 +1,12 @@
 "use client";
 
-import {
-  LockKeyhole,
-  UserPlus,
-} from "lucide-react";
+import { LockKeyhole, UserPlus } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  useState,
-  type FormEvent,
-} from "react";
+import { useState, type FormEvent } from "react";
 
 import { Button, Field } from "@/components/ui";
-import {
-  PATCH_MOCK_MODE,
-  startMockSession,
-} from "@/lib/mockapi/session";
-
 interface ApiErrorBody {
   error?: {
     code?: string;
@@ -27,45 +16,27 @@ interface ApiErrorBody {
 export default function SignUpPage() {
   const router = useRouter();
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [message, setMessage] =
-    useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  async function submit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setMessage(null);
 
-    const data = new FormData(
-      event.currentTarget,
-    );
+    const data = new FormData(event.currentTarget);
 
-    const name = String(
-      data.get("name") ?? "",
-    );
+    const name = String(data.get("name") ?? "");
 
-    const email = String(
-      data.get("email") ?? "",
-    );
+    const email = String(data.get("email") ?? "");
 
-    const password = String(
-      data.get("password") ?? "",
-    );
+    const password = String(data.get("password") ?? "");
 
-    const confirmPassword = String(
-      data.get("confirmPassword") ?? "",
-    );
+    const confirmPassword = String(data.get("confirmPassword") ?? "");
 
-    if (
-      password !== confirmPassword
-    ) {
-      setMessage(
-        "Passwords do not match.",
-      );
+    if (password !== confirmPassword) {
+      setMessage("Passwords do not match.");
 
       return;
     }
@@ -73,47 +44,24 @@ export default function SignUpPage() {
     setSubmitting(true);
 
     try {
-      if (PATCH_MOCK_MODE) {
-        startMockSession({
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
           name,
           email,
-        });
-
-        router.replace("/");
-        router.refresh();
-
-        return;
-      }
-
-      const response =
-        await fetch(
-          "/api/auth/signup",
-          {
-            method: "POST",
-            headers: {
-              "content-type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              name,
-              email,
-              password,
-              confirmPassword,
-            }),
-          },
-        );
+          password,
+          confirmPassword,
+        }),
+      });
 
       if (!response.ok) {
-        const body =
-          (await response
-            .json()
-            .catch(
-              () => ({}),
-            )) as ApiErrorBody;
+        const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
 
         setMessage(
-          body.error?.code ===
-            "EMAIL_ALREADY_REGISTERED"
+          body.error?.code === "EMAIL_ALREADY_REGISTERED"
             ? "An account already exists for this email. Sign in instead."
             : "We could not create your account. Check the fields and try again.",
         );
@@ -121,20 +69,14 @@ export default function SignUpPage() {
         return;
       }
 
-      const result =
-        await signIn(
-          "credentials",
-          {
-            email,
-            password,
-            redirect: false,
-          },
-        );
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
       if (!result?.ok) {
-        router.replace(
-          "/sign-in",
-        );
+        router.replace("/sign-in");
 
         return;
       }
@@ -142,9 +84,7 @@ export default function SignUpPage() {
       router.replace("/");
       router.refresh();
     } catch {
-      setMessage(
-        "Account creation is temporarily unavailable. Try again.",
-      );
+      setMessage("Account creation is temporarily unavailable. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -152,47 +92,23 @@ export default function SignUpPage() {
 
   return (
     <main className="auth-page">
-      <section
-        className="auth-card"
-        aria-labelledby="sign-up-heading"
-      >
-        <div className="auth-brand">
-          P.A.T.C.H.
-        </div>
+      <section className="auth-card" aria-labelledby="sign-up-heading">
+        <div className="auth-brand">P.A.T.C.H.</div>
 
-        <div
-          className="auth-icon"
-          aria-hidden="true"
-        >
+        <div className="auth-icon" aria-hidden="true">
           <LockKeyhole size={24} />
         </div>
 
-        <h1 id="sign-up-heading">
-          Create your account
-        </h1>
+        <h1 id="sign-up-heading">Create your account</h1>
 
-        <p>
-          Enter your name, email, and
-          password to get started.
-        </p>
+        <p>Enter your name, email, and password to get started.</p>
 
         <form onSubmit={submit}>
-          <Field
-            label="Name"
-            required
-          >
-            <input
-              name="name"
-              autoComplete="name"
-              maxLength={120}
-              required
-            />
+          <Field label="Name" required>
+            <input name="name" autoComplete="name" maxLength={120} required />
           </Field>
 
-          <Field
-            label="Email"
-            required
-          >
+          <Field label="Email" required>
             <input
               name="email"
               type="email"
@@ -202,11 +118,7 @@ export default function SignUpPage() {
             />
           </Field>
 
-          <Field
-            label="Password"
-            hint="Use 8 to 128 characters."
-            required
-          >
+          <Field label="Password" hint="Use 8 to 128 characters." required>
             <input
               name="password"
               type="password"
@@ -217,10 +129,7 @@ export default function SignUpPage() {
             />
           </Field>
 
-          <Field
-            label="Confirm password"
-            required
-          >
+          <Field label="Confirm password" required>
             <input
               name="confirmPassword"
               type="password"
@@ -232,35 +141,22 @@ export default function SignUpPage() {
           </Field>
 
           {message ? (
-            <p
-              className="form-message form-message-error"
-              role="alert"
-            >
+            <p className="form-message form-message-error" role="alert">
               {message}
             </p>
           ) : null}
 
           <Button
             type="submit"
-            icon={
-              <UserPlus
-                size={18}
-                aria-hidden="true"
-              />
-            }
+            icon={<UserPlus size={18} aria-hidden="true" />}
             disabled={submitting}
           >
-            {submitting
-              ? "Creating account…"
-              : "Create account"}
+            {submitting ? "Creating account…" : "Create account"}
           </Button>
         </form>
 
         <p className="auth-switch">
-          Already have an account?{" "}
-          <Link href="/sign-in">
-            Sign in
-          </Link>
+          Already have an account? <Link href="/sign-in">Sign in</Link>
         </p>
       </section>
     </main>

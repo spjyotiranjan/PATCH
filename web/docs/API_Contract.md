@@ -1,5 +1,131 @@
 # Web-to-AI API Contract
 
+## Browser integration reconciliation (21 September 2026)
+
+The UI uses authenticated same-origin Web APIs and `/ws/chat`; it must not use
+mock sessions, fallback answers, synthetic records, or simulated successful saves.
+Browser models map the existing operation catalog rather than inventing payloads.
+Document review requires an explicit source-review acknowledgement. Procedure
+save, revalidate, review, approve and publish remain distinct user actions carrying
+the revision the user actually viewed. Socket recovery reads persisted history and
+reuses the original client turn ID only with identical content.
+
+The current APIs do not persist Project codes, Equipment serial/manufacturer fields,
+request messages/organizations, log priority/assignee/comments, favourites or shared
+exports. Member directories and audit/activity feeds have no public read endpoints.
+Profile refresh and failed-job retries remain worker operations, not browser actions.
+UI controls for these capabilities must explain their unavailability; they must not
+send unsupported fields or display generated substitutes as stored data. Log state
+is DRAFT/SUBMITTED; Equipment has OWNER/MANAGER access, and Project has OWNER/MEMBER.
+Operational Equipment state is UNKNOWN/OPERATING/MAINTENANCE/OUT_OF_SERVICE.
+
+
+## Phase 7 backend contract (14 September 2026)
+
+AI owns
+local PDF triage and proposed-region detection; Web owns authorization, quotas,
+job fencing, deduplication and storage. No browser supplies a service source URL.
+
+- Signed `/v1/visual-assets/triage` receives an approved immutable PDF and returns
+  up to 12 candidate page numbers, scanned/total counts and explicit partial state.
+Local image/XObject, drawing and caption signals incur no model call.
+- Signed `/v1/visual-assets/discover` receives that PDF and one shortlisted page;
+  AI renders its bounded preview internally, verifies the parent checksum and
+  proposes up to four regions. Web validates/deduplicates them before rendering.
+- Signed `/v1/visual-assets/index` embeds one verified description with immutable
+  asset metadata and description fingerprint into `PINECONE_VISUAL_NAMESPACE`.
+  `/v1/visual-assets/delete-vectors` deletes only the specified tenant/version's
+  visual projections. Both namespaces are explicit configuration and must differ.
+- Web `POST /api/document-versions/{versionId}/visual-discovery` starts idempotent
+  enrichment; GET returns discovery counts/state. Activation can automatically
+  enqueue it when `VISUAL_PROCESSING_ENABLED=true`. Existing documents require
+  explicit opt-in. Up to 48 automatic assets and 100 total assets/version apply.
+- Web `POST /api/visual-assets/{assetId}/index` queues idempotent indexing; restoration creates a new rebuild generation.
+  Automatic regions chain render -> describe -> index in separate fenced jobs.
+- Before Chat, Web resolves up to 100 current indexed asset descriptors from the
+  assigned authorized versions. Signed `/v1/visual-assets/search` retrieves text
+  and visual candidates concurrently, fuses ranks and gates relevance. It returns
+  at most three selected asset IDs/roles, whether visual evidence is required,
+  and `TEXT_ONLY | AVAILABLE | UNAVAILABLE`, without URLs or descriptions.
+  Web then supplies URLs for only selected assets on the usual question request.
+  Selection and visual sources are transient and never stored in Chat history.
+  Internally the gate also receives bounded excerpts from the same scoped text
+  retrieval (four excerpts, 2,000 characters each) to avoid requiring images for
+  text-sufficient lookups. This does not change request/result schemas or grant
+  evidence authority to descriptors/history; selected images still require pixels.
+- Final REST/socket results include `visualEvidenceState`, `visualCitations`, and
+  `visualObservations` (bounded factual descriptions bound to exact visual citation
+  IDs). Observations are independently verified against same-turn pixels; physical
+  actions and operating/safety instructions still require the existing text steps
+  and citations. Web revalidates every asset's provenance, index fingerprint and
+  current access before persistence. A required visual failure makes an otherwise
+  approved result incomplete; optional failure preserves grounded text.
+
+AI settings bound triage pages (12), regions/page (4), preview DPI (72), visual
+candidates (20), relevance shortlist (6), final assets (3) and search timeout (15s).
+Bounds and hard contract caps are enforced even when provider output is malformed.
+Partial scope/discovery is visible and never presented as complete coverage.
+
+### Phase 7 verified visual descriptions
+
+Private `POST /v1/visual-assets/describe` accepts the usual signed correlation
+fields, `tenantId`, `approvalState: APPROVED`, immutable `asset`
+(`VisualSourceAsset`) and checksum-bound PNG `sourceFile`. Returns `requestId`,
+`status: described | failed`, `assetId`, `sha256`, nullable `description`, and
+`errors`. Description has bounded `summary`, `labels`, `relationships`,
+`uncertainties`, and `descriptionVersion: vision-description-v1`. Failed results
+never contain a partial description. A configured vision model inspects validated
+pixels; a separate complex-reasoning vision call must verify its description.
+Descriptions remain untrusted search aids, not approved evidence or OCR transcripts.
+
+Web `POST /api/visual-assets/{assetId}/describe` accepts `{}` and queues an
+idempotent `VISUAL_DESCRIBE` job for a ready, authorized current PDF asset.
+Only its document owner/approved manager may request it. Asset projections add
+`descriptionState: NOT_REQUESTED | QUEUED | READY | FAILED` and nullable
+`description`. Derivatives remain accessible if description fails. Worker commits
+are lease-fenced and revalidate parent approval/currentness and checksum.
+Explicit requests incur up to two model calls per attempt; rendering alone does
+not invoke vision. Existing dead-letter retry applies. Successful descriptions
+queue visual indexing; automatic discovery regions chain rendering and description.
+
+### Phase 7 scope, state and citation invariants
+
+`QuestionRequest.visualScopeManifest` (max 100) is a subset of the text manifest.
+Each entry holds `VisualSourceAsset`, description fingerprint, embedding model,
+class and confidence. `visualScopePartial` discloses bounded coverage.
+`visualSelection` holds a separately correlated `VisualSearchResult`;
+`visualSources` contains at most three approved, checksum-bound PNG requests.
+Selection/source IDs must be unique and inside the manifest; source tenant and
+complete asset metadata must match. AVAILABLE requires selected IDs; all other
+states require an empty selection. Neither API inputs nor models select namespaces.
+
+`QuestionResult.visualCitations` (max three) binds an ID to asset/document/version,
+page/bounds, derivative SHA, description fingerprint, class and REQUIRED/HELPFUL
+role. `visualObservations` (max six) holds factual text (max 2,000 characters) and
+one to three visual citation IDs. Every observation must cite actual inspected
+pixels and every returned citation must be used. Only AVAILABLE may carry these
+fields; outdated/conflicting/unavailable text results cannot carry visual claims.
+Text operational steps still use the existing source-chunk citation contract.
+
+The text baseline's `status` is not upgraded by successful pixel verification.
+An image-only factual question can therefore have `status: incomplete`, empty
+text steps, and `visualEvidenceState: AVAILABLE` with verified observations.
+Consumers must inspect both evidence fields, display only their supported content,
+and retain warnings; AVAILABLE does not imply an approved operational answer.
+
+Web re-resolves access, approval, active version, descriptor/index fingerprint,
+class/model and exact metadata before persistence. Source opening performs another
+authorization check. Responses/persisted history contain no R2 keys, URLs, base64,
+raw detector output or model reasoning. Signed sources live only within the turn.
+Required visual loss downgrades otherwise approved text to incomplete; optional
+loss preserves its text state. An explicit image-dependent question with no
+eligible asset is evidence-limited, not silently complete. A disabled visual
+feature retains the previous text-only path.
+
+All private endpoints remain HMAC-authenticated with the normal request/replay
+rules. Generated `ai/openapi.json` and `web/lib/ai/generated.ts` are authoritative
+for exact types; browser inputs cannot construct private manifests/source URLs.
+
 ## Mandatory contributor workflow
 
 Before modifying this contract or either implementation, read and strictly follow `../../AGENTS.md`, `../../Agent.md`, `../../Development_Plan.md`, both module implementation documents, `Environment.md`, and `../../ai/docs/RAG_and_Safety.md`. Contract changes are contract-first: update Pydantic schemas and this document, export the committed OpenAPI artifact, regenerate Web types, update both consumers, and pass the cross-module tests in one coordinated change. Dependency or provider examples never override repository ownership, safety, or package-selection rules.
@@ -69,7 +195,9 @@ The complete Web operation catalog, input schemas and security declarations are
 served by `GET /api/openapi`; the locally served Swagger UI is `/api/docs`.
 `lib/backend/router.ts` registers the Phase 3–6 routes and generates their schemas;
 the Phase 1–2/auth operations are included by `lib/backend/openapi.ts`.
-Use [Backend_Manual_Testing.md](../../Backend_Manual_Testing.md) for exact request
+Use
+[Backend_Manual_Testing.md](../../Backend_Manual_Testing.md)
+for exact request
 bodies, authentication, expected errors, polling and socket frames. Tables below
 describe concepts; examples containing `uuid`, alternatives or descriptive IDs
 are schematic, not copy-and-send fixtures.
@@ -167,6 +295,11 @@ Web validates the confirmation, normalizes the email, stores only a salted passw
 
 ## Phase 2 Equipment, Project, and access contract
 
+Equipment detail GET, create POST and update PATCH return `{ "equipment": record }`.
+The equivalent Project routes return `{ "project": record }`. Collection GET
+responses return `{ "items": records }`. Browser clients must unwrap the appropriate
+envelope before reading record fields.
+
 All routes below are authenticated, tenant-scoped, return the standard correlation header/error envelope, and persist an audit event for every mutation or access decision. Identifiers are MongoDB ObjectId strings. List responses use `{ "items": [...] }`; discovery never returns private Project content.
 
 ### Equipment resources
@@ -240,6 +373,19 @@ Web de-duplicates by resolved `documentVersionId` but preserves all inclusion pa
 
 Extraction and indexing may be one internal LangGraph workflow, but the contract keeps review/approval before retrievable source upsert. If implemented as an asynchronous job, the result payloads below become job result schemas without changing their content.
 
+OCR repair (2026-09-08) preserves these payloads. Aggregate AI readiness now also
+checks the local OCR executable/language data. OCR-derived text retains physical
+page anchors and lower extraction quality; no image regions or visual claims are
+added to citations. Parser changes require a newly reviewed immutable version for
+already-active sources, not an in-place change to retained citation text.
+
+Pipeline 4 (16 September 2026) preserves approximate embedded-image word positions
+as whitespace in `pages[].text`, with bounded consensus re-reading of weak labels.
+Render extraction review in monospace with whitespace preserved. This is OCR text,
+not a chart-data/relationship schema; extraction quality remains 0.6 and human
+review remains mandatory. Native text and whole-page scan processing are unchanged.
+No payload/schema change or reinterpretation of retained extraction is introduced.
+
 Phases 1–2 originally used deterministic contract stubs. Phases 3–6 routes now
 execute provider-backed workflows; test providers are injected only by tests.
 Failures return typed `failed`/`unavailable` results or the safe error envelope,
@@ -249,6 +395,43 @@ and the `/v1/questions/ws` socket. Their schemas are in the committed OpenAPI,
 including the `x-websocket-channels` extension.
 
 ## Ingestion contracts
+
+### Phase 7 visual asset foundation
+
+`POST /v1/visual-assets/render` is HMAC-authenticated and renders one explicitly
+selected region of an approved immutable PDF. `VisualRenderRequest` includes the
+standard correlation fields, tenant/asset/document/version IDs, `sourceFile`,
+`approvalState: APPROVED`, one-based `page`, `renderDpi` (72–200),
+`rendererVersion: pdfium-png-v1`, and `bounds` (left/top/right/bottom in [0,1],
+top-left origin after page rotation; omitted bounds select the full page).
+Crossed/empty/non-finite bounds are rejected. Download checks, checksum validation,
+500-page PDF limit, pixel limits and workflow deadlines apply before rendering.
+
+The result is `rendered` with `VisualSourceAsset` provenance and `pngBase64`, or
+`failed` with a safe code and no partial bytes. PNG output is capped at 2 MB,
+4096 pixels per side and four million pixels. Bytes travel only through the private
+service response; Web verifies the correlation, complete provenance, dimensions,
+size and checksum and stores the derivative under a private content-addressed key.
+Neither MongoDB nor public JSON responses retain base64. No AI R2 credential or
+new upload permission is introduced.
+
+Web operations (session-authenticated; available in `/api/docs`):
+
+- `POST /api/document-versions/{versionId}/visual-assets` accepts `page` and
+  optional `bounds`, requires document mutation access and a current approved
+  indexed PDF, and atomically creates a deduplicated asset plus `VISUAL_RENDER`
+  outbox job. A version supports at most 100 explicitly requested assets.
+- `GET /api/document-versions/{versionId}/visual-assets` lists safe asset metadata
+  and processing state after fresh current-manifest authorization.
+- `GET /api/visual-assets/{assetId}/source` reauthorizes the parent against the
+  current manifest and issues an expiring derivative URL only for a ready asset.
+
+Rendering records no claim of OCR accuracy, model understanding or vector
+indexing by itself. Only verified/indexed assets enter the opt-in visual Chat
+path described above; descriptor embeddings are not native image embeddings. Revocation, archive, supersession and removal of a current inclusion path
+block subsequent visual reads even if a retained derivative still exists. Already
+issued signed URLs remain valid until their bounded expiry, as with original URLs.
+Original text ingestion and activation are unaffected by visual job failure.
 
 ### Extract request
 
@@ -481,6 +664,17 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
 
 ## Question response
 
+For a limited answer, `warnings` carries a concise, question-specific explanation
+of the response limitation (outside product scope, no matching evidence, missing
+coverage/safety prerequisites, conflicting sources or outdated evidence). AI drafts
+and independently verifies this explanation within the existing answer workflow.
+It describes why an answer cannot be supplied; it is not an uncited technical
+answer, equipment fault diagnosis, operating instruction or model reasoning.
+The public status enum and response schema remain unchanged. Deterministic
+fallbacks describe empty scope, retrieval failure and citation/verification
+rejection when a model explanation cannot be safely returned. These messages
+must not assert that inaccessible documents exist or expose provider details.
+
 ```json
 {
   "requestId": "uuid",
@@ -667,3 +861,82 @@ Review need is one of `LOW | MODERATE | HIGH | SEVERE` and is derived from cover
 - Duplicate manifest entities, document versions, relationships, inclusion paths, and assigned references are invalid. Entity direct-document and relationship document IDs must be subsets of `allowedDocumentVersions`; relationship entity IDs must exist with the corresponding type.
 - Empty allowed profile/version sets produce a no-query result, never an unfiltered Pinecone query. Phase 2 filter builders always include tenant/environment, exact `recordType`, and an explicit allowed-ID constraint before any future similarity operation.
 - A Project profile requires a non-empty user description. Included Equipment profiles are bounded, unique by Equipment ID/profile ID, and carry explicit version/fingerprint/freshness provenance. Equipment profiles cannot contain included-Equipment profiles.
+
+
+### Chat answer Markdown (2 October 2026)
+
+`answer.steps[].text` may contain CommonMark with GFM tables, strikethrough and
+read-only task lists. The existing string field and `{id,text,citationIds}` shape
+are unchanged; plain-text saved turns remain valid. Each step is one self-contained
+citation-bound passage, which may include a heading, list, table or code block.
+All facts in that passage must be independently verified against its `citationIds`.
+The model must not emit source numbers, citation links, raw HTML, images or
+standalone uncited sections. `answer.summary` remains null.
+
+Web renders only verified approved/incomplete steps. Source markers are inserted
+after parsing from validated response citations at the end of each passage;
+Markdown cannot fabricate an evidence button. Raw HTML is skipped, embedded
+images are omitted, and model-authored links render as text. Exact private source
+access remains through the evidence drawer. Warnings remain plain status text.
+REST, WebSocket, authorization, storage and schema shapes do not change.
+
+
+### PATCH-aware Chat contract (2 October 2026)
+
+Attachments are optional: every unassigned turn automatically receives current
+authorized workspace context and can retrieve all accessible active source
+versions. Explicit assignments still narrow scope and never grant access.
+
+Optional private `workspaceCatalog` contains entities, documents, workflowRecords
+({id,type:LOG|PROCEDURE|RUN,projectId,title,text,status}), versioned product help
+({id,title,text}) and explicit partial. Caps: 100 entities, 200 documents, 100
+workflow records, 20 help entries and 180,000 UTF-8 bytes. Context comes from
+current authorized MongoDB projections and reviewed product instructions, never
+from profiles, credentials or stale chat history. Logs/draft states describe
+records, not approved operating evidence.
+
+AI uses LangGraph intent routing for PATCH record questions, application help,
+source-content questions and unrelated requests. The routing model may select
+bounded per-request entity/document indices for natural-language references;
+code maps indices to authorized IDs before retrieval. Uncertain intent remains
+in scope and uses the evidence path. Known in-scope intent cannot subsequently
+be classified outside scope by the evidence generator.
+
+`answerKind` defaults to EVIDENCE. WORKSPACE has approved status (successful
+record/help response), empty technical steps/citations/visual claims, and
+`workspaceOverview:{scope,catalog,passages}`. Scope also supports LOGS, PROCEDURES
+and HELP. Each Markdown passage binds `recordIds` to per-request keys such as
+entity:0, document:0, workflow:0 or help:0; catalog:scope may support only an
+explicitly bounded inventory count/empty state. The independent complex verifier
+checks every statement against actual records/help, classification and the
+question; metadata cannot support technical/physical instructions, unperformed
+mutations or inferred execution. The UI displays verified conversational
+Markdown and minimally labelled record references, not fabricated source citations.
+
+OUT_OF_SCOPE is reserved for wholly unrelated questions: incomplete, no facts,
+and specific explanation. Missing records, ambiguity, coverage gaps and provider
+failures are not incompatibility. In-scope technical facts still need approved
+source evidence. Chat provides supported workflow instructions and navigation for
+mutations; it never claims a creation, approval, publication or completion occurred.
+
+Web validates exact catalog records against the turn snapshot and fresh
+authorization before persistence, plus passage keys and response-kind invariants.
+REST and socket remain equivalent. Older requests without workspace context use
+the existing evidence path; old saved turns remain snapshots. Empty source sets
+never query Pinecone; record/help intent may call models without source versions.
+Deploy both services together after regenerating OpenAPI/types. No new packages,
+credentials, settings, persisted-data migration or reindexing.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

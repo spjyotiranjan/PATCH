@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import {
   User,
   Wrench,
@@ -9,19 +8,13 @@ import {
   FolderKanban,
   AtSign,
   AlertTriangle,
-  Info,
   Copy,
   Check,
   Layers,
-  ChevronRight,
   Sparkles,
   ShieldAlert,
 } from "lucide-react";
-import {
-  type ChatTurnData,
-  type Citation,
-  type AssignedReference,
-} from "./chat-types";
+import { type ChatTurnData, type AssignedReference } from "./chat-types";
 
 interface ChatTranscriptProps {
   turns: ChatTurnData[];
@@ -68,7 +61,7 @@ export function ChatTranscript({
             className="starter-prompt-card"
             onClick={() =>
               onSelectFollowUp?.(
-                "What are the likely causes of pressure instability on Filler 02?"
+                "What are the likely causes of pressure instability on Filler 02?",
               )
             }
           >
@@ -81,7 +74,7 @@ export function ChatTranscript({
             className="starter-prompt-card"
             onClick={() =>
               onSelectFollowUp?.(
-                "What are the alignment check steps for Conveyor 11?"
+                "What are the alignment check steps for Conveyor 11?",
               )
             }
           >
@@ -94,7 +87,7 @@ export function ChatTranscript({
             className="starter-prompt-card"
             onClick={() =>
               onSelectFollowUp?.(
-                "Summarize LOTO safety requirements for Line 3 lockout review"
+                "Summarize LOTO safety requirements for Line 3 lockout review",
               )
             }
           >
@@ -164,7 +157,8 @@ export function ChatTranscript({
                   <div className="state-banner banner-warning">
                     <AlertTriangle size={16} />
                     <span>
-                      <strong>Source review needed:</strong> Evidence for this response is incomplete.
+                      <strong>Source review needed:</strong> Evidence for this
+                      response is incomplete.
                     </span>
                   </div>
                 )}
@@ -172,7 +166,8 @@ export function ChatTranscript({
                   <div className="state-banner banner-danger">
                     <AlertTriangle size={16} />
                     <span>
-                      <strong>Conflicting sources detected:</strong> Conflicting specifications were found in the evidence drawer.
+                      <strong>Conflicting sources detected:</strong> Conflicting
+                      specifications were found in the evidence drawer.
                     </span>
                   </div>
                 )}
@@ -180,7 +175,9 @@ export function ChatTranscript({
                   <div className="state-banner banner-danger">
                     <ShieldAlert size={16} />
                     <span>
-                      <strong>Verified guidance unavailable:</strong> No approved current evidence was found to answer this question.
+                      <strong>Verified guidance unavailable:</strong> No
+                      approved current evidence was found to answer this
+                      question.
                     </span>
                   </div>
                 )}
@@ -201,13 +198,13 @@ export function ChatTranscript({
                           <span className="inline-citations-group">
                             {step.citationIds.map((citId) => {
                               const matchingCit = turn.citations?.find(
-                                (c) => c.id === citId
+                                (c) => c.id === citId,
                               );
                               const label = matchingCit
-                                ? `[${matchingCit.documentTitle}, Rev. ${matchingCit.revision.replace(
-                                    /\D/g,
-                                    ""
-                                  ) || "2"}]`
+                                ? `[${matchingCit.documentTitle}, Rev. ${
+                                    matchingCit.revision.replace(/\D/g, "") ||
+                                    "2"
+                                  }]`
                                 : "[Source]";
                               return (
                                 <button
@@ -245,7 +242,9 @@ export function ChatTranscript({
                 {/* Follow-up Suggestions */}
                 {turn.followUps && turn.followUps.length > 0 && (
                   <div className="follow-up-suggestions-bar">
-                    <span className="follow-up-label">Follow-up suggestions</span>
+                    <span className="follow-up-label">
+                      Follow-up suggestions
+                    </span>
                     <div className="follow-up-pills flex-wrap">
                       {turn.followUps.map((prompt, pIdx) => (
                         <button

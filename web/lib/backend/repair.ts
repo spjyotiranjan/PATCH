@@ -4,8 +4,10 @@ import { audit, queue, type Context } from "./context";
 import type { ProfileRecord, VersionRecord } from "./models";
 import type { ProcedureVersion } from "./procedures";
 import { scanBatch } from "./scan";
+import { repairVisuals } from "./visual-repair";
 
 export async function repairBackend(base: Context) {
+  const visuals = await repairVisuals(base);
   let repaired = 0;
   const published = await scanBatch<ProcedureVersion>(
     base,
@@ -137,6 +139,7 @@ export async function repairBackend(base: Context) {
     inspectedVersions: versions.length,
   });
   return {
+    ...visuals,
     repaired,
     inspectedProfiles: profiles.length,
     inspectedVersions: versions.length,

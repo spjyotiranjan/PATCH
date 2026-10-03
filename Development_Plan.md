@@ -9,6 +9,26 @@ UI acceptance, representative-source/SME evaluation, or deployment release gates
 
 The MVP is delivered through six synchronized phases. `web` is one Next.js codebase containing the technician-facing UI and server-side product API. `ai` is a Python FastAPI microservice reached only from the Next.js backend. `Equipment` / `Equipments` is the canonical terminology in UI copy, routes, schemas, tests, and documentation.
 
+**Backend-only Phase 7 extension:** Multimodal visual-source preservation,
+grounded visual retrieval, and exact visual citations are a paired Web/AI backend
+extension, specified in the two backend implementation documents. It does not
+change the six synchronized product phases, their current status, or the future
+UI integration gate.
+
+Its implemented backend pipeline is staged: bounded local candidate-page triage,
+low-cost proposed-region detection, immutable derivative rendering and verified
+descriptions, isolated visual-description indexing, authorized rank-fused text and
+visual retrieval, relevance gating, same-turn pixel grounding, and validated exact
+visual citations. The detailed Web/AI contracts, limits, safety rules, costs and
+acceptance criteria are authoritative in the two Phase 7 implementation sections;
+this plan does not enable automatic rollout or add a seventh synchronized product phase.
+Implementation is delivered (14 September 2026); representative visual-quality/cost
+acceptance remains open. See both backend documents and the Phase 7 section of
+the setup guide.
+Existing text/profile vectors use configured `PINECONE_NAMESPACE`; the
+visual-description store uses separate `PINECONE_VISUAL_NAMESPACE`. Deployments map
+the values to `{environment}` and `visual-{environment}` respectively.
+
 ## Setup-guide reconciliation gate
 
 [Setup_Guide.md](Setup_Guide.md) is the canonical local setup, verification, and troubleshooting reference. Every phase must reconcile and test that guide before its implementation status is marked complete. The reconciliation must cover new dependencies, environment variables and ownership, migrations, startup/upgrade commands, API-contract generation, verification, operational limitations, and safe recovery instructions.
@@ -19,8 +39,18 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 
 ## Delivery status
 
+### Current reconciliation (2026-09-22)
+
+The UI routes now bind to authenticated Web REST and the same-origin Chat socket,
+including document upload/review, Project workflows and Phase 7 exact visual
+sources. No running route relies on mock sessions, records or successful saves.
+See [UI integration](web/docs/UI_Integration.md) for route coverage, unsupported
+mock-era features and verification. Deterministic browser and loopback transport
+tests are separate from hosted end-to-end acceptance; representative-source/SME,
+full accessibility/visual regression and synchronized phase gates remain open.
+
 - **Phase 1 — Complete (2026-09-04):** UI, Web backend, and AI backend foundations are implemented, contract-synchronized, and reconciled with the setup guide. The integrated gate covers first-party credentials, the protected canonical shell, aggregate Web readiness, and authenticated Web-to-AI readiness.
-- **Phase 2 — Module work in progress:** Web backend and AI backend Phase 2 are complete; the synchronized product phase remains open until UI Phase 2 and its cross-module gate are complete.
+- **Phase 2 — Module implementations delivered:** Web, AI and UI/backend wiring are present; the synchronized product phase remains open until its hosted cross-module acceptance gate is recorded.
 - **Phases 3–6 — Backend code implemented, acceptance in progress (2026-09-06):**
   Web/AI workflows, Swagger REST, private/product WebSockets, worker recovery and
   synthetic evaluation are implemented. Automated suites pass (81 Web, 69 AI),
@@ -29,7 +59,8 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
   cited Web-to-AI Chat, log submission and an unpublished procedure candidate.
   Full hosted acceptance, representative
   sources/SME evaluation, recovery/telemetry checks and the matching UI gates remain
-  open. See both implementation inventories and [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
+  open. See both implementation inventories and
+  [Backend_Manual_Testing.md](Backend_Manual_Testing.md).
 
 | Phase                                | Shared outcome                                                                                       | Web UI                                                                                                                                                                           | Web backend                                                                                                                                                                        | AI backend                                                                                                                                  | Integration gate                                                                                                                                                                                 |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -41,6 +72,12 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 | 6. Harden, evaluate, deploy          | Complete product is reliable, accessible, observable, and demonstrable.                              | Settings profile/theme completion, tablet/accessibility pass, edge states, visual regression against canonical shell, E2E coverage.                                              | Rate limits, validation, profile-refresh reliability, backups, observability, deployment and security tests.                                                                       | Routing/retrieval evaluation, prompt-injection defenses, latency/quality metrics, deployment and failure-mode tests.                        | End-to-end demo passes: create entity > optional upload/skip > add/update document > activate > propagate > route > retrieve > cite > Project log > review/publish.                              |
 
 ## Phase-level acceptance criteria
+
+Historical live and repair acceptance records were removed with the former
+`Manual Testing/` fixture directory. Their outcomes are summarized in the backend
+implementation documents; they do not certify representative/SME review, UI
+integration, or the other remaining product gates. Use the retained
+[Backend_Manual_Testing.md](Backend_Manual_Testing.md) for future backend runs.
 
 ### Phase 1 - Foundation
 
@@ -109,3 +146,27 @@ Every contributor and AI coding model must read and follow [AGENTS.md](AGENTS.md
 4. Implement shared fixtures for logical documents, active versions, entity relationships, profiles, and Project log scopes.
 5. Build each route against the phase-mapped visual reference in `web/ui-design/` and the shell contract in `web/docs/UI_Design.md`.
 6. Run the module quality gates and phase integration gate, reconcile `Setup_Guide.md`, and attach test/evaluation evidence before updating completion status.
+
+
+## Workspace Chat scope (2 October 2026)
+
+PATCH workspace questions (including listing accessible Projects, Equipments and
+linked documents with saved record overviews) are in scope. A separate typed
+workspace overview displays current authorized product metadata; it does not
+require source-chunk citations or treat saved descriptions as technical evidence.
+Technical facts, calculations and operational/safety guidance retain the existing
+approved-source verification and explicit evidence limitations. Only requests
+unrelated to PATCH are outside scope; missing coverage or service failures are
+not outside-scope classifications.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.
