@@ -950,10 +950,16 @@ export interface components {
       visualSelection?: components["schemas"]["VisualSearchResult"] | null;
       /** Visualsources */
       visualSources?: components["schemas"]["VisualDescribeRequest"][];
+      workspaceCatalog?: components["schemas"]["WorkspaceCatalog"] | null;
     };
     /** QuestionResult */
     QuestionResult: {
       answer: components["schemas"]["Answer"];
+      /**
+       * Answerkind
+       * @enum {string}
+       */
+      answerKind?: "EVIDENCE" | "WORKSPACE" | "OUT_OF_SCOPE";
       chatSession: components["schemas"]["ChatSessionResult"];
       /** Citations */
       citations?: components["schemas"]["Citation"][];
@@ -984,6 +990,7 @@ export interface components {
       visualObservations?: components["schemas"]["VisualObservation"][];
       /** Warnings */
       warnings?: string[];
+      workspaceOverview?: components["schemas"]["WorkspaceOverview"] | null;
     };
     /** QuestionSocketEvent */
     QuestionSocketEvent: {
@@ -1678,6 +1685,110 @@ export interface components {
        * @default 0
        */
       totalPages: number;
+    };
+    /** WorkspaceCatalog */
+    WorkspaceCatalog: {
+      /** Documents */
+      documents: components["schemas"]["WorkspaceDocument"][];
+      /** Entities */
+      entities: components["schemas"]["WorkspaceEntity"][];
+      /** Help */
+      help?: components["schemas"]["WorkspaceHelp"][];
+      /** Partial */
+      partial: boolean;
+      /** Workflowrecords */
+      workflowRecords?: components["schemas"]["WorkspaceWorkflowRecord"][];
+    };
+    /** WorkspaceDocument */
+    WorkspaceDocument: {
+      /** Activeversionid */
+      activeVersionId?: string | null;
+      /** Documenttype */
+      documentType?: string;
+      /** Entityids */
+      entityIds: string[];
+      /** Evidenceavailable */
+      evidenceAvailable: boolean;
+      /** Id */
+      id: string;
+      /** Processingstate */
+      processingState?: string;
+      /** Title */
+      title: string;
+    };
+    /** WorkspaceEntity */
+    WorkspaceEntity: {
+      /** Attributes */
+      attributes?: {
+        [key: string]: string;
+      };
+      /** Description */
+      description: string;
+      /** Equipmentids */
+      equipmentIds?: string[];
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Status */
+      status: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "PROJECT" | "EQUIPMENT";
+    };
+    /** WorkspaceHelp */
+    WorkspaceHelp: {
+      /** Id */
+      id: string;
+      /** Text */
+      text: string;
+      /** Title */
+      title: string;
+    };
+    /** WorkspaceOverview */
+    WorkspaceOverview: {
+      catalog: components["schemas"]["WorkspaceCatalog"];
+      /** Passages */
+      passages?: components["schemas"]["WorkspacePassage"][];
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope:
+        | "PROJECTS"
+        | "EQUIPMENTS"
+        | "DOCUMENTS"
+        | "WORKSPACE"
+        | "LOGS"
+        | "PROCEDURES"
+        | "HELP";
+    };
+    /** WorkspacePassage */
+    WorkspacePassage: {
+      /** Recordids */
+      recordIds: string[];
+      /** Text */
+      text: string;
+    };
+    /** WorkspaceWorkflowRecord */
+    WorkspaceWorkflowRecord: {
+      /** Id */
+      id: string;
+      /** Projectid */
+      projectId: string;
+      /** Status */
+      status: string;
+      /** Text */
+      text: string;
+      /** Title */
+      title: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "LOG" | "PROCEDURE" | "RUN";
     };
   };
   responses: never;

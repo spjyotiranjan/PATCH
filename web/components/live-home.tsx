@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Wrench, FolderKanban, Files, ArrowUpRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import {
   LoadState,
@@ -26,13 +27,14 @@ export function LiveHome() {
     <AppShell title="Operations home">
       <LoadState {...resource} retry={resource.refresh} />
       {data && (
-        <div className="home-grid">
+        <div className="home-grid live-home">
           <section className="metric-grid">
             {[
               {
                 title: "Accessible Equipments",
                 value: data.equipments.length,
                 href: "/equipments",
+                icon: Wrench,
               },
               {
                 title: "Active Projects",
@@ -40,16 +42,22 @@ export function LiveHome() {
                   (project) => project.status === "ACTIVE",
                 ).length,
                 href: "/projects",
+                icon: FolderKanban,
               },
               {
                 title: "Accessible Documents",
                 value: data.documents.length,
                 href: "/documents",
+                icon: Files,
               },
             ].map((metric) => (
               <article className="metric-panel" key={metric.title}>
                 <h2>
-                  <Link href={metric.href}>{metric.title}</Link>
+                  <Link href={metric.href}>
+                    <metric.icon size={18} aria-hidden="true" />
+                    {metric.title}
+                    <ArrowUpRight size={14} aria-hidden="true" />
+                  </Link>
                 </h2>
                 <strong>{metric.value}</strong>
               </article>

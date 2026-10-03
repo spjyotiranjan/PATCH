@@ -12,6 +12,7 @@ import type {
   Schema,
   VersionRecord,
 } from "./models";
+import { isDeepStrictEqual } from "node:util";
 
 export async function accessibleEntities(
   ctx: Context,
@@ -448,7 +449,62 @@ export async function validateAnswer(
     (answer.answer.steps?.length || answer.citations?.length)
   )
     fail("AI_RESPONSE_INVALID", 502);
-  if (answer.status === "approved" && !answer.answer.steps?.length)
+  if (answer.answerKind === "WORKSPACE") {
+    if (
+      answer.status !== "approved" ||
+      !request.workspaceCatalog ||
+      !answer.workspaceOverview ||
+      ![
+        "PROJECTS",
+        "EQUIPMENTS",
+        "DOCUMENTS",
+        "WORKSPACE",
+        "LOGS",
+        "PROCEDURES",
+        "HELP",
+      ].includes(answer.workspaceOverview.scope) ||
+      !isDeepStrictEqual(
+        answer.workspaceOverview.catalog,
+        request.workspaceCatalog,
+      ) ||
+      answer.answer.steps?.length ||
+      answer.citations?.length ||
+      answer.visualCitations?.length ||
+      answer.visualObservations?.length ||
+      answer.visualEvidenceState === "AVAILABLE"
+    )
+      fail("AI_RESPONSE_INVALID", 502);
+    const catalog = request.workspaceCatalog!;
+    const keys = new Set([
+      "catalog:scope",
+      ...catalog.entities.map((_, i) => `entity:${i}`),
+      ...catalog.documents.map((_, i) => `document:${i}`),
+      ...(catalog.workflowRecords ?? []).map((_, i) => `workflow:${i}`),
+      ...(catalog.help ?? []).map((_, i) => `help:${i}`),
+    ]);
+    for (const passage of answer.workspaceOverview!.passages ?? [])
+      if (
+        !passage.text.trim() ||
+        passage.text.length > 4000 ||
+        !passage.recordIds.length ||
+        passage.recordIds.some((id) => !keys.has(id))
+      )
+        fail("AI_RESPONSE_INVALID", 502);
+  } else if (answer.workspaceOverview) fail("AI_RESPONSE_INVALID", 502);
+  if (
+    answer.answerKind === "OUT_OF_SCOPE" &&
+    (answer.status !== "incomplete" ||
+      answer.answer.steps?.length ||
+      answer.citations?.length ||
+      answer.visualObservations?.length ||
+      answer.visualCitations?.length)
+  )
+    fail("AI_RESPONSE_INVALID", 502);
+  if (
+    answer.status === "approved" &&
+    answer.answerKind !== "WORKSPACE" &&
+    !answer.answer.steps?.length
+  )
     fail("AI_RESPONSE_INVALID", 502);
   for (const entity of answer.routing.selectedEntities ?? [])
     if (

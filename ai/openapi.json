@@ -1801,6 +1801,16 @@
             "maxItems": 3,
             "title": "Visualsources",
             "type": "array"
+          },
+          "workspaceCatalog": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceCatalog"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1820,6 +1830,15 @@
         "properties": {
           "answer": {
             "$ref": "#/components/schemas/Answer"
+          },
+          "answerKind": {
+            "enum": [
+              "EVIDENCE",
+              "WORKSPACE",
+              "OUT_OF_SCOPE"
+            ],
+            "title": "Answerkind",
+            "type": "string"
           },
           "chatSession": {
             "$ref": "#/components/schemas/ChatSessionResult"
@@ -1891,6 +1910,16 @@
             },
             "title": "Warnings",
             "type": "array"
+          },
+          "workspaceOverview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceOverview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -3515,6 +3544,321 @@
           "status"
         ],
         "title": "VisualTriageResult",
+        "type": "object"
+      },
+      "WorkspaceCatalog": {
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceDocument"
+            },
+            "maxItems": 200,
+            "title": "Documents",
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceEntity"
+            },
+            "maxItems": 100,
+            "title": "Entities",
+            "type": "array"
+          },
+          "help": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceHelp"
+            },
+            "maxItems": 20,
+            "title": "Help",
+            "type": "array"
+          },
+          "partial": {
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "workflowRecords": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceWorkflowRecord"
+            },
+            "maxItems": 100,
+            "title": "Workflowrecords",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entities",
+          "documents",
+          "partial"
+        ],
+        "title": "WorkspaceCatalog",
+        "type": "object"
+      },
+      "WorkspaceDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "activeVersionId": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activeversionid"
+          },
+          "documentType": {
+            "maxLength": 50,
+            "title": "Documenttype",
+            "type": "string"
+          },
+          "entityIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Entityids",
+            "type": "array"
+          },
+          "evidenceAvailable": {
+            "title": "Evidenceavailable",
+            "type": "boolean"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "processingState": {
+            "maxLength": 50,
+            "title": "Processingstate",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "entityIds",
+          "evidenceAvailable"
+        ],
+        "title": "WorkspaceDocument",
+        "type": "object"
+      },
+      "WorkspaceEntity": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 10,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "description": {
+            "maxLength": 1000,
+            "title": "Description",
+            "type": "string"
+          },
+          "equipmentIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Equipmentids",
+            "type": "array"
+          },
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "maxLength": 50,
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "PROJECT",
+              "EQUIPMENT"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "name",
+          "description",
+          "status"
+        ],
+        "title": "WorkspaceEntity",
+        "type": "object"
+      },
+      "WorkspaceHelp": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 200,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "text"
+        ],
+        "title": "WorkspaceHelp",
+        "type": "object"
+      },
+      "WorkspaceOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog": {
+            "$ref": "#/components/schemas/WorkspaceCatalog"
+          },
+          "passages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspacePassage"
+            },
+            "maxItems": 20,
+            "title": "Passages",
+            "type": "array"
+          },
+          "scope": {
+            "enum": [
+              "PROJECTS",
+              "EQUIPMENTS",
+              "DOCUMENTS",
+              "WORKSPACE",
+              "LOGS",
+              "PROCEDURES",
+              "HELP"
+            ],
+            "title": "Scope",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "catalog"
+        ],
+        "title": "WorkspaceOverview",
+        "type": "object"
+      },
+      "WorkspacePassage": {
+        "additionalProperties": false,
+        "properties": {
+          "recordIds": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Recordids",
+            "type": "array"
+          },
+          "text": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "recordIds"
+        ],
+        "title": "WorkspacePassage",
+        "type": "object"
+      },
+      "WorkspaceWorkflowRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "projectId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Projectid",
+            "type": "string"
+          },
+          "status": {
+            "maxLength": 50,
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 2000,
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "LOG",
+              "PROCEDURE",
+              "RUN"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "projectId",
+          "title",
+          "text",
+          "status"
+        ],
+        "title": "WorkspaceWorkflowRecord",
         "type": "object"
       }
     },

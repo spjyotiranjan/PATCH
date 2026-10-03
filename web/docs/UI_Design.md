@@ -42,6 +42,10 @@ Help & support
 - Rail width is one token across pages; items, icons, indentation, session row height, selected state, dividers, scroll behavior, and bottom actions do not vary by route.
 - Current route/session uses the same bright-blue selected treatment. Hover, focus, and selected are visibly distinct.
 - Chat history scrolls independently when required; Settings/Help remain anchored.
+- The rail is fixed to the viewport; scrolling a long page cannot hide navigation.
+  Only session history scrolls inside the rail, with scroll chaining contained.
+  Chat, New chat and bottom actions stay visible. The Chat chevron belongs inside
+  the shared selected row and is a labelled keyboard-accessible history toggle.
 - Canonical desktop reference artboard is 1440x900 with a 205px sidebar. Sidebar width never changes by route.
 
 ### PageTitleBar
@@ -125,6 +129,10 @@ Creation wizards reuse this component in a bounded Documents step and provide `S
 
 ## Procedure UX
 
+- Review reasons and blockers wrap within the analysis panel without hiding the checkbox. Uppercase underscore-delimited reason codes display as sentence-case words; acknowledgement values retain the original codes.
+- Source evidence uses compact cards, collapsed initially, with document title, revision/page and approval state visible. Native keyboard-accessible expansion reveals the complete saved excerpt, section metadata and existing current-authorized source-opening controls. Expansion is local presentation state and does not fetch source access.
+- Draft steps use numbered, keyboard-accessible accordions. The title, required/optional flag, source count and source-review state stay visible when collapsed. Drag handles live in the accordion header so collapsed steps can be reordered without opening them; activating a handle does not toggle the accordion. Read-only/busy handles are disabled. Expand all/Collapse all affect presentation only; edits and open state follow stable step IDs when reordered. Newly added steps open for editing.
+- The editor separates step fields from a compact review-analysis panel. Linked-source choices show document/revision/page context; blockers and human acknowledgements remain visible. Save/revalidate/review actions share a desktop action bar, with a normal-flow layout on small screens. Procedure lists, schedules, evidence and execution history use the same spacing and status grammar; run progress reflects recorded checks only.
 - Project creation immediately shows procedure generation state. `WAITING_FOR_SOURCES` explains that the required description is saved but at least one approved/indexed direct Project source is still needed; generation resumes automatically after source activation.
 - `QUEUED`, `GENERATING`, `READY`, and `FAILED` use the shared processing/status grammar and accessible announcements. Retry uses the same Project input fingerprint; generation never silently overwrites an edited draft.
 - The generated draft editor leads with title, AI-generated marker, review-need badge, topic coverage, generation time, and View generation analysis. The analysis is a compact factual panel, not an opaque percentage.
@@ -135,6 +143,27 @@ Creation wizards reuse this component in a bounded Documents step and provide `S
 - On recurrence, one new unchecked run opens per period. Current-period dates, next reset, progress, overdue state, and completion history are visible together. Previous ticks are never cleared or rewritten.
 
 ## Chat pattern
+
+Live Chat uses an 880px maximum reading column, right-aligned user bubbles and
+left-aligned assistant responses. Answers read as continuous prose with modest
+paragraph spacing; small superscript source numbers sit inline at each supported
+passage's end. Numbers remain consistent within a response, retain accessible
+source labels and title tooltips, and open the existing evidence drawer. The
+composer stays visible at the bottom of the viewport while reading long
+conversations; source assignment remains
+optional and expandable. Working indicators respond to actual accepted/processing
+events, with readable status text and reduced-motion support. Do not simulate
+retrieval sub-stages that the current transport does not report.
+
+Live record lists use a flexible title area and compact trailing state/actions.
+Reserve an icon column only for rows that actually contain an icon. Record names
+use normal text colour with a blue hover/focus affordance; explicit source actions
+use compact blue links. Long names and revision links must remain readable.
+
+Original uploads use a keyboard-accessible native file input in a styled picker;
+selection shows the original filename and size. The primary upload action uses
+the shared button/icon grammar. File types, size limits, retries and human review
+remain governed by the existing upload contract.
 
 - Sidebar retains date-grouped sessions and New chat exactly as the supplied reference.
 - Centre pane uses the canonical title bar, transcript, follow-up prompts, assignment chips, and fixed multiline composer.
@@ -199,3 +228,69 @@ ui-design/
 ```
 
 See `UI_Implementation.md` for phase mapping and route exit criteria.
+
+
+## Typed Chat context ? 2 October 2026
+
+The Question composer offers Project, Equipment and Document when `@` is typed.
+Selecting a category inserts `@project:`, `@equipment:` or `@documents:`. Text
+after the colon filters the authorized reference list; selecting a result consumes
+the search token and displays a compact removable text preview. `@document:`
+is also accepted. Arrow keys browse, Enter/Tab select and Escape dismisses.
+The Attach context button starts the same flow. Loading, retry, no matches and
+the existing 50-reference limit have explicit feedback. Attachments remain selected
+across turns and can be removed before the next question.
+
+The browser sends the same `{type,id}` entries in `assignedReferences`; typed
+labels alone never attach a record or grant access. Reference loading, WebSocket
+submission, server authorization, retries, evidence and AI behavior are unchanged.
+Suggestions and editing are disabled while a turn is pending or follow-up is blocked.
+
+
+### Organized Markdown answers
+
+Assistant passages use semantic Markdown with calm section headings, short lists,
+readable table headers, subtle blockquote boundaries and monospace code surfaces.
+Use existing navy/blue theme tokens and the bounded Chat reading column. Avoid
+nested cards and oversized headings. Tables and code scroll locally on tablet.
+Minimal superscript source numbers stay at the end of their citation-bound passage.
+Plain answers retain the same continuous reading style. Raw HTML, embedded remote
+images and model-generated source buttons are never rendered. Task-list boxes are
+read-only content and cannot record completion.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.

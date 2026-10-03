@@ -8,8 +8,18 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Sparkles,
+  ArrowUp,
+  BookOpen,
+  MessageSquarePlus,
+  LoaderCircle,
+} from "lucide-react";
+import { ChatMarkdown } from "@/components/chat-markdown";
+import { ChatWorkspaceOverview } from "@/components/chat-workspace-overview";
+import { ChatSourceComposer } from "@/components/chat-source-composer";
 import { AppShell } from "@/components/app-shell";
-import { Button, Drawer, Field } from "@/components/ui";
+import { Button, Drawer } from "@/components/ui";
 import {
   LoadState,
   RecordState,
@@ -32,8 +42,17 @@ export function ChatDirectory({
   const router = useRouter();
   return (
     <AppShell title={createOnly ? "New chat" : "Chat"}>
-      <div className="integration-toolbar">
+      <div className="chat-directory-heading">
+        <div>
+          <h2>Ask your technical sources</h2>
+          <p>
+            Find answers with traceable evidence from your documents, Equipments
+            and Projects, or get help with PATCH workflows. Attachments are
+            optional.
+          </p>
+        </div>
         <Button
+          icon={<MessageSquarePlus size={18} aria-hidden="true" />}
           disabled={action.busy}
           onClick={() =>
             void action.run(async () => {
@@ -45,10 +64,6 @@ export function ChatDirectory({
           Start new chat
         </Button>
       </div>
-      <p>
-        Ask about current sources you can access. Use assignments to focus
-        retrieval on a document, Equipment or Project.
-      </p>
       {action.error && <p role="alert">{action.error}</p>}
       <LoadState {...resource} retry={resource.refresh} />
       <section className="panel integration-panel">
@@ -77,7 +92,6 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
   const references = useResource(chat.listReferences);
   const [question, setQuestion] = useState("");
   const [assigned, setAssigned] = useState<chat.Reference[]>([]);
-  const [query, setQuery] = useState("");
   const [pending, setPending] = useState<chat.TurnInput | null>(null);
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState("");
@@ -123,7 +137,12 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
       await chat.sendTurn(
         sessionId,
         input,
-        () => setProgress("Finding current sources and verifying evidence…"),
+        (stage) =>
+          setProgress(
+            stage === "turn.accepted"
+              ? "Request received"
+              : "Checking sources and preparing a response",
+          ),
         controller.current.signal,
       );
       setPending(null);
@@ -148,12 +167,26 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
             aria-live="polite"
           >
             {!resource.data.turns.length && (
-              <p>
-                No messages yet. Ask a question about your approved sources.
-              </p>
+              <div className="chat-welcome">
+                <span className="chat-mark">
+                  <Sparkles size={26} aria-hidden="true" />
+                </span>
+                <h2>What would you like to understand?</h2>
+                <p>
+                  Ask about your Projects, Equipments, documents or PATCH
+                  workflows.
+                  <br />
+                  I’ll find accessible context automatically. Attach a document,
+                  Equipment or Project to focus your question.
+                </p>
+                <span className="chat-welcome-note">
+                  <BookOpen size={16} aria-hidden="true" /> Answers stay
+                  connected to their evidence
+                </span>
+              </div>
             )}
             {resource.data.turns.map((turn) => (
-              <article className="integration-record" key={turn.id}>
+              <article className="chat-turn" key={turn.id}>
                 <div className="chat-user-message">
                   <strong>You</strong>
                   <p className="integration-prewrap">{turn.question}</p>
@@ -171,21 +204,30 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
                 {turn.result ? (
                   <Answer turn={turn} onEvidence={() => setEvidence(turn)} />
                 ) : (
-                  <p role="status">
-                    Turn is processing. History will refresh automatically.
-                  </p>
+                  <ChatProgress
+                    label={
+                      sending
+                        ? progress
+                        : "Checking sources and preparing a response"
+                    }
+                  />
                 )}
               </article>
             ))}
             {pending && !pendingResult && (
-              <article className="integration-record">
-                <strong>You</strong>
-                <p>{pending.question}</p>
-                <p role="status">
-                  {sending
-                    ? progress
-                    : "Delivery interrupted. Check saved history before retrying this same turn."}
-                </p>
+              <article className="chat-turn">
+                <div className="chat-user-message">
+                  <strong>You</strong>
+                  <p className="integration-prewrap">{pending.question}</p>
+                </div>
+                {sending ? (
+                  <ChatProgress label={progress} />
+                ) : (
+                  <p role="status" className="chat-recovery">
+                    Delivery interrupted. Check saved history before retrying
+                    this same turn.
+                  </p>
+                )}
               </article>
             )}
           </section>
@@ -223,79 +265,31 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
             className="panel integration-panel live-composer"
             onSubmit={submit}
           >
-            <details>
-              <summary>@ Assign sources</summary>
-              <LoadState {...references} retry={references.refresh} />
-              <Field label="Find a document, Equipment or Project">
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </Field>
-              <div className="reference-options">
-                {references.data
-                  ?.filter((ref) =>
-                    ref.label.toLowerCase().includes(query.toLowerCase()),
-                  )
-                  .map((ref) => (
-                    <label
-                      className="integration-check"
-                      key={`${ref.type}:${ref.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        disabled={sending}
-                        checked={assigned.some(
-                          (item) =>
-                            item.id === ref.id && item.type === ref.type,
-                        )}
-                        onChange={(e) =>
-                          setAssigned((current) =>
-                            e.target.checked
-                              ? [...current, ref].slice(0, 50)
-                              : current.filter(
-                                  (item) =>
-                                    item.id !== ref.id ||
-                                    item.type !== ref.type,
-                                ),
-                          )
-                        }
-                      />
-                      {ref.type}: {ref.label}
-                    </label>
-                  ))}
-              </div>
-            </details>
-            {assigned.map((ref) => (
-              <span className="integration-chip" key={`${ref.type}:${ref.id}`}>
-                {ref.label}
-                <button
-                  type="button"
-                  aria-label={`Remove ${ref.label}`}
-                  disabled={sending}
-                  onClick={() =>
-                    setAssigned((current) =>
-                      current.filter((item) => item !== ref),
-                    )
-                  }
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <Field label="Question">
-              <textarea
-                required
-                maxLength={10000}
-                value={question}
-                disabled={
-                  sending || !!pending || persistedPending || followUpBlocked
-                }
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask about current technical sources…"
-              />
-            </Field>
+            <ChatSourceComposer
+              question={question}
+              onQuestionChange={setQuestion}
+              assigned={assigned}
+              onAssignedChange={setAssigned}
+              references={references.data}
+              error={references.error}
+              retry={references.refresh}
+              disabled={
+                sending || !!pending || persistedPending || followUpBlocked
+              }
+            />
             <Button
+              className="chat-send"
+              icon={
+                sending ? (
+                  <LoaderCircle
+                    className="ui-spin"
+                    size={17}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <ArrowUp size={17} aria-hidden="true" />
+                )
+              }
               type="submit"
               disabled={
                 sending ||
@@ -311,7 +305,7 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
                   ? "Previous turn processing"
                   : "Send question"}
             </Button>
-            <p>
+            <p className="chat-composer-note">
               Only verified results are displayed. Source navigation remains
               available when AI is unavailable.
             </p>
@@ -365,6 +359,26 @@ export function LiveChat({ sessionId }: { sessionId: string }) {
     </AppShell>
   );
 }
+export function ChatProgress({ label }: { label: string }) {
+  return (
+    <div className="chat-working" role="status" aria-live="polite">
+      <span className="chat-avatar">
+        <Sparkles size={18} aria-hidden="true" />
+      </span>
+      <div>
+        <strong>
+          {label || "Thinking"}
+          <span className="thinking-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </strong>
+        <p>Using current sources you can access</p>
+      </div>
+    </div>
+  );
+}
 function Answer({ turn, onEvidence }: { turn: Turn; onEvidence: () => void }) {
   const result = turn.result!;
   const safeText =
@@ -372,52 +386,91 @@ function Answer({ turn, onEvidence }: { turn: Turn; onEvidence: () => void }) {
   const safeVisual = safeText && result.visualEvidenceState === "AVAILABLE";
   return (
     <div className="chat-assistant-message">
-      <h2>P.A.T.C.H.</h2>
-      <RecordState value={result.status.toUpperCase()} />
-      <p>Visual evidence: {result.visualEvidenceState ?? "TEXT_ONLY"}</p>
-      {safeText &&
-        (result.answer.steps ?? []).map((step) => (
-          <div key={step.id}>
-            <p className="integration-prewrap">{step.text}</p>
-            {step.citationIds.map((citationId) => (
-              <Button variant="quiet" key={citationId} onClick={onEvidence}>
-                Source {citationId}
-              </Button>
-            ))}
-          </div>
+      <div className="chat-answer-heading">
+        <span className="chat-avatar">
+          <Sparkles size={18} aria-hidden="true" />
+        </span>
+        <h2>P.A.T.C.H.</h2>
+        <RecordState
+          value={
+            result.answerKind === "WORKSPACE"
+              ? result.workspaceOverview?.scope === "HELP"
+                ? "PATCH_HELP"
+                : "WORKSPACE_RESPONSE"
+              : result.answerKind === "OUT_OF_SCOPE"
+                ? "OUTSIDE_PATCH_SCOPE"
+                : result.status === "incomplete"
+                  ? "EVIDENCE_LIMITED"
+                  : result.status.toUpperCase()
+          }
+        />
+      </div>
+      <div className="chat-answer-body">
+        {result.answerKind === "WORKSPACE" &&
+          result.status === "approved" &&
+          result.workspaceOverview && (
+            <ChatWorkspaceOverview overview={result.workspaceOverview} />
+          )}
+        {result.visualEvidenceState === "AVAILABLE" && (
+          <p className="chat-evidence-meta">
+            <BookOpen size={14} aria-hidden="true" /> Verified visual evidence
+            available
+          </p>
+        )}
+        {result.visualEvidenceState === "UNAVAILABLE" && (
+          <p className="chat-evidence-meta">Visual evidence unavailable</p>
+        )}
+        {safeText &&
+          (result.answer.steps ?? []).map((step) => (
+            <ChatMarkdown
+              key={step.id}
+              text={step.text}
+              citationIds={step.citationIds}
+              citations={result.citations ?? []}
+              onEvidence={onEvidence}
+            />
+          ))}
+        {safeVisual &&
+          result.visualObservations?.map((observation, index) => (
+            <div key={index}>
+              <ChatMarkdown text={observation.text} />
+              {observation.visualCitationIds.map((citationId) => {
+                const citation = result.visualCitations?.find(
+                  (item) => item.id === citationId,
+                );
+                return citation ? (
+                  <VisualImage
+                    key={citationId}
+                    assetId={citation.assetId}
+                    label={`Verified visual observation, page ${citation.page}`}
+                  />
+                ) : null;
+              })}
+            </div>
+          ))}
+        {(result.warnings ?? []).map((warning, index) => (
+          <p className="info-banner" key={index}>
+            {warning}
+          </p>
         ))}
-      {safeVisual &&
-        result.visualObservations?.map((observation, index) => (
-          <div key={index}>
-            <p>{observation.text}</p>
-            {observation.visualCitationIds.map((citationId) => {
-              const citation = result.visualCitations?.find(
-                (item) => item.id === citationId,
-              );
-              return citation ? (
-                <VisualImage
-                  key={citationId}
-                  assetId={citation.assetId}
-                  label={`Verified visual observation, page ${citation.page}`}
-                />
-              ) : null;
-            })}
-          </div>
-        ))}
-      {(result.warnings ?? []).map((warning, index) => (
-        <p className="info-banner" key={index}>
-          {warning}
-        </p>
-      ))}
-      {!safeText && (
-        <p>
-          Verified guidance is not available for this turn. Consult current
-          sources and the responsible reviewer.
-        </p>
-      )}
-      <Button variant="secondary" onClick={onEvidence}>
-        Evidence used
-      </Button>
+        {!safeText && (
+          <p>
+            Verified guidance is not available for this turn. Consult current
+            sources and the responsible reviewer.
+          </p>
+        )}
+        {result.answerKind !== "WORKSPACE" &&
+          result.answerKind !== "OUT_OF_SCOPE" && (
+            <Button
+              className="chat-evidence-action"
+              icon={<BookOpen size={15} aria-hidden="true" />}
+              variant="quiet"
+              onClick={onEvidence}
+            >
+              Evidence used
+            </Button>
+          )}
+      </div>
     </div>
   );
 }
@@ -426,7 +479,7 @@ export function CitationCard({ citation }: { citation: AI["Citation"] }) {
   const access = useSourceAccess();
   const url = access.url;
   return (
-    <article className="integration-record">
+    <article className="integration-record citation-card">
       <h3>{citation.documentTitle}</h3>
       <p>
         Revision {citation.revision} · page {citation.page ?? "—"} ·{" "}

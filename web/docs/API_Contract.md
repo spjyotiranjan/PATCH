@@ -295,6 +295,11 @@ Web validates the confirmation, normalizes the email, stores only a salted passw
 
 ## Phase 2 Equipment, Project, and access contract
 
+Equipment detail GET, create POST and update PATCH return `{ "equipment": record }`.
+The equivalent Project routes return `{ "project": record }`. Collection GET
+responses return `{ "items": records }`. Browser clients must unwrap the appropriate
+envelope before reading record fields.
+
 All routes below are authenticated, tenant-scoped, return the standard correlation header/error envelope, and persist an audit event for every mutation or access decision. Identifiers are MongoDB ObjectId strings. List responses use `{ "items": [...] }`; discovery never returns private Project content.
 
 ### Equipment resources
@@ -659,6 +664,17 @@ MongoDB stores the structured result/provenance/freshness. Pinecone stores the d
 
 ## Question response
 
+For a limited answer, `warnings` carries a concise, question-specific explanation
+of the response limitation (outside product scope, no matching evidence, missing
+coverage/safety prerequisites, conflicting sources or outdated evidence). AI drafts
+and independently verifies this explanation within the existing answer workflow.
+It describes why an answer cannot be supplied; it is not an uncited technical
+answer, equipment fault diagnosis, operating instruction or model reasoning.
+The public status enum and response schema remain unchanged. Deterministic
+fallbacks describe empty scope, retrieval failure and citation/verification
+rejection when a model explanation cannot be safely returned. These messages
+must not assert that inaccessible documents exist or expose provider details.
+
 ```json
 {
   "requestId": "uuid",
@@ -845,3 +861,82 @@ Review need is one of `LOW | MODERATE | HIGH | SEVERE` and is derived from cover
 - Duplicate manifest entities, document versions, relationships, inclusion paths, and assigned references are invalid. Entity direct-document and relationship document IDs must be subsets of `allowedDocumentVersions`; relationship entity IDs must exist with the corresponding type.
 - Empty allowed profile/version sets produce a no-query result, never an unfiltered Pinecone query. Phase 2 filter builders always include tenant/environment, exact `recordType`, and an explicit allowed-ID constraint before any future similarity operation.
 - A Project profile requires a non-empty user description. Included Equipment profiles are bounded, unique by Equipment ID/profile ID, and carry explicit version/fingerprint/freshness provenance. Equipment profiles cannot contain included-Equipment profiles.
+
+
+### Chat answer Markdown (2 October 2026)
+
+`answer.steps[].text` may contain CommonMark with GFM tables, strikethrough and
+read-only task lists. The existing string field and `{id,text,citationIds}` shape
+are unchanged; plain-text saved turns remain valid. Each step is one self-contained
+citation-bound passage, which may include a heading, list, table or code block.
+All facts in that passage must be independently verified against its `citationIds`.
+The model must not emit source numbers, citation links, raw HTML, images or
+standalone uncited sections. `answer.summary` remains null.
+
+Web renders only verified approved/incomplete steps. Source markers are inserted
+after parsing from validated response citations at the end of each passage;
+Markdown cannot fabricate an evidence button. Raw HTML is skipped, embedded
+images are omitted, and model-authored links render as text. Exact private source
+access remains through the evidence drawer. Warnings remain plain status text.
+REST, WebSocket, authorization, storage and schema shapes do not change.
+
+
+### PATCH-aware Chat contract (2 October 2026)
+
+Attachments are optional: every unassigned turn automatically receives current
+authorized workspace context and can retrieve all accessible active source
+versions. Explicit assignments still narrow scope and never grant access.
+
+Optional private `workspaceCatalog` contains entities, documents, workflowRecords
+({id,type:LOG|PROCEDURE|RUN,projectId,title,text,status}), versioned product help
+({id,title,text}) and explicit partial. Caps: 100 entities, 200 documents, 100
+workflow records, 20 help entries and 180,000 UTF-8 bytes. Context comes from
+current authorized MongoDB projections and reviewed product instructions, never
+from profiles, credentials or stale chat history. Logs/draft states describe
+records, not approved operating evidence.
+
+AI uses LangGraph intent routing for PATCH record questions, application help,
+source-content questions and unrelated requests. The routing model may select
+bounded per-request entity/document indices for natural-language references;
+code maps indices to authorized IDs before retrieval. Uncertain intent remains
+in scope and uses the evidence path. Known in-scope intent cannot subsequently
+be classified outside scope by the evidence generator.
+
+`answerKind` defaults to EVIDENCE. WORKSPACE has approved status (successful
+record/help response), empty technical steps/citations/visual claims, and
+`workspaceOverview:{scope,catalog,passages}`. Scope also supports LOGS, PROCEDURES
+and HELP. Each Markdown passage binds `recordIds` to per-request keys such as
+entity:0, document:0, workflow:0 or help:0; catalog:scope may support only an
+explicitly bounded inventory count/empty state. The independent complex verifier
+checks every statement against actual records/help, classification and the
+question; metadata cannot support technical/physical instructions, unperformed
+mutations or inferred execution. The UI displays verified conversational
+Markdown and minimally labelled record references, not fabricated source citations.
+
+OUT_OF_SCOPE is reserved for wholly unrelated questions: incomplete, no facts,
+and specific explanation. Missing records, ambiguity, coverage gaps and provider
+failures are not incompatibility. In-scope technical facts still need approved
+source evidence. Chat provides supported workflow instructions and navigation for
+mutations; it never claims a creation, approval, publication or completion occurred.
+
+Web validates exact catalog records against the turn snapshot and fresh
+authorization before persistence, plus passage keys and response-kind invariants.
+REST and socket remain equivalent. Older requests without workspace context use
+the existing evidence path; old saved turns remain snapshots. Empty source sets
+never query Pinecone; record/help intent may call models without source versions.
+Deploy both services together after regenerating OpenAPI/types. No new packages,
+credentials, settings, persisted-data migration or reindexing.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

@@ -65,6 +65,18 @@ precede any backend expansion.
 
 ## Verification
 
+The 2 October 2026 presentation refresh preserves all existing transports and
+workflow actions. Shared record layouts, upload selection and Chat presentation
+are checked in both themes and tablet sizing. The socket test explicitly holds
+completion to confirm processing feedback appears before verified answer text.
+Screenshots from synthetic fixtures are saved as `patch-ui-*.png` in OS temp.
+
+Equipment and Project detail, create and update responses wrap the record in
+`equipment` or `project`. Browser resource helpers unwrap these envelopes before
+rendering state badges, reading access roles or using newly created record IDs.
+Browser fixtures use the same envelopes as the route handlers; regression checks
+cover detail rendering, edits and the created workspace link.
+
 From `web/`:
 
 ```powershell
@@ -94,6 +106,12 @@ suppression and tablet layout. These tests check UI behavior against controlled
 responses; backend authorization/state-machine suites test the server separately.
 
 ## Hosted browser acceptance still to run
+
+Procedure presentation checks additionally cover accordion keyboard interaction,
+collapsed titles, edits surviving collapse/reorder, stable step IDs and unchanged
+revision/citation save payloads in both themes. Desktop/mobile editor, procedure
+list and run screenshots are inspected using isolated fixtures. This UI-only
+maintenance changes no hosted workflow or synchronized phase acceptance.
 
 ### Recorded verification (22 September 2026)
 
@@ -156,3 +174,77 @@ responses; backend authorization/state-machine suites test the server separately
 Record this hosted evidence before closing synchronized phase gates. Browser
 contract tests and historical backend checks must not be reported as a new hosted
 UI/provider acceptance run.
+
+
+## Typed Chat context ? 2 October 2026
+
+The Question composer offers Project, Equipment and Document when `@` is typed.
+Selecting a category inserts `@project:`, `@equipment:` or `@documents:`. Text
+after the colon filters the authorized reference list; selecting a result consumes
+the search token and displays a compact removable text preview. `@document:`
+is also accepted. Arrow keys browse, Enter/Tab select and Escape dismisses.
+The Attach context button starts the same flow. Loading, retry, no matches and
+the existing 50-reference limit have explicit feedback. Attachments remain selected
+across turns and can be removed before the next question.
+
+The browser sends the same `{type,id}` entries in `assignedReferences`; typed
+labels alone never attach a record or grant access. Reference loading, WebSocket
+submission, server authorization, retries, evidence and AI behavior are unchanged.
+Suggestions and editing are disabled while a turn is pending or follow-up is blocked.
+
+Verification for typed context: generated AI types, lint, TypeScript and the
+production build pass; all 163 Web tests and 19 deterministic Chrome scenarios
+pass. The added browser checks cover category selection, name filtering,
+keyboard/mouse selection, empty results, removal, pending-turn disabling and the
+exact unchanged gateway payload. The tablet suggestion menu was visually checked.
+These checks use isolated fixtures, not hosted records or paid model calls.
+Dependency audit still reports existing advisories; no package versions changed.
+
+
+## Markdown Chat integration
+
+Chat renders `answer.steps[].text` with CommonMark/GFM while the AI independently
+verifies every fact in each formatted passage. Payload shapes, citation validation,
+current-source authorization and storage are unchanged. Source numbers are inserted
+from real citation bindings after parsing; HTML, embedded images and model-authored
+URLs cannot bypass the evidence drawer. Existing plain-text history remains valid.
+Verification: 171 Web tests, 21 Chrome scenarios, lint/typecheck and build pass.
+Both themes and mobile layout are checked with synthetic fixtures. No hosted
+records or paid provider calls were used in these tests.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.

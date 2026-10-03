@@ -168,6 +168,18 @@ Bound fallback iterations and retrieved context. Never loop until a desired answ
 
 ## Evidence states
 
+Chat limitation explanations are separate from source-supported answer claims.
+The generator supplies a bounded reason category and short explanation tailored
+to the current question. The independent verifier must confirm both the category
+and wording, including that it contains no answer to an outside-scope request,
+technical facts, operating advice, source excerpts, private-resource assertions,
+URLs, secrets or chain-of-thought. Only a reason consistent with the final evidence
+state may appear in `warnings`; rejected/absent reasons use a deterministic message
+for the actual failure. Never forward raw `gaps` as user-facing text. Outside-scope
+requests remain incomplete with no claims/citations. Missing sources must not be
+mislabelled outside scope. Empty source scopes perform no vector calls; optional workspace context may invoke the record/help intent path without sources.
+Model/provider failures use unavailable without exposing exception content.
+
 Factual document lookup and operational instruction requests require different
 coverage checks. A cited value, label or historical observation does not imply
 permission to operate equipment. The answer generator and independent verifier
@@ -358,3 +370,54 @@ embedded in images cannot grant authority.
   rubric. Distinguish visible labels/connections from inferred operation.
 - Visual failures never expose a raw error, signed URL or pixels, widen filters, or
   discard a separately grounded text answer solely because optional visual work failed.
+
+
+## Chat Markdown presentation
+
+Chat may organize each citation-bound claim as a self-contained Markdown passage
+with modest headings, paragraphs, emphasis, lists, tables, blockquotes or fenced
+code. Formatting never creates another evidence path: the independent verifier
+must check every factual statement, list item, table cell, code value and heading
+against that claim's supplied chunks. Keep materially different source bindings
+in separate claims. Never produce uncited summaries, invented citation markers,
+raw HTML, images, external links or interactive completion controls. Status-only
+limitation explanations remain plain text. Existing negative-state, access and
+visual evidence rules are unchanged.
+
+
+## Workspace Chat scope (2 October 2026)
+
+PATCH workspace questions (including listing accessible Projects, Equipments and
+linked documents with saved record overviews) are in scope. A separate typed
+workspace overview displays current authorized product metadata; it does not
+require source-chunk citations or treat saved descriptions as technical evidence.
+Technical facts, calculations and operational/safety guidance retain the existing
+approved-source verification and explicit evidence limitations. Only requests
+unrelated to PATCH are outside scope; missing coverage or service failures are
+not outside-scope classifications.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

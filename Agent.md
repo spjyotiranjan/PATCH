@@ -64,8 +64,8 @@ Every AI agent and contributor must begin with the repository-root `AGENTS.md`, 
 1. Project roles are only `OWNER` and `MEMBER`. Project creation creates one active `OWNER` membership for the creator; `OWNER` includes all member access and owners approve/reject pending membership requests.
    1a. Equipment uses owner-managed access. The creator is its initial owner; only the owner or a user whose Equipment manage-access request the owner approved may mutate it. Equipment manage access does not grant Project membership, change Project roles, or permit approval of further Equipment requests.
 2. A `Document` is a logical record and a `DocumentVersion` is immutable. `EquipmentDocumentLink` and `ProjectDocumentLink` target the logical `documentId` with `versionPolicy: LATEST_APPROVED` by default, so activation of a successfully indexed new version propagates automatically. An explicit pinned-version policy is allowed only for controlled historical use. Never copy an original, metadata record, chunk, or vector for another entity.
-3. Every chat turn is restricted to the current user's accessible document set. `web` resolves active logical-document links, active Project memberships, Project-to-Equipment membership, and current `activeVersionId` pointers into a deduplicated retrieval-scope manifest before `ai` queries Pinecone. `@` references explicitly constrain or prioritize that manifest; they never grant access.
-4. Every answer claim must carry at least one source reference: document ID, revision/version, page or section, excerpt, and approval state. Phase 7 factual visual observations instead bind exact current approved assets by document/version/page/bounds/SHA and same-turn pixel verification; they cannot replace text-source citations for operational or safety steps.
+3. Every chat turn is restricted to the current user's accessible product records and document set. `web` resolves active logical-document links, active Project memberships, Project-to-Equipment membership, and current `activeVersionId` pointers into a deduplicated retrieval-scope manifest before `ai` queries Pinecone. `@` references explicitly constrain or prioritize that manifest; they never grant access.
+4. Every technical answer claim must carry at least one source reference: document ID, revision/version, page or section, excerpt, and approval state. Phase 7 factual visual observations instead bind exact current approved assets by document/version/page/bounds/SHA and same-turn pixel verification; they cannot replace text-source citations for operational or safety steps. Workspace record questions and application help use a separate typed, Web-authorized product projection with independently verified record-bound Markdown. They may describe saved records, relationships and documented application workflows, never synthesize technical operating instructions or cite routing profiles. Web validates exact returned records against the turn snapshot and current access before persistence. Unreviewed document metadata is not answer evidence.
 5. If approved applicable evidence is absent, incomplete, conflicting, or outdated, return an explicit evidence state. Do not manufacture a procedure.
 6. Maintenance logs exist only inside a Project. A log has `scopeType: PROJECT | EQUIPMENT`; an Equipment-scoped log must reference an Equipment included in that Project. Generated text remains a draft until the user submits the final wording.
 7. AI-generated safety procedures remain drafts until the Project Owner reviews and publishes a controlled version.
@@ -73,7 +73,7 @@ Every AI agent and contributor must begin with the repository-root `AGENTS.md`, 
 9. All membership, publish, approve, upload, mapping, question, answer, and log actions require an audit record with actor, timestamp, context, and relevant IDs.
 10. Keep source viewing and normal document search available when the AI service is unavailable.
 11. The complete initial configuration contract is `web/.env.example` and `ai/.env.example`. Web alone owns Cloudflare R2 credentials; AI receives a short-lived R2 source URL, never R2 credentials.
-12. Chat sessions are user-owned and have auto-generated titles. Conversation history aids interpretation but is never evidence; every new user turn recomputes current access, performs fresh scoped retrieval, and receives response-scoped citations.
+12. Chat sessions are user-owned and have auto-generated titles. Conversation history aids interpretation but is never evidence; every new user turn recomputes current access and context; technical answers perform fresh scoped retrieval and receive response-scoped citations.
 13. Project descriptions are mandatory. Equipment descriptions are optional but recommended. AI-generated Equipment/Project retrieval profiles are derived, versioned routing aids and must never replace current MongoDB links, active-version resolution, or source-chunk citations.
 14. Equipment/Project creation may upload documents through the standard ingestion flow or skip the step. The same document manager later supports `ADD_NEW_DOCUMENT` and `ADD_NEW_VERSION`.
 15. For OpenAI, Pinecone, embeddings, retrievers, loaders, rerankers, and similar external AI capabilities, `ai` implementation must prefer maintained LangChain integrations and LangGraph orchestration. Do not use a provider SDK directly in workflow code unless no suitable framework capability exists; isolate and document any such exception in `ai/adapters/` with tests and a migration path.
@@ -111,3 +111,15 @@ contracts and authorization as REST.
 - Relevant source, document version, and audit behavior are covered.
 - Web and AI contract tests pass where the feature crosses the service boundary.
 - The implementation is checked against the corresponding Mock UX view.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.

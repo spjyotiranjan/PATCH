@@ -556,6 +556,87 @@ class RetrievalPolicy(ApiModel):
     allow_structural_fallback: bool = True
 
 
+class WorkspaceEntity(ApiModel):
+    id: Identifier
+    type: Literal["PROJECT", "EQUIPMENT"]
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(max_length=1000)
+    status: str = Field(max_length=50)
+    equipment_ids: list[Identifier] = Field(default_factory=list, max_length=500)
+    attributes: dict[str, str] = Field(default_factory=dict, max_length=10)
+
+
+class WorkspaceDocument(ApiModel):
+    id: Identifier
+    title: str = Field(min_length=1, max_length=200)
+    entity_ids: list[Identifier] = Field(max_length=500)
+    active_version_id: Identifier | None = Field(default_factory=lambda: None)
+    evidence_available: bool
+    document_type: str = Field(default_factory=str, max_length=50)
+    processing_state: str = Field(default_factory=str, max_length=50)
+
+
+class WorkspaceWorkflowRecord(ApiModel):
+    id: Identifier
+    type: Literal["LOG", "PROCEDURE", "RUN"]
+    project_id: Identifier
+    title: str = Field(min_length=1, max_length=300)
+    text: str = Field(max_length=2000)
+    status: str = Field(max_length=50)
+
+
+class WorkspaceHelp(ApiModel):
+    id: Identifier
+    title: str = Field(max_length=200)
+    text: str = Field(max_length=2000)
+
+
+class WorkspacePassage(ApiModel):
+    text: str = Field(min_length=1, max_length=4000)
+    record_ids: list[Identifier] = Field(min_length=1, max_length=100)
+
+
+class WorkspaceCatalog(ApiModel):
+    entities: list[WorkspaceEntity] = Field(max_length=100)
+    documents: list[WorkspaceDocument] = Field(max_length=200)
+    partial: bool
+    workflow_records: list[WorkspaceWorkflowRecord] = Field(default_factory=list, max_length=100)
+    help: list[WorkspaceHelp] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_records(self) -> "WorkspaceCatalog":
+        ids = {e.id for e in self.entities}
+        projects = {e.id for e in self.entities if e.type == "PROJECT"}
+        if any(r.project_id not in projects for r in self.workflow_records):
+            raise ValueError("workflow record outside authorized projects")
+        if len({r.id for r in self.workflow_records}) != len(self.workflow_records) or len(
+            {r.id for r in self.help}
+        ) != len(self.help):
+            raise ValueError("duplicate workspace context")
+        equipment = {e.id for e in self.entities if e.type == "EQUIPMENT"}
+        if len(ids) != len(self.entities) or len({d.id for d in self.documents}) != len(
+            self.documents
+        ):
+            raise ValueError("duplicate workspace records")
+        if any(
+            len(set(e.equipment_ids)) != len(e.equipment_ids)
+            or not set(e.equipment_ids).issubset(equipment)
+            or (e.type == "EQUIPMENT" and e.equipment_ids)
+            for e in self.entities
+        ) or any(
+            len(set(d.entity_ids)) != len(d.entity_ids) or not set(d.entity_ids).issubset(ids)
+            for d in self.documents
+        ):
+            raise ValueError("workspace relationship outside catalog")
+        return self
+
+
+class WorkspaceOverview(ApiModel):
+    scope: Literal["PROJECTS", "EQUIPMENTS", "DOCUMENTS", "WORKSPACE", "LOGS", "PROCEDURES", "HELP"]
+    catalog: WorkspaceCatalog
+    passages: list[WorkspacePassage] = Field(default_factory=list, max_length=20)
+
+
 class QuestionRequest(ContractRequest):
     actor: Actor
     chat_session: ChatSessionInput
@@ -563,6 +644,7 @@ class QuestionRequest(ContractRequest):
     question: str = Field(min_length=1, max_length=10_000)
     retrieval_scope_manifest: RetrievalScopeManifest
     retrieval_policy: RetrievalPolicy
+    workspace_catalog: WorkspaceCatalog | None = Field(default_factory=lambda: None)
     visual_scope_manifest: list[VisualScopeEntry] = Field(default_factory=list, max_length=100)
     visual_scope_partial: bool = Field(default_factory=lambda: False)
     visual_selection: VisualSearchResult | None = None
@@ -677,6 +759,10 @@ class QuestionResult(ApiModel):
     citations: list[Citation] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     follow_up_allowed: bool
+    answer_kind: Literal["EVIDENCE", "WORKSPACE", "OUT_OF_SCOPE"] = Field(
+        default_factory=lambda: "EVIDENCE"
+    )
+    workspace_overview: WorkspaceOverview | None = Field(default_factory=lambda: None)
     visual_evidence_state: Literal["TEXT_ONLY", "AVAILABLE", "UNAVAILABLE"] = Field(
         default_factory=lambda: "TEXT_ONLY"
     )

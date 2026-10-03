@@ -8,6 +8,7 @@ import { audit, fail, fingerprint, oid, view, type Context } from "./context";
 import type { Schema } from "./models";
 import { assignedVersionIds, resolveManifest, validateAnswer } from "./scope";
 import { prepareVisualChat } from "./visual-chat";
+import { resolveWorkspaceCatalog } from "./workspace-chat";
 
 export const turnSchema = z
   .object({
@@ -173,6 +174,7 @@ export async function submitTurn(
               content: [
                 ...(t.result?.answer.steps ?? []),
                 ...(t.result?.visualObservations ?? []),
+                ...(t.result?.workspaceOverview?.passages ?? []),
               ]
                 .map((s) => s.text)
                 .join("\n")
@@ -183,6 +185,11 @@ export async function submitTurn(
         question: input.question,
         assignedReferences: input.assignedReferences,
         retrievalScopeManifest: manifest,
+        workspaceCatalog: await resolveWorkspaceCatalog(
+          tx,
+          manifest,
+          input.assignedReferences,
+        ),
         retrievalPolicy: {
           approvedOnly: true,
           requireSourceLocation: true,
@@ -239,6 +246,11 @@ export async function submitTurn(
       await validateAnswer(tx, result, {
         ...request,
         retrievalScopeManifest: current,
+        workspaceCatalog: await resolveWorkspaceCatalog(
+          tx,
+          current,
+          input.assignedReferences,
+        ),
       });
     } catch {
       result = safeUnavailable(request);

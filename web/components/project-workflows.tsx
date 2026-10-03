@@ -1,9 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  BookOpen,
+  CalendarDays,
+  ChevronDown,
+  ClipboardList,
+  GripVertical,
+  Plus,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { Button, Field } from "@/components/ui";
+import { Button, Field, StatusBadge } from "@/components/ui";
 import {
   LoadState,
   RecordState,
@@ -300,42 +315,56 @@ export function ProceduresWorkspace({ projectId }: { projectId: string }) {
   const resource = useResource(loader, 15000);
   return (
     <AppShell title="Project procedures">
-      <Link href={`/projects/${projectId}`}>Back to Project</Link>
-      <LoadState {...resource} retry={resource.refresh} />
-      {resource.data && (
-        <>
-          <section className="panel integration-panel">
-            <h2>Source-bounded generation</h2>
-            <p>
-              Generation starts automatically once an approved, indexed direct
-              Project source is ready. AI output stays a draft until Owner
-              review and publication.
-            </p>
-            {resource.data.generationRequests.map((request) => (
-              <p key={request.id}>
-                <RecordState value={request.status} />
-              </p>
-            ))}
-            {!resource.data.items.length && (
+      <Link className="procedure-back" href={`/projects/${projectId}`}>
+        <ArrowLeft size={15} aria-hidden="true" /> Back to Project
+      </Link>
+      <div className="procedure-page">
+        <LoadState {...resource} retry={resource.refresh} />
+        {resource.data && (
+          <>
+            <section className="panel integration-panel procedure-generation">
+              <div className="procedure-section-heading">
+                <span className="procedure-icon">
+                  <Sparkles size={20} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2>Procedure drafts</h2>
+                  <p>
+                    From Project sources to a reviewed, controlled definition.
+                  </p>
+                </div>
+              </div>
               <p>
-                No saved procedure candidate yet.{" "}
-                <Link href={`/projects/${projectId}/documents`}>
-                  Review Project sources
-                </Link>{" "}
-                and keep the worker running.
+                Generation starts automatically once an approved, indexed direct
+                Project source is ready. AI output stays a draft until Owner
+                review and publication.
               </p>
-            )}
-          </section>
-          {resource.data.items.map((procedure) => (
-            <ProcedureSummary
-              key={procedure.id}
-              procedure={procedure}
-              owner={resource.data!.project.role === "OWNER"}
-              onChanged={resource.refresh}
-            />
-          ))}
-        </>
-      )}
+              {resource.data.generationRequests.map((request) => (
+                <p key={request.id}>
+                  <RecordState value={request.status} />
+                </p>
+              ))}
+              {!resource.data.items.length && (
+                <p>
+                  No saved procedure candidate yet.{" "}
+                  <Link href={`/projects/${projectId}/documents`}>
+                    Review Project sources
+                  </Link>{" "}
+                  to prepare a source-backed draft.
+                </p>
+              )}
+            </section>
+            {resource.data.items.map((procedure) => (
+              <ProcedureSummary
+                key={procedure.id}
+                procedure={procedure}
+                owner={resource.data!.project.role === "OWNER"}
+                onChanged={resource.refresh}
+              />
+            ))}
+          </>
+        )}
+      </div>
     </AppShell>
   );
 }
@@ -362,20 +391,31 @@ function ProcedureSummary({
   const action = useAction();
   const router = useRouter();
   return (
-    <section className="panel integration-panel">
-      <h2>{procedure.title}</h2>
+    <section className="panel integration-panel procedure-summary">
+      <div className="procedure-section-heading">
+        <span className="procedure-icon">
+          <ClipboardList size={20} aria-hidden="true" />
+        </span>
+        <div>
+          <p className="procedure-eyebrow">Controlled procedure</p>
+          <h2>{procedure.title}</h2>
+        </div>
+      </div>
       <LoadState {...resource} retry={resource.refresh} />
       {action.error && <p role="alert">{action.error}</p>}
-      <h3>Definitions and history</h3>
+      <h3 className="procedure-section-title">Definitions and history</h3>
       {resource.data?.versions.map((version) => (
-        <p key={version.id}>
+        <div className="procedure-history-row" key={version.id}>
           <Link
             href={`/projects/${procedure.projectId}/procedures/${procedure.id}/edit?version=${version.id}`}
           >
-            Version {version.versionNumber}: {version.title}
+            <span className="procedure-version-tag">
+              v{version.versionNumber}
+            </span>{" "}
+            {version.title}
           </Link>{" "}
-          · <RecordState value={version.state} />
-        </p>
+          <RecordState value={version.state} />
+        </div>
       ))}
       {owner && (
         <Button
@@ -394,22 +434,23 @@ function ProcedureSummary({
           Request source-based candidate
         </Button>
       )}
-      <h3>Runs</h3>
+      <h3 className="procedure-section-title">Execution runs</h3>
       {resource.data?.runs.map((run) => (
-        <p key={run.id}>
+        <div className="procedure-history-row" key={run.id}>
           <Link
             href={`/projects/${procedure.projectId}/procedures/${procedure.id}/runs/${run.id}`}
           >
             {new Date(run.periodStart).toLocaleString()} –{" "}
             {new Date(run.periodEnd).toLocaleString()}
           </Link>{" "}
-          · {run.state}
-        </p>
+          <RecordState value={run.state} />
+        </div>
       ))}
       {!resource.data?.runs.length && <p>No runs yet.</p>}
       {procedure.schedule ? (
         <>
-          <p>
+          <p className="procedure-schedule-meta">
+            <CalendarDays size={16} aria-hidden="true" />{" "}
             {procedure.schedule.frequency} · every {procedure.schedule.interval}{" "}
             period(s) · {procedure.schedule.timezone}
           </p>
@@ -459,7 +500,7 @@ function ScheduleForm({
     <p>Schedule saved. Refresh this page to open the current due run.</p>
   ) : (
     <form
-      className="integration-form"
+      className="integration-form procedure-schedule-form"
       onSubmit={(event) => {
         event.preventDefault();
         if (window.confirm("Create this immutable recurrence schedule?"))
@@ -480,7 +521,10 @@ function ScheduleForm({
           });
       }}
     >
-      <h3>Set recurrence</h3>
+      <h3>Schedule recurring runs</h3>
+      <p className="procedure-muted">
+        Choose when a fresh execution checklist opens.
+      </p>
       <Field label="Frequency">
         <select
           value={frequency}
@@ -554,26 +598,32 @@ export function ProcedureEditorWorkspace({
   const [reloadKey, setReloadKey] = useState(0);
   return (
     <AppShell title="Procedure definition">
-      <Link href={`/projects/${projectId}/procedures`}>
-        Back to procedures and history
+      <Link
+        className="procedure-back"
+        href={`/projects/${projectId}/procedures`}
+      >
+        <ArrowLeft size={15} aria-hidden="true" /> Back to procedures and
+        history
       </Link>
       <LoadState {...resource} retry={resource.refresh} />
       {resource.data && (
-        <ProcedureEditor
-          key={
-            resource.data.version.id +
-            ":" +
-            resource.data.version.revision +
-            ":" +
-            reloadKey
-          }
-          initial={resource.data.version}
-          owner={resource.data.project.role === "OWNER"}
-          refresh={async () => {
-            await resource.refresh();
-            setReloadKey((value) => value + 1);
-          }}
-        />
+        <div className="procedure-page">
+          <ProcedureEditor
+            key={
+              resource.data.version.id +
+              ":" +
+              resource.data.version.revision +
+              ":" +
+              reloadKey
+            }
+            initial={resource.data.version}
+            owner={resource.data.project.role === "OWNER"}
+            refresh={async () => {
+              await resource.refresh();
+              setReloadKey((value) => value + 1);
+            }}
+          />
+        </div>
       )}
     </AppShell>
   );
@@ -588,6 +638,9 @@ function ProcedureEditor({
   refresh: () => Promise<void>;
 }) {
   const [version, setVersion] = useState(initial);
+  const [openSteps, setOpenSteps] = useState<string[]>(
+    initial.steps[0] ? [initial.steps[0].stepId] : [],
+  );
   const [dirty, setDirty] = useState(false);
   const [human, setHuman] = useState(false);
   const [reasons, setReasons] = useState<string[]>([]);
@@ -633,20 +686,25 @@ function ProcedureEditor({
   }
   return (
     <>
-      <section className="panel integration-panel">
-        <div className="integration-toolbar">
-          <h2>{version.title}</h2>
-          <RecordState value={version.state} />
-          <RecordState
-            value={`${version.reviewAnalysis.reviewNeed}_REVIEW_NEEDED`}
-          />
+      <section className="panel integration-panel procedure-editor">
+        <div className="procedure-header">
+          <div>
+            <p className="procedure-eyebrow">Procedure definition</p>
+            <h2>{version.title || "Untitled procedure"}</h2>
+          </div>
+          <div className="procedure-badges">
+            <RecordState value={version.state} />
+            <RecordState
+              value={`${version.reviewAnalysis.reviewNeed}_REVIEW_NEEDED`}
+            />
+          </div>
         </div>
-        <p>
+        <p className="procedure-muted">
           Version {version.versionNumber} · revision {version.revision}. Human
           review is required at every review-need level.
         </p>
-        <div className="integration-columns">
-          <div className="integration-form">
+        <div className="procedure-editor-columns">
+          <div className="integration-form procedure-editor-main">
             <Field label="Procedure title">
               <input
                 maxLength={300}
@@ -655,9 +713,44 @@ function ProcedureEditor({
                 onChange={(e) => edit({ ...version, title: e.target.value })}
               />
             </Field>
+            <div className="procedure-steps-heading">
+              <div>
+                <h3>Procedure steps</h3>
+                <p>
+                  {version.steps.length} steps · Open a step to review or edit
+                  its details.
+                </p>
+              </div>
+              <div className="procedure-step-view-controls">
+                <Button
+                  variant="quiet"
+                  onClick={() =>
+                    setOpenSteps(version.steps.map((step) => step.stepId))
+                  }
+                >
+                  Expand all
+                </Button>
+                <Button variant="quiet" onClick={() => setOpenSteps([])}>
+                  Collapse all
+                </Button>
+              </div>
+            </div>
             {version.steps.map((step, index) => (
-              <article
-                className="integration-record integration-form"
+              <details
+                className="procedure-step"
+                open={openSteps.includes(step.stepId)}
+                onToggle={(event) => {
+                  const expanded = event.currentTarget.open;
+                  setOpenSteps((current) =>
+                    expanded
+                      ? current.includes(step.stepId)
+                        ? current
+                        : [...current, step.stepId]
+                      : current.includes(step.stepId)
+                        ? current.filter((id) => id !== step.stepId)
+                        : current,
+                  );
+                }}
                 key={step.stepId}
                 onDragOver={(event) => {
                   if (!readonly && !action.busy) event.preventDefault();
@@ -682,155 +775,217 @@ function ProcedureEditor({
                   });
                 }}
               >
-                <h3>Step {index + 1}</h3>
-                {!readonly && (
-                  <Button
-                    variant="quiet"
-                    draggable={!action.busy}
-                    disabled={action.busy}
-                    onDragStart={(event) =>
-                      event.dataTransfer.setData("text/plain", step.stepId)
-                    }
+                <summary className="procedure-step-summary">
+                  <button
+                    type="button"
+                    className="procedure-drag"
+                    draggable={!readonly && !action.busy}
+                    disabled={readonly || action.busy}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onDragStart={(event) => {
+                      event.stopPropagation();
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", step.stepId);
+                    }}
                     aria-label={`Drag step ${index + 1}; alternatively use Move up or Move down`}
+                    title="Drag to reorder"
                   >
-                    Drag to reorder
-                  </Button>
-                )}
-                <Field label="Step title">
-                  <input
-                    maxLength={300}
-                    value={step.title}
-                    disabled={readonly || action.busy}
-                    onChange={(e) =>
-                      edit({
-                        ...version,
-                        steps: version.steps.map((item) =>
-                          item.stepId === step.stepId
-                            ? { ...item, title: e.target.value }
-                            : item,
-                        ),
-                      })
+                    <GripVertical size={16} aria-hidden="true" />
+                  </button>
+                  <span className="procedure-step-number">{index + 1}</span>
+                  <span className="procedure-step-caption">
+                    <strong>{step.title.trim() || "Untitled step"}</strong>
+                    <small>
+                      {step.required ? "Required" : "Optional"} ·{" "}
+                      {step.citationIds.length} linked{" "}
+                      {step.citationIds.length === 1 ? "source" : "sources"}
+                    </small>
+                  </span>
+                  <StatusBadge
+                    tone={
+                      dirty ||
+                      step.citationReviewState !== "CONFIRMED" ||
+                      step.evidenceState !== "SUPPORTED" ||
+                      !step.citationIds.length
+                        ? "attention"
+                        : "neutral"
                     }
+                  >
+                    {dirty
+                      ? "Revalidation needed"
+                      : step.citationReviewState === "CONFIRMED" &&
+                          step.evidenceState === "SUPPORTED" &&
+                          step.citationIds.length
+                        ? "Sources verified"
+                        : "Source check needed"}
+                  </StatusBadge>
+                  <ChevronDown
+                    className="procedure-step-chevron"
+                    size={18}
+                    aria-hidden="true"
                   />
-                </Field>
-                <Field label="Instructions">
-                  <textarea
-                    maxLength={4000}
-                    value={step.instructions}
-                    disabled={readonly || action.busy}
-                    onChange={(e) =>
-                      edit({
-                        ...version,
-                        steps: version.steps.map((item) =>
-                          item.stepId === step.stepId
-                            ? { ...item, instructions: e.target.value }
-                            : item,
-                        ),
-                      })
-                    }
-                  />
-                </Field>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={step.required}
-                    disabled={readonly || action.busy}
-                    onChange={(e) =>
-                      edit({
-                        ...version,
-                        steps: version.steps.map((item) =>
-                          item.stepId === step.stepId
-                            ? { ...item, required: e.target.checked }
-                            : item,
-                        ),
-                      })
-                    }
-                  />
-                  Required during execution
-                </label>
-                <p>
-                  Evidence:{" "}
-                  {dirty
-                    ? "Edits require revalidation"
-                    : step.citationReviewState}
-                </p>
-                <fieldset disabled={readonly || action.busy}>
-                  <legend>Source bindings (revalidated after saving)</legend>
-                  {version.citations.map((citation) => (
-                    <label key={citation.id} className="integration-check">
-                      <input
-                        type="checkbox"
-                        checked={step.citationIds.includes(citation.id)}
-                        onChange={(e) =>
-                          edit({
-                            ...version,
-                            steps: version.steps.map((item) =>
-                              item.stepId === step.stepId
-                                ? {
-                                    ...item,
-                                    citationIds: e.target.checked
-                                      ? [...item.citationIds, citation.id]
-                                      : item.citationIds.filter(
-                                          (id) => id !== citation.id,
-                                        ),
-                                  }
-                                : item,
-                            ),
-                          })
-                        }
-                      />
-                      {citation.documentTitle} · p. {citation.page} ·{" "}
-                      {citation.id}
-                    </label>
-                  ))}
-                </fieldset>
-                {!readonly && (
-                  <div className="integration-toolbar">
-                    <Button
-                      variant="quiet"
-                      disabled={action.busy || !index}
-                      onClick={() => move(index, -1)}
-                    >
-                      Move up
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      disabled={
-                        action.busy || index === version.steps.length - 1
-                      }
-                      onClick={() => move(index, 1)}
-                    >
-                      Move down
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      disabled={action.busy || version.steps.length <= 1}
-                      onClick={() =>
+                </summary>
+                <div className="procedure-step-body integration-form">
+                  <Field label="Step title">
+                    <input
+                      maxLength={300}
+                      value={step.title}
+                      disabled={readonly || action.busy}
+                      onChange={(e) =>
                         edit({
                           ...version,
-                          steps: version.steps.filter(
-                            (item) => item.stepId !== step.stepId,
+                          steps: version.steps.map((item) =>
+                            item.stepId === step.stepId
+                              ? { ...item, title: e.target.value }
+                              : item,
                           ),
                         })
                       }
-                    >
-                      Remove step
-                    </Button>
-                  </div>
-                )}
-              </article>
+                    />
+                  </Field>
+                  <Field label="Instructions">
+                    <textarea
+                      maxLength={4000}
+                      value={step.instructions}
+                      disabled={readonly || action.busy}
+                      onChange={(e) =>
+                        edit({
+                          ...version,
+                          steps: version.steps.map((item) =>
+                            item.stepId === step.stepId
+                              ? { ...item, instructions: e.target.value }
+                              : item,
+                          ),
+                        })
+                      }
+                    />
+                  </Field>
+                  <label className="integration-check procedure-required">
+                    <input
+                      type="checkbox"
+                      checked={step.required}
+                      disabled={readonly || action.busy}
+                      onChange={(e) =>
+                        edit({
+                          ...version,
+                          steps: version.steps.map((item) =>
+                            item.stepId === step.stepId
+                              ? { ...item, required: e.target.checked }
+                              : item,
+                          ),
+                        })
+                      }
+                    />
+                    Required during execution
+                  </label>
+                  <p className="procedure-muted">
+                    Evidence:{" "}
+                    {dirty
+                      ? "Edits require revalidation"
+                      : step.citationReviewState}
+                  </p>
+                  <fieldset
+                    className="procedure-source-bindings"
+                    disabled={readonly || action.busy}
+                  >
+                    <legend>Linked sources</legend>
+                    <p className="procedure-muted">
+                      Source bindings are revalidated after saving.
+                    </p>
+                    {version.citations.map((citation) => (
+                      <label
+                        key={citation.id}
+                        className="integration-check procedure-source-choice"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={step.citationIds.includes(citation.id)}
+                          onChange={(e) =>
+                            edit({
+                              ...version,
+                              steps: version.steps.map((item) =>
+                                item.stepId === step.stepId
+                                  ? {
+                                      ...item,
+                                      citationIds: e.target.checked
+                                        ? [...item.citationIds, citation.id]
+                                        : item.citationIds.filter(
+                                            (id) => id !== citation.id,
+                                          ),
+                                    }
+                                  : item,
+                              ),
+                            })
+                          }
+                        />
+                        <span>
+                          <strong>{citation.documentTitle}</strong>
+                          <small>
+                            Revision {citation.revision} · p. {citation.page}
+                          </small>
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  {!readonly && (
+                    <div className="integration-toolbar">
+                      <Button
+                        variant="quiet"
+                        disabled={action.busy || !index}
+                        icon={<ArrowUp size={15} aria-hidden="true" />}
+                        onClick={() => move(index, -1)}
+                      >
+                        Move up
+                      </Button>
+                      <Button
+                        variant="quiet"
+                        disabled={
+                          action.busy || index === version.steps.length - 1
+                        }
+                        icon={<ArrowDown size={15} aria-hidden="true" />}
+                        onClick={() => move(index, 1)}
+                      >
+                        Move down
+                      </Button>
+                      <Button
+                        variant="quiet"
+                        icon={<Trash2 size={15} aria-hidden="true" />}
+                        className="procedure-remove"
+                        disabled={action.busy || version.steps.length <= 1}
+                        onClick={() =>
+                          edit({
+                            ...version,
+                            steps: version.steps.filter(
+                              (item) => item.stepId !== step.stepId,
+                            ),
+                          })
+                        }
+                      >
+                        Remove step
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </details>
             ))}
             {!readonly && (
               <Button
                 variant="secondary"
                 disabled={action.busy || version.steps.length >= 100}
-                onClick={() =>
+                icon={<Plus size={16} aria-hidden="true" />}
+                className="procedure-add-step"
+                onClick={() => {
+                  const id = crypto.randomUUID();
+                  setOpenSteps((current) => [...current, id]);
                   edit({
                     ...version,
                     steps: [
                       ...version.steps,
                       {
-                        stepId: crypto.randomUUID(),
+                        stepId: id,
                         position: version.steps.length + 1,
                         title: "",
                         instructions: "",
@@ -840,15 +995,22 @@ function ProcedureEditor({
                         citationReviewState: "NEEDS_REVIEW",
                       },
                     ],
-                  })
-                }
+                  });
+                }}
               >
                 Add step
               </Button>
             )}
           </div>
-          <aside>
-            <h3>Review analysis</h3>
+          <aside className="procedure-review-panel">
+            <div className="procedure-section-heading">
+              <ShieldCheck size={18} aria-hidden="true" />
+              <h3>Review analysis</h3>
+            </div>
+            <p className="procedure-muted">
+              Source checks inform review; every level still requires a human
+              decision.
+            </p>
             <dl>
               {Object.entries(version.reviewAnalysis)
                 .filter(
@@ -856,14 +1018,28 @@ function ProcedureEditor({
                 )
                 .map(([key, value]) => (
                   <div key={key}>
-                    <dt>{key}</dt>
-                    <dd>{String(value)}</dd>
+                    <dt>
+                      {key
+                        .replace(/([A-Z])/g, " $1")
+                        .toLowerCase()
+                        .replace(/^./, (c) => c.toUpperCase())}
+                    </dt>
+                    <dd>
+                      {Array.isArray(value)
+                        ? value.length
+                          ? value.join(", ")
+                          : "None listed"
+                        : String(value).replaceAll("_", " ").toLowerCase()}
+                    </dd>
                   </div>
                 ))}
             </dl>
             <h3>Blocking findings</h3>
+            {!version.reviewAnalysis.blockingFindings?.length && (
+              <p className="procedure-muted">No blocking findings listed.</p>
+            )}
             {version.reviewAnalysis.blockingFindings?.map((finding, index) => (
-              <p role="status" key={index}>
+              <p className="procedure-blocker" role="status" key={index}>
                 {finding}
               </p>
             ))}
@@ -882,26 +1058,37 @@ function ProcedureEditor({
                     )
                   }
                 />
-                {reason}
+                <span>
+                  {/^[A-Z0-9_]+$/.test(reason)
+                    ? reason
+                        .replaceAll("_", " ")
+                        .toLowerCase()
+                        .replace(/^./, (character) => character.toUpperCase())
+                    : reason}
+                </span>
               </label>
             ))}
           </aside>
         </div>
         {action.error && (
-          <p role="alert">
+          <p
+            className="procedure-feedback procedure-feedback-error"
+            role="alert"
+          >
             {action.error} Refresh only after preserving any unsaved wording.
           </p>
         )}
         {dirty && (
-          <p role="status">
+          <p className="procedure-feedback" role="status">
             Unsaved changes. Saving resets review and requires whole-draft
             revalidation.
           </p>
         )}
         {!readonly && (
           <>
-            <div className="integration-toolbar">
+            <div className="integration-toolbar procedure-save-bar">
               <Button
+                icon={<Save size={16} aria-hidden="true" />}
                 disabled={
                   action.busy ||
                   !dirty ||
@@ -948,7 +1135,10 @@ function ProcedureEditor({
                 </Button>
               )}
             </div>
-            <label className="integration-check">
+            <h3 className="procedure-section-title">
+              Owner review and publication
+            </h3>
+            <label className="integration-check procedure-acknowledgement">
               <input
                 type="checkbox"
                 checked={human}
@@ -1019,11 +1209,38 @@ function ProcedureEditor({
           Reload saved definition
         </Button>
       </section>
-      <section className="panel integration-panel">
-        <h2>Source evidence</h2>
-        {version.citations.map((citation) => (
-          <CitationCard key={citation.id} citation={citation} />
-        ))}
+      <section className="panel integration-panel procedure-evidence">
+        <div className="procedure-section-heading">
+          <BookOpen size={20} aria-hidden="true" />
+          <div>
+            <h2>Source evidence</h2>
+            <p>Expand a source to read its evidence and open the original.</p>
+          </div>
+        </div>
+        <div className="procedure-evidence-grid">
+          {version.citations.map((citation) => (
+            <details className="procedure-evidence-card" key={citation.id}>
+              <summary>
+                <BookOpen size={18} aria-hidden="true" />
+                <span className="procedure-evidence-caption">
+                  <strong>{citation.documentTitle}</strong>
+                  <small>
+                    Revision {citation.revision}
+                    {citation.page != null ? ` · Page ${citation.page}` : ""}
+                  </small>
+                </span>
+                <RecordState value={citation.approvalState ?? "UNKNOWN"} />
+                <ChevronDown size={18} aria-hidden="true" />
+              </summary>
+              <div className="procedure-evidence-content">
+                <CitationCard citation={citation} />
+              </div>
+            </details>
+          ))}
+        </div>
+        {!version.citations.length && (
+          <p className="procedure-muted">No source evidence is linked yet.</p>
+        )}
       </section>
     </>
   );
@@ -1056,15 +1273,22 @@ export function RunWorkspace({
   const resource = useResource(loader);
   return (
     <AppShell title="Procedure execution run">
-      <Link href={`/projects/${projectId}/procedures`}>Back to procedures</Link>
+      <Link
+        className="procedure-back"
+        href={`/projects/${projectId}/procedures`}
+      >
+        <ArrowLeft size={15} aria-hidden="true" /> Back to procedures
+      </Link>
       <LoadState {...resource} retry={resource.refresh} />
       {resource.data && (
-        <RunEditor
-          key={`${resource.data.run.id}:${resource.data.run.revision}`}
-          {...resource.data}
-          owner={resource.data.project.role === "OWNER"}
-          refresh={resource.refresh}
-        />
+        <div className="procedure-page">
+          <RunEditor
+            key={`${resource.data.run.id}:${resource.data.run.revision}`}
+            {...resource.data}
+            owner={resource.data.project.role === "OWNER"}
+            refresh={resource.refresh}
+          />
+        </div>
       )}
     </AppShell>
   );
@@ -1098,8 +1322,16 @@ function RunEditor({
   const complete = run.steps.every((step) => !step.required || step.checked);
   return (
     <>
-      <section className="panel integration-panel">
-        <h2>{definition.title}</h2>
+      <section className="panel integration-panel procedure-run">
+        <div className="procedure-section-heading">
+          <span className="procedure-icon">
+            <ClipboardList size={20} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="procedure-eyebrow">Execution run</p>
+            <h2>{definition.title}</h2>
+          </div>
+        </div>
         <RecordState value={run.state} />
         {run.state === "OPEN" && now >= Date.parse(run.periodEnd) && (
           <RecordState value="OVERDUE" />
@@ -1121,14 +1353,42 @@ function RunEditor({
         >
           Open recorded definition
         </Link>
-        {run.steps.map((step) => {
+        <div className="procedure-run-progress">
+          <div>
+            <strong>
+              {run.steps.filter((step) => step.checked).length} of{" "}
+              {run.steps.length} checks recorded
+            </strong>
+            <span>
+              {
+                run.steps.filter((step) => step.required && !step.checked)
+                  .length
+              }{" "}
+              required checks remaining
+            </span>
+          </div>
+          <progress
+            aria-label="Recorded step completion"
+            max={run.steps.length || 1}
+            value={run.steps.filter((step) => step.checked).length}
+          />
+        </div>
+        {run.steps.map((step, index) => {
           const wording = definition.steps.find(
             (item) => item.stepId === step.stepId,
           );
           return (
-            <article key={step.stepId} className="integration-record">
-              <h3>{wording?.title ?? step.stepId}</h3>
-              <p>{wording?.instructions}</p>
+            <article
+              key={step.stepId}
+              className={`integration-record procedure-run-step ${step.checked ? "procedure-run-step-complete" : ""}`}
+            >
+              <div className="procedure-run-step-heading">
+                <span className="procedure-step-number">{index + 1}</span>
+                <h3>{wording?.title ?? step.stepId}</h3>
+              </div>
+              <p className="integration-prewrap procedure-run-instructions">
+                {wording?.instructions}
+              </p>
               <label className="integration-check">
                 <input
                   type="checkbox"
@@ -1257,17 +1517,20 @@ function RunEditor({
           Refresh saved run
         </Button>
       </section>
-      <section className="panel integration-panel">
-        <h2>Retained run history</h2>
+      <section className="panel integration-panel procedure-run-history">
+        <div className="procedure-section-heading">
+          <CalendarDays size={20} aria-hidden="true" />
+          <h2>Retained run history</h2>
+        </div>
         {history.map((item) => (
-          <p key={item.id}>
+          <div className="procedure-history-row" key={item.id}>
             <Link
               href={`/projects/${item.projectId}/procedures/${item.procedureId}/runs/${item.id}`}
             >
               {new Date(item.periodStart).toLocaleString()}
             </Link>{" "}
-            · {item.state}
-          </p>
+            <RecordState value={item.state} />
+          </div>
         ))}
       </section>
     </>

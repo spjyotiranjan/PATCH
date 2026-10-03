@@ -1,5 +1,9 @@
 # Environment Configuration Contract
 
+Chat Markdown parsing is a Web UI dependency only. It adds no environment
+variables, external service, provider credentials or network fetches for embedded
+content. AI formatting uses the existing configured answer and verification models.
+
 Before changing configuration, read and strictly follow `../../AGENTS.md`, `../../Agent.md`, the applicable implementation documents, and `../../Setup_Guide.md`. A dependency, package, or phase change may not introduce an undocumented environment value, secret owner, service, or operational prerequisite.
 
 The complete environment-variable contract for the initial P.A.T.C.H. implementation is defined in `../.env.example` and `../../ai/.env.example`. Add a new variable only through an approved architecture/configuration change; do not introduce undeclared phase-specific settings.
@@ -201,3 +205,40 @@ Flags control automatic activation and Chat, not explicit owner-requested discov
 description/index jobs or recovery. Existing PNG source access remains available
 with retrieval disabled. Disable the flags and stop worker dispatch before rollback;
 retain additive records, source objects and migrations. See `Setup_Guide.md`.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.

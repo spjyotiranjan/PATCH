@@ -12,29 +12,40 @@ export type EntityKind = "equipments" | "projects";
 export const getEquipmentRecords = () =>
   items<EquipmentRecord>("/api/equipments");
 export const getProjectRecords = () => items<ProjectRecord>("/api/projects");
-export const getEquipmentRecord = (key: string) =>
-  api<EquipmentRecord>(`/api/equipments/${id(key)}`);
-export const getProjectRecord = (key: string) =>
-  api<ProjectRecord>(`/api/projects/${id(key)}`);
+export const getEquipmentRecord = async (key: string) =>
+  (await api<{ equipment: EquipmentRecord }>(`/api/equipments/${id(key)}`))
+    .equipment;
+export const getProjectRecord = async (key: string) =>
+  (await api<{ project: ProjectRecord }>(`/api/projects/${id(key)}`)).project;
 export const discover = (kind: EntityKind) =>
   items<Discovery>(`/api/${kind}/discover`);
-export const createEquipmentRecord = (body: {
+export const createEquipmentRecord = async (body: {
   name: string;
   type: string;
   location: string;
   model?: string | null;
   description?: string | null;
   documentsMode: "ADD_NOW" | "SKIP_FOR_NOW";
-}) => post<EquipmentRecord>("/api/equipments", body);
-export const createProjectRecord = (body: {
+}) =>
+  (await post<{ equipment: EquipmentRecord }>("/api/equipments", body))
+    .equipment;
+export const createProjectRecord = async (body: {
   name: string;
   description: string;
   status: ProjectRecord["status"];
   includedEquipmentIds: string[];
   documentsMode: "ADD_NOW" | "SKIP_FOR_NOW";
-}) => post<ProjectRecord>("/api/projects", body);
-export const updateEntity = (kind: EntityKind, key: string, body: unknown) =>
-  patch<EquipmentRecord | ProjectRecord>(`/api/${kind}/${id(key)}`, body);
+}) => (await post<{ project: ProjectRecord }>("/api/projects", body)).project;
+export const updateEntity = async (
+  kind: EntityKind,
+  key: string,
+  body: unknown,
+) => {
+  const path = `/api/${kind}/${id(key)}`;
+  return kind === "equipments"
+    ? (await patch<{ equipment: EquipmentRecord }>(path, body)).equipment
+    : (await patch<{ project: ProjectRecord }>(path, body)).project;
+};
 export const deleteEntity = (kind: EntityKind, key: string) =>
   remove(`/api/${kind}/${id(key)}`);
 const accessPath = (kind: EntityKind, key: string) =>

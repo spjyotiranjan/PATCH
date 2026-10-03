@@ -146,3 +146,27 @@ integration, or the other remaining product gates. Use the retained
 4. Implement shared fixtures for logical documents, active versions, entity relationships, profiles, and Project log scopes.
 5. Build each route against the phase-mapped visual reference in `web/ui-design/` and the shell contract in `web/docs/UI_Design.md`.
 6. Run the module quality gates and phase integration gate, reconcile `Setup_Guide.md`, and attach test/evaluation evidence before updating completion status.
+
+
+## Workspace Chat scope (2 October 2026)
+
+PATCH workspace questions (including listing accessible Projects, Equipments and
+linked documents with saved record overviews) are in scope. A separate typed
+workspace overview displays current authorized product metadata; it does not
+require source-chunk citations or treat saved descriptions as technical evidence.
+Technical facts, calculations and operational/safety guidance retain the existing
+approved-source verification and explicit evidence limitations. Only requests
+unrelated to PATCH are outside scope; missing coverage or service failures are
+not outside-scope classifications.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.

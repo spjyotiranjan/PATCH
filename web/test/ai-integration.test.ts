@@ -341,4 +341,33 @@ describe("real loopback Web-to-FastAPI REST and WebSocket transport (no provider
       askAiSocket(config, question(), AbortSignal.abort()),
     ).rejects.toThrow("AI_UNAVAILABLE");
   });
+
+  it("transports verified PATCH workflow Markdown without attachments or approved versions", async () => {
+    const req = question();
+    req.question = "workspace-transport-fixture: how do I add a revision?";
+    req.workspaceCatalog = {
+      entities: [],
+      documents: [],
+      partial: false,
+      workflowRecords: [],
+      help: [
+        {
+          id: "help",
+          title: "Document revisions",
+          text: "Use Add new version in Documents.",
+        },
+      ],
+    };
+    const socket = await askAiSocket(config, req);
+    expect(socket.answerKind).toBe("WORKSPACE");
+    expect(socket.workspaceOverview?.passages?.[0].text).toBe(
+      "Use **Add new version** in Documents.",
+    );
+    expect(socket.answer.steps).toEqual([]);
+    const client = createAiServiceClient(config);
+    const response = await client.POST("/v1/questions", {
+      body: { ...req, requestId: randomUUID() },
+    });
+    expect(response.data?.workspaceOverview).toEqual(socket.workspaceOverview);
+  });
 });

@@ -61,6 +61,22 @@ fields, known backend gaps and complete browser acceptance sequence. In particul
   records or calls paid models. Failures/traces go to the OS temporary directory
   `patch-ui-playwright`, outside this repository. It does not replace hosted testing.
 
+For the UI presentation checks, verify Home record names and document revision
+links remain readable; select an original file in the styled picker with both
+mouse and keyboard; inspect Chat citations, source assignments and the sticky
+composer. Check Light/Dark and desktop/tablet layouts. Chat working text is driven
+by accepted/processing socket events; it does not report detailed retrieval stages
+or stream unverified answers. The Chrome fixtures save presentation screenshots
+as `patch-ui-*.png` in the OS temporary directory and perform no hosted mutations.
+
+For sidebar scrolling, open a long Chat and scroll down: primary navigation and
+Settings/Help must stay in view. Scroll a long session history separately, including
+at its end; this must not move the Chat page. Use the Chat chevron with Enter to
+collapse/expand history; New chat stays available. Check Light/Dark, the compact
+tablet rail and the mobile navigation drawer. The 2 October shell repair passed
+179 Web tests, 25 Chrome scenarios, lint, type checking and production build.
+It needs only a Web reload/rebuild; no AI restart, configuration or data changes.
+
 ## 2. Clone and install dependencies
 
 From a PowerShell terminal:
@@ -224,6 +240,25 @@ For the complete variable ownership and security rules, read [web/docs/Environme
    origin, allowed method `PUT`, allowed header `Content-Type`, and exposed
    header `ETag`. Postman is not subject to browser CORS. Follow the official
    [R2 CORS instructions](https://developers.cloudflare.com/r2/buckets/cors/).
+   For local `AUTH_URL=http://localhost:3000`, the dashboard CORS JSON is:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["http://localhost:3000"],
+       "AllowedMethods": ["PUT", "GET", "HEAD"],
+       "AllowedHeaders": ["Content-Type"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+   Replace the origin with the exact configured Web origin for other environments;
+   preserve any existing approved rules. Keep the bucket private. Allow up to 30
+   seconds for propagation. A missing rule causes `UPLOAD_TRANSFER_FAILED` even
+   when server-side R2 readiness succeeds. Retry the retained upload session; if
+   its signed URL expired, restart the upload to obtain a fresh session.
 3. Create a Pinecone **dense bring-your-own-vector** index with cosine similarity,
    not an integrated-embedding index. The default `text-embedding-3-large`
    produces 3,072-dimensional vectors; provision that dimension. Both source
@@ -569,6 +604,21 @@ Commit the resulting `ai/openapi.json` and `web/lib/ai/generated.ts` with the ma
 
 ## 8. Troubleshooting
 
+For specific Chat limitation messages, restart AI after the 2 October update and
+submit a new question. Saved turns retain their original output. A standalone
+arithmetic question should explain that it is outside PATCH
+scope and provide no computed answer; a relevant question with missing coverage
+should name the evidence gap instead. Empty source scope, no usable passages and
+service failures have distinct fallback messages. No reindex, migration, Web
+transport change or environment update is needed. The full AI test suite currently
+has two legacy OCR tests referencing PDFs from the removed `Manual Testing/`
+directory; their missing-fixture failures are separate from the Chat checks.
+
+If an Equipment or Project page fails at `RecordState` with undefined `replaceAll`,
+update to the entity-response fix and reload the browser. Detail/create/update
+responses wrap records in `equipment` or `project`; browser helpers must unwrap
+them. No database reset or record recreation is needed.
+
 | Symptom                                                  | Likely cause and resolution                                                                                                                                                                                                                                     |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Readme file does not exist: README.md` during `uv sync` | Your local `ai/pyproject.toml` is outdated. It must use `readme = "docs/README.md"`; update the branch and rerun `uv sync --all-groups`.                                                                                                                        |
@@ -750,3 +800,86 @@ dead letters were observed and left untouched; no active jobs were dispatched.
 No paid visual-provider acceptance or historical bulk enrichment was performed.
 Record a real representative run using the Phase 7 section of this guide before accepting
 automatic rollout; keep the default flags off until that review.
+
+
+### Chat typed attachment check
+
+On Chat, type `@`, choose Project, Equipment or Document, then type after the
+inserted colon and select an accessible result. Confirm a removable text preview
+appears and the rest of the question is preserved. Test arrow keys, Enter/Tab,
+Escape, no matches and removal. Submit a question and confirm its saved context
+uses the selected IDs; typed names without selection must not create assignments.
+The feature uses existing configuration and endpoints.
+
+
+### Chat Markdown setup and verification
+
+Run `npm install` in `web` to install the committed Markdown dependencies, then
+restart Web and AI. Submit a new source-grounded question requesting a concise
+overview, list or comparison table. Confirm headings, emphasis, lists, tables and
+code render cleanly in Light/Dark and tablet layouts; source numbers still open
+exact evidence. Existing plain-text turns remain readable. Saved answers are not
+regenerated automatically. No environment changes, reindexing or migration are
+needed; schema fields and REST/socket payload shapes remain unchanged.
+
+
+### Procedure editor presentation acceptance
+
+Check that long review reasons wrap inside the analysis panel at desktop/mobile
+widths and that their checkboxes remain visible and usable.
+
+No installation or configuration changes are required. Refresh the browser and
+open a Project procedure draft. In both themes, collapse/expand steps with the
+summary or keyboard; confirm titles, required flags and source states remain
+visible. Edit a title, collapse/reopen and reorder it; confirm the edit and stable
+step identity survive. Drag a collapsed step using its header grip; confirm it
+moves without opening, and clicking the grip does not expand the step.
+Add/remove a step and save using the existing revision
+flow. Inspect linked sources and review findings; revalidation, human approval
+and publication remain separate, and severe blockers still prevent publication.
+Source evidence starts as compact cards: confirm title, revision/page and approval
+state remain visible while excerpts are hidden. Expand with click or Enter/Space
+to read the full excerpt and use the existing source-access control; collapse it
+again. Expansion itself must not request a signed original source URL.
+Check the editor at a narrow mobile width, then inspect procedure history,
+scheduling and recorded execution progress. Published definitions and completed
+runs retain their existing immutability; Member permissions remain unchanged.
+
+Verification on 2 October 2026: lint, TypeScript, 179 Web tests, 27 Chrome
+scenarios and production build pass. Screenshots were reviewed. The dependency
+audit retains six high and one critical pre-existing advisory; this UI change
+adds no dependencies or configuration.
+
+### PATCH-aware Chat setup and acceptance
+
+Export AI OpenAPI, regenerate Web types, and restart Web and AI together. No
+additional installation, configuration, migration or reindexing is required.
+Submit new turns; saved turns are not regenerated.
+
+Without attachments, check: list your Projects with linked documents; ask for a
+named Equipment's saved location/status; list a Project's logs/procedure/run
+states; ask how to add a document revision; ask a named source-content question;
+then ask standalone arithmetic. The first group should use accessible records
+or documented PATCH help; source content still uses approved-source citations.
+Only the unrelated question should say Outside PATCH scope. Partial context and
+missing records/coverage must be specific. Test explicit assignment narrowing
+and membership revocation during a pending request. Record/helper references are
+separate from Evidence used. No response can claim an unsaved creation, approval,
+publication, run tick or physical execution.
+
+The path adds one routing call to technical questions and usually uses two model
+calls for record/help responses, within existing deadlines. For rollback, deploy
+the paired previous services; retain app records/history, originals and indexes.
+No provider secret or database credential is exposed in Chat.
+
+
+Verification on 2 October 2026: Web 177 tests and 23 Chrome scenarios passed
+before two additional fallback UI checks; focused paired REST/socket and record
+checks passed. AI 186 tests passed; two pre-existing OCR acceptance tests fail
+because their PDFs under `Manual Testing/ui-less-test/pdfs/fixtures` are absent.
+The additional passage-isolation test passes. Lint, module type checks, production
+Web build and synthetic evaluation guards passed. A configured-model smoke check
+using synthetic authorized records classified project overview, logs and document/
+Project help as WORKSPACE, technical pressure as EVIDENCE and standalone arithmetic
+as OUT_OF_SCOPE. This checks intent behavior, not production source correctness or
+exhaustive live-quality acceptance. No live user records were modified.

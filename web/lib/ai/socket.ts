@@ -19,6 +19,100 @@ export const citationSchema = z.object({
   approvalState: z.literal("APPROVED").nullable().default(null),
 });
 export const answerSchema = z.object({
+  answerKind: z
+    .enum(["EVIDENCE", "WORKSPACE", "OUT_OF_SCOPE"])
+    .default("EVIDENCE"),
+  workspaceOverview: z
+    .object({
+      scope: z.enum([
+        "PROJECTS",
+        "EQUIPMENTS",
+        "DOCUMENTS",
+        "WORKSPACE",
+        "LOGS",
+        "PROCEDURES",
+        "HELP",
+      ]),
+      passages: z
+        .array(
+          z
+            .object({
+              text: z.string().min(1).max(4000),
+              recordIds: z.array(z.string().min(1).max(200)).min(1).max(100),
+            })
+            .strict(),
+        )
+        .max(20)
+        .default([]),
+      catalog: z
+        .object({
+          entities: z
+            .array(
+              z
+                .object({
+                  id: z.string().min(1).max(200),
+                  type: z.enum(["PROJECT", "EQUIPMENT"]),
+                  name: z.string().min(1).max(200),
+                  description: z.string().max(1000),
+                  status: z.string().max(50),
+                  equipmentIds: z
+                    .array(z.string().max(200))
+                    .max(500)
+                    .default([]),
+                  attributes: z.record(z.string(), z.string()).default({}),
+                })
+                .strict(),
+            )
+            .max(100),
+          documents: z
+            .array(
+              z
+                .object({
+                  id: z.string().min(1).max(200),
+                  title: z.string().min(1).max(200),
+                  entityIds: z.array(z.string().max(200)).max(500),
+                  activeVersionId: z.string().max(200).nullable().default(null),
+                  evidenceAvailable: z.boolean(),
+                  documentType: z.string().max(50).default(""),
+                  processingState: z.string().max(50).default(""),
+                })
+                .strict(),
+            )
+            .max(200),
+          partial: z.boolean(),
+          workflowRecords: z
+            .array(
+              z
+                .object({
+                  id: z.string().min(1).max(200),
+                  type: z.enum(["LOG", "PROCEDURE", "RUN"]),
+                  projectId: z.string().min(1).max(200),
+                  title: z.string().min(1).max(300),
+                  text: z.string().max(2000),
+                  status: z.string().max(50),
+                })
+                .strict(),
+            )
+            .max(100)
+            .default([]),
+          help: z
+            .array(
+              z
+                .object({
+                  id: z.string().min(1).max(200),
+                  title: z.string().max(200),
+                  text: z.string().max(2000),
+                })
+                .strict(),
+            )
+            .max(20)
+            .default([]),
+        })
+        .strict(),
+    })
+    .strict()
+    .nullable()
+    .optional(),
   requestId: z.string().uuid(),
   chatSession: z.object({
     id: z.string(),

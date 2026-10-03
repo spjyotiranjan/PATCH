@@ -15,6 +15,7 @@ from patch_ai.main import create_app
 from patch_ai.schemas.contracts import SourceFile
 from patch_ai.services import visual_assets
 from patch_ai.services.visual_retrieval import Gate, PixelDraft, PixelVerdict
+from patch_ai.services.workspace_answering import WorkspaceIntent, WorkspaceIntentVerification
 
 settings = Settings(
     _env_file=None,  # pyright: ignore[reportCallIssue]
@@ -84,6 +85,20 @@ def text_search(query: str, filters: object, count: int) -> list[tuple[Document,
 
 
 def visual_model(schema: object, system: str, data: str, **kwargs: object) -> object:
+    if "workspace-transport-fixture" in data:
+        if schema is WorkspaceIntent:
+            return WorkspaceIntent.model_validate(
+                {
+                    "kind": "WORKSPACE",
+                    "scope": "HELP",
+                    "passages": [
+                        {"text": "Use **Add new version** in Documents.", "recordIds": ["help:0"]}
+                    ],
+                }
+            )
+        if schema is WorkspaceIntentVerification:
+            return WorkspaceIntentVerification(supported=True)
+        forbidden()
     if "visual-transport-fixture" not in data:
         forbidden()
     if schema is Gate:

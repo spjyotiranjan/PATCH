@@ -3,6 +3,17 @@ import { useCallback, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import {
+  UploadCloud,
+  FileText,
+  Plus,
+  Link2,
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  ArrowUpRight,
+  LoaderCircle,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button, Drawer, Field } from "@/components/ui";
 import {
@@ -102,11 +113,21 @@ export function UploadForm({
     });
   }
   return (
-    <form className="integration-form" onSubmit={submit}>
-      <p>
-        Original files are immutable. Extraction is queued after upload; review
-        and approval happen separately.
-      </p>
+    <form className="integration-form upload-form" onSubmit={submit}>
+      <div className="upload-intro">
+        <span className="upload-intro-icon">
+          <FileText size={20} aria-hidden="true" />
+        </span>
+        <div>
+          <strong>
+            {versionMode ? "Add a revised original" : "Add a source document"}
+          </strong>
+          <p>
+            Your original is preserved. After upload, review the extracted text
+            before approving it.
+          </p>
+        </div>
+      </div>
       <fieldset disabled={action.busy || !!interrupted}>
         {versionMode ? (
           <Field label="Logical document" required>
@@ -127,6 +148,7 @@ export function UploadForm({
           <>
             <Field label="Document title" required>
               <input
+                placeholder="e.g. P-101 Pump Reference"
                 required
                 maxLength={500}
                 value={title}
@@ -152,12 +174,35 @@ export function UploadForm({
           required
           hint="PDF, TXT, Markdown or DOCX; up to 50 MiB."
         >
-          <input
-            required
-            type="file"
-            accept=".pdf,.txt,.md,.docx"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
+          <span
+            className={`upload-picker ${file ? "upload-picker-selected" : ""}`}
+          >
+            <span className="upload-picker-icon">
+              {file ? (
+                <FileText size={26} aria-hidden="true" />
+              ) : (
+                <UploadCloud size={28} aria-hidden="true" />
+              )}
+            </span>
+            <span className="upload-picker-title">
+              {file ? file.name : "Choose your original file"}
+            </span>
+            <span className="upload-picker-meta">
+              {file
+                ? `${file.size < 1048576 ? `${Math.ceil(file.size / 1024)} KB` : `${(file.size / 1048576).toFixed(1)} MB`} · Selected original`
+                : "Browse files on your computer"}
+            </span>
+            <span className="upload-picker-action">
+              {file ? "Change file" : "Browse files"}
+            </span>
+            <input
+              required
+              aria-label="Original file"
+              type="file"
+              accept=".pdf,.txt,.md,.docx"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </span>
         </Field>
       </fieldset>
       {versionMode && selected && (
@@ -183,8 +228,7 @@ export function UploadForm({
           </p>
           {!permission.loading && !permission.data && (
             <p>
-              You need mutation access to the document origin to add a
-              version.
+              You need mutation access to the document origin to add a version.
             </p>
           )}
         </>
@@ -200,6 +244,14 @@ export function UploadForm({
         </p>
       )}
       <Button
+        className="upload-submit"
+        icon={
+          action.busy ? (
+            <LoaderCircle className="ui-spin" size={18} aria-hidden="true" />
+          ) : (
+            <UploadCloud size={18} aria-hidden="true" />
+          )
+        }
         disabled={
           action.busy ||
           !file ||
@@ -277,7 +329,7 @@ export function DocumentsWorkspace({
           Back to {entity.type.toLowerCase()}
         </Link>
       )}
-      <div className="integration-toolbar">
+      <div className="integration-toolbar documents-toolbar">
         <Field label="Search documents">
           <input
             value={search}
@@ -290,12 +342,22 @@ export function DocumentsWorkspace({
         </Field>
         {resource.data?.writable && (
           <>
-            <Button onClick={() => setDrawer("new")}>Add new document</Button>
-            <Button variant="secondary" onClick={() => setDrawer("version")}>
+            <Button
+              icon={<Plus size={17} aria-hidden="true" />}
+              onClick={() => setDrawer("new")}
+            >
+              Add new document
+            </Button>
+            <Button
+              icon={<UploadCloud size={17} aria-hidden="true" />}
+              variant="secondary"
+              onClick={() => setDrawer("version")}
+            >
               Add new version
             </Button>
             {entity && (
               <Button
+                icon={<Link2 size={17} aria-hidden="true" />}
                 variant="secondary"
                 onClick={() => setShowLink(!showLink)}
               >
@@ -304,11 +366,15 @@ export function DocumentsWorkspace({
             )}
           </>
         )}
-        <Button variant="secondary" onClick={() => void resource.refresh()}>
+        <Button
+          icon={<RefreshCw size={16} aria-hidden="true" />}
+          variant="quiet"
+          onClick={() => void resource.refresh()}
+        >
           Refresh
         </Button>
       </div>
-      <p>
+      <p className="workspace-description">
         Logical documents are stored once. Active versions propagate through
         their links. An older active version remains available while a new
         version is processing.
@@ -477,16 +543,25 @@ function DocumentRow({
   );
   const action = useAction();
   return (
-    <article className="integration-record">
-      <div className="integration-toolbar">
+    <article className="integration-record document-record">
+      <div className="document-record-header">
         <Button
           variant="quiet"
+          className="document-record-title"
+          icon={
+            expanded ? (
+              <ChevronDown size={17} aria-hidden="true" />
+            ) : (
+              <ChevronRight size={17} aria-hidden="true" />
+            )
+          }
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
         >
-          {document.title}
+          <FileText size={20} aria-hidden="true" />
+          <span>{document.title}</span>
         </Button>
-        <span>{inclusion}</span>
+        <span className="document-inclusion">{inclusion}</span>
         <RecordState
           value={
             document.archivedAt
@@ -497,8 +572,11 @@ function DocumentRow({
           }
         />
         {document.activeVersionId && (
-          <Link href={`/documents/${document.activeVersionId}`}>
-            Open active source
+          <Link
+            className="source-link"
+            href={`/documents/${document.activeVersionId}`}
+          >
+            Open active source <ArrowUpRight size={15} aria-hidden="true" />
           </Link>
         )}
         {unlink && (
@@ -522,7 +600,7 @@ function DocumentRow({
           <LoadState {...versions} retry={versions.refresh} />
           <LoadState {...permission} retry={permission.refresh} />
           {versions.data?.map((version) => (
-            <div className="list-row" key={version.id}>
+            <div className="list-row version-row" key={version.id}>
               <Link href={`/documents/${version.id}`}>
                 Revision{" "}
                 {version.reviewedMetadata?.revision ?? version.versionNumber}

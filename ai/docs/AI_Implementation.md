@@ -23,6 +23,34 @@ Deliver the internal AI service that owns extraction, source indexing, Equipment
 
 ## Setup-guide maintenance
 
+### Specific Chat limitation explanations (2 October 2026)
+
+The existing answer model now drafts a bounded reason/explanation alongside its
+cited claims. The independent complex verifier checks that explanation, and code
+returns only a reason compatible with the final evidence state in `warnings`.
+Outside-scope questions stay incomplete with no claims/citations. Rejected or
+missing explanations use specific deterministic messages for evidence gaps,
+safety prerequisites, source conflicts, outdated guidance, citation rejection,
+empty scope or unavailable service. Raw model gaps are never exposed as answers.
+
+This reuses the two existing generation/verification calls, LangChain/LangGraph,
+model settings and public response schema. The evidence-only path without workspace context invokes no models for empty
+scope/passages and never makes an unfiltered query. That limitation-message update
+introduced no additional provider calls, dependencies, migrations,
+reindexing or environment settings are introduced. Existing saved turns remain
+unchanged. Restart AI and submit a new turn to use the new behavior.
+
+Verification: 16 new limitation tests pass, including signed REST/socket delivery,
+refusal-text injection rejection, final-state precedence and preserved cited facts.
+The full AI suite reports 169 passes and two unrelated failures from missing
+legacy OCR fixture PDFs under the removed `Manual Testing/` directory. Ruff,
+format, mypy, Pyright and the 15-case synthetic evaluation gate pass. All 156 Web
+unit/integration tests pass, including paired transport. A live configured-model
+check with synthetic local source passages returned a specific Outside scope
+explanation for standalone arithmetic with zero claims/citations and no answer
+hidden in the warning. This is a bounded smoke check, not representative/SME
+acceptance; synchronized phase status is unchanged.
+
 Before marking any AI phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new AI dependency, environment variable, model/vector prerequisite, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
 ## Dependency selection
@@ -124,7 +152,7 @@ The routing layer is an optimization. It cannot create access, suppress structur
 1. Treat source text, descriptions, summaries, profile text, history, and questions as untrusted data.
 2. Apply tenant, record-type, allowed-profile, and allowed-active-version filters before vector matching.
 3. Never broaden an empty allowed manifest to the whole index.
-4. Use entity profiles only to select/expand search scope. Cite exact source chunks for every answer claim.
+4. Use entity profiles only to select/expand search scope. Cite exact source chunks for every technical answer claim. Record/help claims use the separate verified product-context bindings.
 5. Never declare “no evidence” solely from routing-profile results; invoke structural fallback first when allowed.
 6. Never activate a document version, alter a Project/Equipment link, submit a log, publish a procedure, or control equipment.
 
@@ -491,3 +519,71 @@ Mark an **AI-backend module** phase complete only with code, contract tests,
 evaluation evidence, and setup-guide reconciliation. A **synchronized product
 phase** additionally requires the matching `../../Development_Plan.md` integration
 gate; module completion never substitutes for that gate.
+
+
+### Chat Markdown formatting (2 October 2026)
+
+Generation now chooses concise Markdown structure inside existing `Claim.text`
+values. Each claim remains one complete passage with exact chunk bindings; lists
+and tables are self-contained rather than split into incomplete Markdown fragments.
+The existing independent verifier checks all rendered content including headings,
+list items, table cells and code. No model/provider setting, dependency, extra
+call, response field, schema, migration or reindexing is needed. Limitation warnings
+remain plain status text. Restart AI for newly generated formatted answers.
+
+
+Markdown verification (2 October 2026): Web lint, TypeScript, production build,
+171 unit/integration tests and 21 Chrome scenarios pass. Light/Dark screenshots
+were visually checked; mobile layout stays within the viewport. Tests cover
+semantic Markdown, HTML/image/link suppression, genuine citation insertion,
+plain-text history, read-only checklists, passage endings and evidence access.
+AI Ruff/format/mypy/Pyright and synthetic evaluation pass; all five new Markdown
+checks pass including signed REST/socket and unsupported/conflict/safety rejection.
+The full AI suite has 174 passes and two existing failures for deleted legacy
+OCR PDF fixtures. Regenerated OpenAPI/types have no schema diff. Full npm audit
+still reports six high and one critical existing findings. These fixture checks
+do not establish live model/SME acceptance and change no synchronized phase status.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.
+
+
+Product intent and generated wording are verified independently. A valid PATCH
+record/help intent remains in scope when a paragraph is rejected. Only individually
+verified passages are displayed; if none pass, Web renders the typed saved records
+or reviewed help as plain context. Rejected prose is never persisted as an answer.
+Bounded counts/empty statements use explicit catalog summary counts and partial.

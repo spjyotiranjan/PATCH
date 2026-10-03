@@ -82,6 +82,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [historyError, setHistoryError] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
   useEffect(() => {
     let live = true;
     const refresh = () =>
@@ -139,10 +140,23 @@ export function AppSidebar({
       <div className="sidebar-divider" />
 
       <section className="chat-nav" aria-label="Chat sessions">
-        <div className="chat-heading">
+        <div
+          className={`chat-heading ${pathname.startsWith("/chat") ? "chat-heading-active" : ""}`}
+        >
           <NavItem href="/chat" label="Chat" icon={MessageCircle} />
 
-          <ChevronUp size={14} aria-hidden="true" />
+          <button
+            className="chat-history-toggle"
+            type="button"
+            aria-label={
+              historyCollapsed ? "Expand chat history" : "Collapse chat history"
+            }
+            aria-expanded={!historyCollapsed}
+            aria-controls="sidebar-chat-history"
+            onClick={() => setHistoryCollapsed((collapsed) => !collapsed)}
+          >
+            <ChevronUp size={14} aria-hidden="true" />
+          </button>
         </div>
 
         <Link className="new-chat" href="/chat/new">
@@ -150,38 +164,44 @@ export function AppSidebar({
           New chat
         </Link>
 
-        {historyError && <p role="status">Chat history unavailable.</p>}
-        {["Today", "Yesterday", "Earlier"].map((group) => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          const entries = sessions.filter((session) => {
-            const date = new Date(session.updatedAt);
-            return (
-              (date >= today
-                ? "Today"
-                : date >= yesterday
-                  ? "Yesterday"
-                  : "Earlier") === group
-            );
-          });
-          return entries.length ? (
-            <div key={group}>
-              <p className="session-group-label">{group}</p>
-              {entries.map((session) => (
-                <Link
-                  className={`session-item ${pathname === "/chat/" + session.id ? "session-item-selected" : ""}`}
-                  href={`/chat/${session.id}`}
-                  key={session.id}
-                >
-                  <MessageCircle size={16} />
-                  <span>{session.title}</span>
-                </Link>
-              ))}
-            </div>
-          ) : null;
-        })}
+        <div
+          className="chat-history"
+          id="sidebar-chat-history"
+          hidden={historyCollapsed}
+        >
+          {historyError && <p role="status">Chat history unavailable.</p>}
+          {["Today", "Yesterday", "Earlier"].map((group) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const entries = sessions.filter((session) => {
+              const date = new Date(session.updatedAt);
+              return (
+                (date >= today
+                  ? "Today"
+                  : date >= yesterday
+                    ? "Yesterday"
+                    : "Earlier") === group
+              );
+            });
+            return entries.length ? (
+              <div key={group}>
+                <p className="session-group-label">{group}</p>
+                {entries.map((session) => (
+                  <Link
+                    className={`session-item ${pathname === "/chat/" + session.id ? "session-item-selected" : ""}`}
+                    href={`/chat/${session.id}`}
+                    key={session.id}
+                  >
+                    <MessageCircle size={16} />
+                    <span>{session.title}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null;
+          })}
+        </div>
       </section>
 
       <div className="sidebar-bottom">

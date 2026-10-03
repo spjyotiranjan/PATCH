@@ -27,6 +27,8 @@ P.A.T.C.H. combines canonical document/version management with an authorization-
 - A newly created Project automatically receives a saved procedure draft after its required description and first eligible approved Project source are ready. If documents were skipped or are still processing, generation remains visibly pending and resumes when sources activate.
 - Procedures separate the controlled, versioned definition from dated execution runs. Recurring procedures open a fresh run each period; step ticks reset for the new run while prior run history remains immutable.
 - Global Chat keeps user-owned sessions, supports `@` assignments, and performs fresh access-scoped retrieval for every turn.
+- Chat can organize verified answers with Markdown headings, lists, tables and code while keeping each passage bound to its source citations.
+- When Chat cannot answer, it explains the specific scope or evidence limitation. This status explanation supplies no uncited technical answer or equipment diagnosis.
 
 ## Capabilities and Constraints
 
@@ -63,3 +65,27 @@ No real customer, performance, downtime-reduction, or retrieval-quality claims h
 ## Accessibility & Inclusion
 
 Desktop and tablet interfaces require keyboard access, visible focus, readable contrast, touch-friendly targets, screen-reader state announcements, and text/icon labels in addition to semantic colour.
+
+
+## Workspace Chat scope (2 October 2026)
+
+PATCH workspace questions (including listing accessible Projects, Equipments and
+linked documents with saved record overviews) are in scope. A separate typed
+workspace overview displays current authorized product metadata; it does not
+require source-chunk citations or treat saved descriptions as technical evidence.
+Technical facts, calculations and operational/safety guidance retain the existing
+approved-source verification and explicit evidence limitations. Only requests
+unrelated to PATCH are outside scope; missing coverage or service failures are
+not outside-scope classifications.
+
+
+### Automatic PATCH context
+
+Chat routes all PATCH-related requests as in scope, including natural-language
+record lookups, Project logs/procedure states, document content and application
+workflow help. Attachments are optional; current accessible records and sources
+are resolved automatically. Verified record/help prose uses distinct product
+references; technical claims still require approved-source citations. Missing
+records or evidence are specific in-scope limitations, never incompatibility.
+Chat can guide users to the existing mutation workflows but cannot claim an
+unsaved action, approve/publish, or infer/tick physical execution.

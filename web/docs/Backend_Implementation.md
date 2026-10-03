@@ -27,6 +27,17 @@ Provide the secure product API and authoritative relationship graph for P.A.T.C.
 
 ## Setup-guide maintenance
 
+Chat Markdown uses the existing citation-bound `answer.steps[].text` strings.
+AI verifies all formatted content; Web's current citation/access validation and
+REST/socket persistence remain unchanged. There is no new Markdown body field,
+uncited summary, endpoint or migration. UI parsing never opens model-authored URLs.
+
+The 2 October Chat explanation update is AI-owned and uses the existing `warnings`
+field. Web continues validating evidence/current access and persisting the same
+response shape over REST/socket; no new endpoint, authorization behavior or
+database migration is introduced. Explanations are status metadata, not uncited
+technical claims. See the AI implementation and API contract for verification.
+
 Before marking any backend phase complete, reconcile and run the applicable instructions in [Setup_Guide.md](../../Setup_Guide.md). Update it for every new Web dependency, environment variable, migration, service contract, startup command, verification step, or recovery procedure introduced by that phase.
 
 ## Dependency selection
@@ -457,3 +468,40 @@ Mark a **Web-backend module** phase complete only with its code, migrations,
 tests, contract evidence, and setup-guide reconciliation. A **synchronized product
 phase** additionally requires the matching `../../Development_Plan.md` integration
 gate; module completion never substitutes for that gate.
+
+
+## PATCH-aware conversational Chat (2 October 2026)
+
+This broadens Chat beyond technical passages. A LangGraph intent/response path
+automatically uses authorized Project/Equipment details, logical document and
+processing metadata, bounded Project logs, procedure/version/run states and
+reviewed application help. No attachment is required. Natural-language names
+can select authorized document/entity indices before source retrieval; weak
+evidence still uses bounded current-manifest fallback. Explicit attachments
+remain scope constraints. Help is application guidance, never physical guidance.
+
+Record/help replies are conversational verified Markdown, with distinct record
+references; they never count profiles, unreviewed logs or saved descriptions as
+operating evidence. The configured routing model drafts intent/record prose and
+the complex model independently verifies record/help claims and scope. Technical
+requests use the existing answer/source verifier. Known in-scope intent cannot
+be downgraded to outside scope by that generator. Only wholly unrelated requests
+are outside scope. Empty records, missing evidence and service failures retain
+specific, distinct states. Chat explains supported mutation workflows; it does
+not claim to create/edit/approve/publish/complete records.
+
+Web alone resolves current context and rechecks the exact projection before
+persistence. Limits disclose partial context (100 entities, 200 documents, 40
+logs, 30 procedures, 30 runs, 20 help entries and 180,000 bytes). Model responses
+are not streamed before verification. Context/help keys are mapped in code;
+Web rejects invented records/bindings and revoked/stale context. No new provider
+SDK, package, setting, credential, index or migration is introduced.
+
+Deploy Web and AI together after OpenAPI/type generation; restart both and ask
+a new question. Existing saved turns retain their original result. Rollback
+restores the evidence-only path on both services; retained records/history and
+indexes are unchanged. One routing call is added to technical questions; record
+and help questions normally use routing plus independent verification instead
+of source retrieval. Existing deadlines/cost telemetry apply. This supersedes
+the evidence-only empty-scope no-model rule when workspace context is present;
+empty source scope still never queries Pinecone.
